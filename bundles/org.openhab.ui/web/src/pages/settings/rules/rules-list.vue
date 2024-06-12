@@ -261,23 +261,26 @@ export default {
       })
     },
     startEventSource () {
-      this.eventSource = this.$oh.sse.connect('/rest/events?topics=openhab/rules/*/*', null, (event) => {
-        const topicParts = event.topic.split('/')
-        switch (topicParts[3]) {
-          case 'added':
-          case 'removed':
-          case 'updated':
-            this.load()
-            break
-          case 'state':
-            const rule = this.rules.find((r) => r.uid === topicParts[2])
-            const newStatus = JSON.parse(event.payload)
-            if (!rule) break
-            if (rule.status.status !== newStatus.status) rule.status.status = newStatus.status
-            if (rule.status.statusDetail !== newStatus.statusDetail) rule.status.statusDetail = newStatus.statusDetail
-            if (rule.status.description !== newStatus.description) rule.status.description = newStatus.description
-        }
-      })
+      console.log("not starting event source")
+      
+
+      // this.eventSource = this.$oh.sse.connect('/rest/events?topics=openhab/rules/*/*', null, (event) => {
+      //   const topicParts = event.topic.split('/')
+      //   switch (topicParts[3]) {
+      //     case 'added':
+      //     case 'removed':
+      //     case 'updated':
+      //       this.load()
+      //       break
+      //     case 'state':
+      //       const rule = this.rules.find((r) => r.uid === topicParts[2])
+      //       const newStatus = JSON.parse(event.payload)
+      //       if (!rule) break
+      //       if (rule.status.status !== newStatus.status) rule.status.status = newStatus.status
+      //       if (rule.status.statusDetail !== newStatus.statusDetail) rule.status.statusDetail = newStatus.statusDetail
+      //       if (rule.status.description !== newStatus.description) rule.status.description = newStatus.description
+      //   }
+      // })
     },
     stopEventSource () {
       this.$oh.sse.close(this.eventSource)
