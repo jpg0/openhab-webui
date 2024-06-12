@@ -261,9 +261,7 @@ export default {
       })
     },
     startEventSource () {
-      console.log("not starting event source")
-      
-
+      console.log('not starting event source')
       // this.eventSource = this.$oh.sse.connect('/rest/events?topics=openhab/rules/*/*', null, (event) => {
       //   const topicParts = event.topic.split('/')
       //   switch (topicParts[3]) {
