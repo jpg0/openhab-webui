@@ -1,10 +1,6 @@
 <template>
   <f7-page @page:afterin="onPageAfterIn" @page:beforeout="onPageBeforeOut" class="thing-details-page">
-    <f7-navbar back-link="Back" no-hairline>
-      <template slot="title">
-        {{ pageTitle }}
-        {{ dirtyIndicator }}
-      </template>
+    <f7-navbar :title="pageTitle + dirtyIndicator" back-link="Back" no-hairline>
       <f7-nav-right v-show="!error && ready">
         <f7-link v-if="!editable" icon-f7="lock_fill" icon-only tooltip="This Thing is not editable through the UI" />
         <f7-link v-else-if="$theme.md" icon-md="material:save" icon-only @click="save()" />
@@ -551,8 +547,6 @@ export default {
       })
     },
     doConfigAction (action) {
-      let thing = this.thing
-      let save = this.save
       if (action.type !== 'BOOLEAN') {
         console.warn('Invalid action type', action)
         return
@@ -568,8 +562,14 @@ export default {
         prompt,
         this.thing.label,
         () => {
-          thing.configuration[action.name] = true
-          save()
+          // Make sure Vue reactivity notices the change
+          this.$set(this.thing, 'configuration', ({
+            ...this.thing.configuration,
+            [action.name]: true
+          }))
+          // Vue reactivity is too slow to recognize config change before the API call, manually mark the config dirty
+          this.configDirty = true
+          this.save()
         }
       )
     },

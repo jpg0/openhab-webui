@@ -1,10 +1,6 @@
 <template>
   <f7-page @page:afterin="onPageAfterIn" @page:afterout="onPageAfterOut">
-    <f7-navbar back-link="Back" no-hairline>
-      <template slot="title">
-        {{ createMode ? 'Create scene' : rule.name }}
-        {{ dirtyIndicator }}
-      </template>
+    <f7-navbar :title="(createMode ? 'Create scene' : rule.name) + dirtyIndicator" back-link="Back" no-hairline>
       <f7-nav-right v-if="isEditable">
         <f7-link @click="save()" v-if="$theme.md" icon-md="material:save" icon-only />
         <f7-link @click="save()" v-if="!$theme.md">
@@ -27,7 +23,7 @@
             <div class="float-right align-items-flex-start align-items-center">
               <!-- <f7-toggle class="enable-toggle"></f7-toggle> -->
               <f7-link :icon-color="(rule.status.statusDetail === 'DISABLED') ? 'orange' : 'gray'" :tooltip="((rule.status.statusDetail === 'DISABLED') ? 'Enable' : 'Disable') + (($device.desktop) ? ' (Ctrl-D)' : '')" icon-ios="f7:pause_circle" icon-md="f7:pause_circle" icon-aurora="f7:pause_circle" icon-size="32" color="orange" @click="toggleDisabled" />
-              <f7-link :tooltip="'Activate Now' + (($device.desktop) ? ' (Ctrl-R)' : '')" icon-ios="f7:play_round" icon-md="f7:play_round" icon-aurora="f7:play_round" icon-size="32" color="blue" @click="runNow" />
+              <f7-link :tooltip="'Activate Now' + (($device.desktop) ? ' (Ctrl-R)' : '')" icon-ios="f7:play_round" icon-md="f7:play_round" icon-aurora="f7:play_round" icon-size="32" :color="(rule.status.status === 'IDLE') ? 'blue' : 'gray'" @click="runNow" />
             </div>
             Status:
             <f7-chip class="margin-left"

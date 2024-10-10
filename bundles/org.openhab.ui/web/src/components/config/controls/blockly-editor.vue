@@ -451,7 +451,7 @@
               <shadow type="oh_item" />
             </value>
           </block>
-          <block type="oh_get_meta_value" v-if="isGraalJs">
+          <block type="oh_get_meta_value">
             <value name="theItem">
               <shadow type="oh_item" />
             </value>
@@ -459,7 +459,7 @@
               <shadow type="text" />
             </value>
           </block>
-          <block type="oh_get_meta_config" v-if="isGraalJs">
+          <block type="oh_get_meta_config">
             <value name="configKey">
               <shadow type="text" />
             </value>
@@ -470,7 +470,7 @@
               <shadow type="text" />
             </value>
           </block>
-          <block type="oh_store_meta_value" v-if="isGraalJs">
+          <block type="oh_store_meta_value">
             <value name="value">
               <shadow type="text" />
             </value>
@@ -481,7 +481,7 @@
               <shadow type="text" />
             </value>
           </block>
-          <block type="oh_store_meta_config" v-if="isGraalJs">
+          <block type="oh_store_meta_config">
             <value name="value">
               <shadow type="text" />
             </value>
@@ -551,7 +551,7 @@
               </shadow>
             </value>
           </block>
-          <block type="oh_timer_context" v-if="isGraalJs" />
+          <block type="oh_timer_context" />
           <block type="oh_timer_cancel">
             <value name="timerName">
               <shadow type="text">
@@ -654,7 +654,7 @@
             </value>
           </block>
         </category>
-        <category name="Units of Measurement" v-if="isGraalJs">
+        <category name="Units of Measurement">
           <button
             helpUrl="configuration/blockly/rules-blockly-uom.html"
             text="Help"
@@ -1040,7 +1040,7 @@
             </value>
           </block>
         </category>
-        <category name="HTTP" v-if="isGraalJs">
+        <category name="HTTP">
           <button
             helpUrl="configuration/blockly/rules-blockly-http.html"
             text="Help"
@@ -1072,9 +1072,9 @@
               </shadow>
             </value>
             <value name="parameters">
-              <block type="dicts_create_with">
+              <shadow type="dicts_create_with">
                 <mutation items="0" />
-              </block>
+              </shadow>
             </value>
           </block>
           <sep gap="48" />
@@ -1190,7 +1190,8 @@ Vue.config.ignoredElements = [
 ]
 
 export default {
-  props: ['blocks', 'libraryDefinitions', 'isGraalJs'],
+  props: ['blocks', 'libraryDefinitions'],
+  emits: ['mounted', 'ready', 'change'],
   data () {
     return {
       blockLibraries: null,
@@ -1200,13 +1201,9 @@ export default {
       scripts: [],
       rules: [],
       persistenceServices: [],
+      transformationServices: [],
       loading: true,
       ready: false
-    }
-  },
-  watch: {
-    isGraalJs: function () {
-      this.initBlockly(this.blockLibraries)
     }
   },
   computed: {
@@ -1229,7 +1226,8 @@ export default {
         this.$oh.api.get('/rest/audio/sinks'),
         this.$oh.api.get('/rest/voice/voices'),
         this.libraryDefinitions ? Promise.resolve(this.libraryDefinitions) : this.$oh.api.get('/rest/ui/components/ui:blocks'),
-        this.$oh.api.get('/rest/persistence')
+        this.$oh.api.get('/rest/persistence'),
+        this.$oh.api.get('/rest/transformations/services')
       ]
       Promise.all(dataPromises)
         .then((data) => {
@@ -1266,6 +1264,12 @@ export default {
             return labelA.localeCompare(labelB)
           })
 
+          this.transformationServices = data[5].sort((a, b) => {
+            const labelA = a
+            const labelB = b
+            return labelA.localeCompare(labelB)
+          })
+
           this.initBlockly(this.blockLibraries)
         })
         .catch((err, status) => {
@@ -1276,8 +1280,9 @@ export default {
       defineOHBlocks(this.$f7, libraryDefinitions, {
         sinks: this.sinks,
         voices: this.voices,
-        persistenceServices: this.persistenceServices
-      }, this.isGraalJs)
+        persistenceServices: this.persistenceServices,
+        transformationServices: this.transformationServices
+      })
       this.addLibraryToToolbox(libraryDefinitions || [])
 
       const options = {
@@ -1423,6 +1428,7 @@ export default {
     onChange (event) {
       if (event.type === Blockly.Events.FINISHED_LOADING) {
         this.loading = false
+        this.$emit('ready')
       } else if (!this.loading && !event.isUiEvent) {
         this.$emit('change')
       }

@@ -1,22 +1,20 @@
 <template>
-  <f7-card :no-border="config.noBorder" :no-shadow="config.noShadow" :outline="config.outline">
-    <f7-card-header v-if="config.title">
-      <div>{{ config.title }}</div>
-    </f7-card-header>
-    <f7-card-content :padding="false" class="oh-image-card">
-      <f7-list v-if="config.action" class="image-link">
-        <f7-list-item class="oh-image-clickable" link="#" no-chevron @click="performAction">
-          <oh-image slot="content-start" :context="childContext(context.component)" />
-        </f7-list-item>
-      </f7-list>
-      <oh-image v-else :context="childContext(context.component)" />
-    </f7-card-content>
-    <oh-card-footer v-if="config.footer" :texts="config.footer" />
-  </f7-card>
+  <oh-card :context="context" :content-class="['oh-image-card', 'no-padding']">
+    <template #content-root>
+      <f7-card-content :style="config.contentStyle" :class="[ ...(Array.isArray(config.contentClass) ? config.contentClass : []), 'oh-image-card']">
+        <f7-list v-if="config.action" class="image-link">
+          <f7-list-item class="oh-image-clickable" link="#" no-chevron @click="performAction">
+            <oh-image slot="content-start" :context="childContext(context.component)" />
+          </f7-list-item>
+        </f7-list>
+        <oh-image v-else :context="childContext(context.component)" />
+      </f7-card-content>
+    </template>
+  </oh-card>
 </template>
 
 <style lang="stylus">
-.oh-image-clickable
+.oh-image-card-clickable
   --f7-list-item-padding-horizontal: 0px
 .oh-image-card
   .oh-image
@@ -25,6 +23,8 @@
     margin-right 5px
     width calc(100% - 10px)
   .image-link
+    .item-content
+      padding 0
     .item-inner
       display none
     .oh-image
@@ -33,16 +33,16 @@
 
 <script>
 import mixin from '../widget-mixin'
+import OhCard from '@/components/widgets/standard/oh-card.vue'
 import { actionsMixin } from '../widget-actions'
 import OhImage from '../system/oh-image.vue'
-import OhCardFooter from '../system/oh-card-footer.vue'
 import { OhImageCardDefinition } from '@/assets/definitions/widgets/standard/cards'
 
 export default {
   mixins: [mixin, actionsMixin],
   components: {
-    OhImage,
-    OhCardFooter
+    OhCard,
+    OhImage
   },
   widget: OhImageCardDefinition
 }

@@ -7,9 +7,8 @@
 */
 import Blockly from 'blockly'
 import { javascriptGenerator } from 'blockly/javascript.js'
-import { addOSGiService } from './utils.js'
 
-export default function defineOHBlocks_Scripts (f7, isGraalJs, scripts) {
+export default function defineOHBlocks_Scripts (f7, transformationServices) {
   /*
   * Calls a script that is provided in openHABs scripts folder
   * Blockly part
@@ -33,15 +32,8 @@ export default function defineOHBlocks_Scripts (f7, isGraalJs, scripts) {
   * Code part
   */
   javascriptGenerator.forBlock['oh_callscriptfile'] = function (block) {
-    let scriptfile = javascriptGenerator.valueToCode(block, 'scriptfile', javascriptGenerator.ORDER_ATOMIC)
-    if (isGraalJs) {
-      return `actions.ScriptExecution.callScript(${scriptfile});\n`
-    } else {
-      const scriptExecution = javascriptGenerator.provideFunction_(
-        'scriptExecution',
-        ['var ' + javascriptGenerator.FUNCTION_NAME_PLACEHOLDER_ + ' = Java.type(\'org.openhab.core.model.script.actions.ScriptExecution\');'])
-      return `${scriptExecution}.callScript(${scriptfile});\n`
-    }
+    const scriptfile = javascriptGenerator.valueToCode(block, 'scriptfile', javascriptGenerator.ORDER_ATOMIC)
+    return `actions.ScriptExecution.callScript(${scriptfile});\n`
   }
 
   /*
@@ -74,26 +66,7 @@ export default function defineOHBlocks_Scripts (f7, isGraalJs, scripts) {
   javascriptGenerator.forBlock['oh_runrule'] = function (block) {
     const ruleUID = javascriptGenerator.valueToCode(block, 'ruleUID', javascriptGenerator.ORDER_ATOMIC)
     const scriptParameters = javascriptGenerator.valueToCode(block, 'parameters', javascriptGenerator.ORDER_ATOMIC)
-    if (isGraalJs) {
-      return `rules.runRule(${ruleUID}, ${scriptParameters});\n`
-    } else {
-      const ruleManager = addOSGiService('ruleManager', 'org.openhab.core.automation.RuleManager')
-      // create a function for the generated code that maps json key-values into a map structure
-      const convertDictionaryToHashMap = javascriptGenerator.provideFunction_(
-        'convertDictionaryToHashMap',
-        [
-          'function ' + javascriptGenerator.FUNCTION_NAME_PLACEHOLDER_ + ' (dict) {',
-          '  if (!dict || dict.length === 0) return null;',
-          '  var map = new java.util.HashMap();',
-          '  Object.keys(dict).forEach(function (key) {',
-          '    map.put(key, dict[key]);',
-          '  });',
-          '  return map;',
-          '}'
-        ])
-
-      return `${ruleManager}.runNow(${ruleUID}, true, ${convertDictionaryToHashMap}(${scriptParameters}));\n`
-    }
+    return `rules.runRule(${ruleUID}, ${scriptParameters});\n`
   }
 
   /*
@@ -111,8 +84,9 @@ export default function defineOHBlocks_Scripts (f7, isGraalJs, scripts) {
         .appendField('transform')
       this.appendValueInput('function')
         .appendField('apply')
-        .appendField(new Blockly.FieldTextInput('MAP'), 'type')
+        .appendField(new Blockly.FieldDropdown(transformationOptions()), 'type')
         .appendField('with')
+        .setCheck(null)
 
       this.setInputsInline(false)
       this.setOutput(true, null)
@@ -122,12 +96,14 @@ export default function defineOHBlocks_Scripts (f7, isGraalJs, scripts) {
       this.setTooltip(function () {
         const type = thisBlock.getFieldValue('type')
         switch (type) {
+          case '':
+            return 'select from the installed transformations. The list is empty if no transformation addons have been installed.'
           case 'MAP':
-            return 'transforms an input via a map file. Specify the file as the function.\nREGEX and JSONPATH are also valid.'
+            return 'transforms an input via a map file. Specify the file as the function.'
           case 'REGEX':
-            return 'transforms / filters an input by applying the provided regular expression.\nMAP and JSONPATH are also valid.'
+            return 'transforms / filters an input by applying the provided regular expression.'
           case 'JSONPATH':
-            return 'transforms / filters a JSON input by executing the provided JSONPath query.\nMAP and REGEX are also valid.'
+            return 'transforms / filters a JSON input by executing the provided JSONPath query.'
           default:
             return 'transforms the input with the ' + type + ' transformation.'
         }
@@ -139,6 +115,13 @@ export default function defineOHBlocks_Scripts (f7, isGraalJs, scripts) {
     }
   }
 
+  function transformationOptions () {
+    if (transformationServices && transformationServices.length > 0) {
+      return transformationServices.map((service) => [service, service])
+    }
+    return [['', '']]
+  }
+
   /*
   * Allow transformations via different methods
   * Code part
@@ -147,15 +130,7 @@ export default function defineOHBlocks_Scripts (f7, isGraalJs, scripts) {
     const transformationType = block.getFieldValue('type')
     const transformationFunction = javascriptGenerator.valueToCode(block, 'function', javascriptGenerator.ORDER_ATOMIC)
     const transformationValue = javascriptGenerator.valueToCode(block, 'value', javascriptGenerator.ORDER_ATOMIC)
-    if (isGraalJs) {
-      return [`actions.Transformation.transform('${transformationType}', ${transformationFunction}, ${transformationValue})`, 0]
-    } else {
-      const transformation = javascriptGenerator.provideFunction_(
-        'transformation',
-        ['var ' + javascriptGenerator.FUNCTION_NAME_PLACEHOLDER_ + ' = Java.type(\'org.openhab.core.transform.actions.Transformation\');'])
-
-      return [`${transformation}.transform('${transformationType}', ${transformationFunction}, ${transformationValue})`, 0]
-    }
+    return [`actions.Transformation.transform('${transformationType}', ${transformationFunction}, ${transformationValue})`, 0]
   }
 
   Blockly.Blocks['oh_context_info'] = {
@@ -329,12 +304,7 @@ export default function defineOHBlocks_Scripts (f7, isGraalJs, scripts) {
     init: function () {
       this.appendDummyInput()
         .appendField('inline script (advanced)')
-      let code = ''
-      if (isGraalJs) {
-        code = 'for (var i = 0; i < 10; i++) {\n  console.log(i.toString());\n}'
-      } else {
-        code = 'for (var i = 0; i < 10; i++) {\n  print(i.toString());\n}'
-      }
+      const code = 'for (var i = 0; i < 10; i++) {\n  console.log(i.toString());\n}'
       this.appendDummyInput()
         .appendField(new Blockly.FieldMultilineInput(code), 'inlineScript')
       this.setInputsInline(false)

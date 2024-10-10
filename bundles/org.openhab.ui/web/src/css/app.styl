@@ -187,7 +187,7 @@ html
 
 .block-narrow
   z-index auto
-  overflow-x hidden !important
+  overflow hidden !important
 
 @media (min-width 1024px)
     .block-narrow
@@ -309,3 +309,14 @@ html
       padding 0
       margin-left 8px
       color var(--f7-input-text-color)
+
+// Fix safe area issues inside f7-card components, where safe areas are already respected by the f7-card itself
+.card
+  .block
+    padding-left var(--f7-block-padding-horizontal)
+    padding-right var(--f7-block-padding-horizontal)
+  .media-item
+    .item-content
+      padding-left var(--f7-list-item-padding-horizontal)
+      .item-inner
+        padding-right var(--f7-list-item-padding-horizontal)

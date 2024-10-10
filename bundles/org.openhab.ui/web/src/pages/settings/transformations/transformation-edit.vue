@@ -1,10 +1,6 @@
 <template>
   <f7-page @page:afterin="onPageAfterIn" @page:beforeout="onPageBeforeOut">
-    <f7-navbar :subtitle="(!createMode && transformation) ? editorMode : ''" back-link="Back">
-      <template slot="title">
-        {{ createMode ? 'Create Transformation' : 'Edit Transformation' }}
-        {{ dirtyIndicator }}
-      </template>
+    <f7-navbar :title="(createMode ? 'Create' : 'Edit') + ' Transformation' + dirtyIndicator" :subtitle="(!createMode && transformation) ? editorMode : ''" back-link="Back">
       <f7-nav-right>
         <f7-link v-if="createMode" @click="createTransformation" icon-md="material:save">
           {{ $theme.md ? '' : 'Create' }}
@@ -36,7 +32,14 @@
           <f7-button outline small :active="!blocklyCodePreview" icon-f7="ticket" :icon-size="($theme.aurora) ? 20 : 22" class="no-ripple" @click="blocklyCodePreview = false" />
           <f7-button outline small :active="blocklyCodePreview" icon-f7="doc_text" :icon-size="($theme.aurora) ? 20 : 22" class="no-ripple" @click="showBlocklyCode" />
         </f7-segmented>
-        <f7-link class="right details-link padding-right" ref="detailsLink" @click="detailsOpened = true" icon-f7="chevron_up" />
+        <f7-link v-if="DocumentationLinks[editorMode]"
+                 icon-color="blue"
+                 :text="$device.desktop ? 'Open Documentation' : 'Docs'"
+                 tooltip="Open documentation"
+                 icon-ios="f7:question_circle" icon-md="f7:question_circle" icon-aurora="f7:question_circle"
+                 color="blue"
+                 :href="$store.state.websiteUrl + DocumentationLinks[editorMode]" target="_blank" external />
+        <f7-link class="right details-link margin-left padding-right" ref="detailsLink" @click="detailsOpened = true" icon-f7="chevron_up" />
       </span>
     </f7-toolbar>
     <f7-icon v-if="!createMode && ready && (!isBlockly && !isEditable) || (blocklyCodePreview && isBlockly)" f7="lock" class="float-right margin" style="opacity:0.5; z-index: 4000; user-select: none;" size="50" color="gray"
@@ -59,8 +62,8 @@
             </f7-link>
           </div>
         </f7-toolbar>
+        <transformation-general-settings :createMode="createMode" :transformation="transformation" />
         <f7-block class="block-narrow">
-          <transformation-general-settings :createMode="createMode" :transformation="transformation" />
           <f7-col>
             <f7-list v-if="isEditable">
               <f7-list-button color="red" @click="deleteTransformation">
@@ -68,7 +71,7 @@
               </f7-list-button>
             </f7-list>
             <p class="text-align-center">
-              Tip: Use <code>{{ itemStateTransformationCode }}</code> <clipboard-icon :value="itemStateTransformationCode" tooltip="Copy transformation" /> for Item state transformations.
+              Tip: Use <code>{{ itemStateTransformationCode }}</code> <clipboard-icon :value="itemStateTransformationCode" tooltip="Copy transformation" /> as pattern for Item state description metadata.
             </p>
           </f7-col>
         </f7-block>
@@ -86,9 +89,12 @@
 </style>
 
 <script>
+import cloneDeep from 'lodash/cloneDeep'
+import fastDeepEqual from 'fast-deep-equal/es6'
+
 import DirtyMixin from '../dirty-mixin'
 import TransformationGeneralSettings from '@/pages/settings/transformations/transformation-general-settings'
-import { CodeSnippets, EditorModes } from '@/assets/definitions/transformations.js'
+import { CodeSnippets, EditorModes, DocumentationLinks } from '@/assets/transformations.js'
 import ClipboardIcon from '@/components/util/clipboard-icon.vue'
 
 export default {
@@ -105,12 +111,23 @@ export default {
       ready: false,
       loading: false,
       transformation: {},
+      savedTransformation: {},
       types: [],
       languages: [],
       language: '',
       detailsOpened: false,
       editorMode: '',
       blocklyCodePreview: false
+    }
+  },
+  watch: {
+    transformation: {
+      handler: function () {
+        if (!this.loading) { // ignore changes during loading
+          this.dirty = !fastDeepEqual(this.transformation, this.savedTransformation)
+        }
+      },
+      deep: true
     }
   },
   computed: {
@@ -123,7 +140,7 @@ export default {
       return false
     },
     itemStateTransformationCode () {
-      return `${this.transformation.type.toUpperCase()}(${this.transformationId.replace(/:([A-Z][a-z]{1,2}-)?([a-z]{2,3})(-[A-Z]{2,3})?$/, '')})`
+      return `${this.transformation.type.toUpperCase()}(${this.transformation.uid}):%s`
     }
   },
   methods: {
@@ -154,6 +171,7 @@ export default {
         },
         editable: true
       }
+      this.savedTransformation = cloneDeep(this.transformation)
       Promise.all([this.$oh.api.get('/rest/transformations/services'), this.$oh.api.get('/rest/config-descriptions/system:i18n')]).then((data) => {
         this.$set(this, 'types', data[0])
 
@@ -187,6 +205,7 @@ export default {
       if (CodeSnippets[this.transformation.type.toLowerCase()]) this.transformation.configuration.function = CodeSnippets[this.transformation.type.toLowerCase()]
 
       this.$oh.api.put('/rest/transformations/' + this.transformation.uid, this.transformation).then(() => {
+        this.dirty = false
         this.$f7.toast.create({
           text: 'Transformation created',
           destroyOnClose: true,
@@ -201,6 +220,7 @@ export default {
 
       this.$oh.api.get('/rest/transformations/' + this.transformationId).then((data) => {
         this.$set(this, 'transformation', data)
+        this.savedTransformation = cloneDeep(this.transformation)
         this.editorMode = EditorModes[this.transformation.type.toLowerCase()] || this.transformation.type
         this.loading = false
         this.ready = true
@@ -219,6 +239,7 @@ export default {
       }
       return this.$oh.api.put('/rest/transformations/' + this.transformation.uid, this.transformation).then((data) => {
         this.dirty = false
+        this.savedTransformation = cloneDeep(this.transformation)
         if (!noToast) {
           this.$f7.toast.create({
             text: 'Transformation updated',
@@ -261,7 +282,6 @@ export default {
     },
     onEditorInput (value) {
       this.transformation.configuration.function = value
-      this.dirty = true
     },
     keyDown (ev) {
       if ((ev.ctrlKey || ev.metaKey) && !(ev.altKey || ev.shiftKey)) {
@@ -287,6 +307,9 @@ export default {
         }
       }
     }
+  },
+  created () {
+    this.DocumentationLinks = DocumentationLinks
   }
 }
 </script>
