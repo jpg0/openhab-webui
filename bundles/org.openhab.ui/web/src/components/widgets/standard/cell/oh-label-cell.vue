@@ -3,13 +3,15 @@
     <template #header>
       <f7-list media-list>
         <f7-list-item media-item :subtitle="config.subtitle" :footer="config.footer">
-          <div slot="title" class="button-header display-flex">
-            <oh-icon class="header-icon" v-if="config.icon" :icon="config.icon" :color="config.iconColor" width="20" height="20" />
-            <span>{{ config.title || config.header }}</span>
-            <f7-badge v-if="config.headerBadge" color="config.headerBadgeColor">
-              {{ config.headerBadge }}
-            </f7-badge>
-          </div>
+          <template #title>
+            <div class="button-header display-flex">
+              <oh-icon v-if="config.icon" class="header-icon" :icon="config.icon" :color="config.iconColor" width="20" height="20" />
+              <span>{{ config.title || config.header }}</span>
+              <f7-badge v-if="config.headerBadge" :color="config.headerBadgeColor">
+                {{ config.headerBadge }}
+              </f7-badge>
+            </div>
+          </template>
           <div class="state" :style="config.stateStyle">
             {{ label }}
           </div>
@@ -28,18 +30,25 @@
 </style>
 
 <script>
-import mixin from '../../widget-mixin'
+import { computed } from 'vue'
+import { useWidgetContext } from '@/components/widgets/useWidgetContext'
 import { OhLabelCellDefinition } from '@/assets/definitions/widgets/standard/cells'
 import OhCell from './oh-cell.vue'
 
 export default {
-  mixins: [mixin],
+  props: {
+    context: Object
+  },
   components: {
     OhCell
   },
   widget: OhLabelCellDefinition,
+  setup(props) {
+    const { config } = useWidgetContext(computed(() => props.context))
+    return { config }
+  },
   computed: {
-    label () {
+    label() {
       return this.config.label || this.context.store[this.config.item].displayState || this.context.store[this.config.item].state
     }
   }

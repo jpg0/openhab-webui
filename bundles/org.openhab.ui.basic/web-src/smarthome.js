@@ -4,6 +4,7 @@
  * @author Vlad Ivanov — initial version
  * @author Mark Herwege - input widget
  * @author Laurent Garnier — handling of app settings stored in browser local storage
+ * @author Mark Herwege - represent NULL or UNDEF states
  */
 
 /*eslint-env browser */
@@ -166,6 +167,12 @@
 				return "";
 			}
 		});
+	}
+
+	function getElementWidth(element) {
+		var style = getComputedStyle(element);
+		return element.offsetWidth + parseFloat(style.marginLeft) + parseFloat(style.marginRight) +
+			parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
 	}
 
 	function EventMapper() {
@@ -768,6 +775,14 @@
 		_t.setVisible = function(state) {
 			if (state) {
 				_t.parentNode.classList.remove(o.formHidden);
+				_t.parentNode.querySelectorAll(o.formControls).forEach(function(e) {
+					var id = e.getAttribute(o.idAttribute);
+					var control = smarthome.dataModel[id];
+					// readjust child buttons width when the parent frame becomes visible
+					if (control.minimizeWidth) {
+						control.minimizeWidth();
+					}
+				});
 			} else {
 				_t.parentNode.classList.add(o.formHidden);
 			}
@@ -967,10 +982,12 @@
 
 		_t.legendButton = null;
 		_t.periodButton = null;
+		_t.chartUpscaleButton = null;
 
 		if (_t.headerRow !== null && _t.headerRow !== "") {
 			_t.legendButton = _t.formHeaderRow.querySelector(o.image.legendButton);
 			_t.periodButton = _t.formHeaderRow.querySelector(o.image.periodButton);
+			_t.chartUpscaleButton = _t.formHeaderRow.querySelector(o.image.chartUpscaleButton);
 			if (_t.legendButton !== null) {
 				_t.displayLegend = _t.parentNode.getAttribute("data-legend") === "true";
 				if (_t.displayLegend) {
@@ -981,6 +998,9 @@
 			}
 			if (_t.periodButton !== null) {
 				_t.period = null;
+			}
+			if (_t.chartUpscaleButton !== null) {
+				_t.upscale = false;
 			}
 		}
 
@@ -1014,6 +1034,38 @@
 			setTimeout(function() {
 				_t.modalPeriods.hide();
 			}, 300);
+		}
+
+		function onUpscaleClick() {
+			var
+				splittedSize,
+				width,
+				height;
+
+			_t.upscale = !_t.upscale;
+			if (_t.upscale) {
+				_t.chartUpscaleButton.classList.add(o.buttonActiveClass);
+			} else {
+				_t.chartUpscaleButton.classList.remove(o.buttonActiveClass);
+			}
+			_t.url = _t.url.replace(/&w=\w+/, "");
+			_t.url = _t.url.replace(/&h=\w+/, "");
+			if (_t.upscale) {
+				height = Math.floor(_t.parentNode.parentNode.offsetWidth / 2);
+				width = height * 2;
+				_t.url = _t.url + "&w=" + width;
+				_t.url = _t.url + "&h=" + height;
+			} else if (smarthome.UI.chartSize !== null) {
+				splittedSize = smarthome.UI.chartSize.split("x");
+				_t.url = _t.url + "&w=" + splittedSize[0];
+				_t.url = _t.url + "&h=" + splittedSize[1];
+			}
+			_t.image.setAttribute("src", _t.url + "&t=" + Date.now());
+			if (_t.upscale) {
+				_t.parentNode.classList.add(o.image.upscaleClass);
+			} else {
+				_t.parentNode.classList.remove(o.image.upscaleClass);
+			}
 		}
 
 		_t.showModalPeriods = function() {
@@ -1092,6 +1144,10 @@
 				componentHandler.downgradeElements([ _t.periodButton ]);
 				_t.periodButton.removeEventListener("click", _t.showModalPeriods);
 			}
+			if (_t.chartUpscaleButton !== null) {
+				componentHandler.downgradeElements([ _t.chartUpscaleButton ]);
+				_t.chartUpscaleButton.removeEventListener("click", onUpscaleClick);
+			}
 		};
 
 		_t.applyLocalSettingsPrivate();
@@ -1101,6 +1157,9 @@
 		}
 		if (_t.periodButton !== null) {
 			_t.periodButton.addEventListener("click", _t.showModalPeriods);
+		}
+		if (_t.chartUpscaleButton !== null) {
+			_t.chartUpscaleButton.addEventListener("click", onUpscaleClick);
 		}
 	}
 
@@ -1177,6 +1236,7 @@
 		Control.call(this, parentNode);
 
 		var
+			maxButtonWidth = 0,
 			_t = this;
 
 		_t.ignoreState = _t.parentNode.getAttribute("data-ignore-state") === "true";
@@ -1239,6 +1299,7 @@
 			) {
 				_t.valueMap[itemState].classList.add(o.buttonActiveClass);
 			}
+			_t.minimizeWidth();
 		};
 
 		_t.setValueColor = function(color) {
@@ -1337,7 +1398,81 @@
 				icon.addEventListener("load", _t.convertToInlineSVG);
 				icon.addEventListener("error", _t.replaceImageWithNone);
 			}
+
+			if (maxButtonWidth < button.offsetWidth) {
+				maxButtonWidth = button.offsetWidth;
+			}
 		});
+
+		if (_t.buttons.length > 1 && _t.parentNode.classList.contains(o.buttonsMultilineClass)) {
+			var labelMinWidth = 0;
+			if (_t.label.textContent.trim().length === 0) {
+				_t.label.style.paddingLeft = 0;
+				_t.label.style.minWidth = 0;
+			} else {
+				// Try to see if setting min-width: min-content would result in a narrower min-width
+				// than the one set in _layout.scss, e.g. when the label is short.
+				// If it does make it narrower, it frees up more space for the buttons.
+				// If it is not narrower, un-set it, so that the min-width from _layout.scss can take effect.
+
+				// To measure the min-width using offsetWidth,
+				// we need to make the neighbouring element (buttons) as wide as possible
+				// to force the label to shrink to its min-width
+				// Note that _t.parentNode.style.width will get readjusted inside minimizeWidth()
+				// so setting it to 100% here wouldn't affect the final layout.
+				_t.parentNode.style.width = "100%";
+
+				var defaultMinWidth = parseFloat(getComputedStyle(_t.label).minWidth);
+				_t.label.style.minWidth = "min-content";
+				var minContentWidth = _t.label.offsetWidth;
+				if (minContentWidth > defaultMinWidth) {
+					_t.label.style.removeProperty("min-width");
+					labelMinWidth = defaultMinWidth;
+				} else {
+					labelMinWidth = minContentWidth;
+				}
+			}
+
+			_t.minimizeWidth = function() {
+				if (!_t.visible) {
+					return;
+				}
+				// Minimize the width taken by the buttons without adding extra rows.
+				// Start from the maximum width the buttons can take,
+				// then shrink it down to the minimum without causing additional wrapping.
+				var buttons = _t.parentNode;
+				var buttonsStyle = getComputedStyle(buttons);
+				var labelStyle = getComputedStyle(_t.label);
+				// Calculate the maximum width the buttons can take
+				var width = buttons.parentElement.offsetWidth -
+					parseFloat(buttonsStyle.paddingLeft) - parseFloat(buttonsStyle.paddingRight) -
+					getElementWidth(_t.iconContainer) - getElementWidth(_t.value);
+				if (labelMinWidth) {
+					width -= labelMinWidth + parseFloat(labelStyle.paddingLeft) + parseFloat(labelStyle.paddingRight);
+				}
+				buttons.style.width = width + "px";
+				width = buttons.offsetWidth;
+				var height = buttons.offsetHeight;
+				while (buttons.offsetHeight === height && width >= maxButtonWidth) {
+					buttons.style.width = --width + "px";
+				}
+				buttons.style.width = (width+1) + "px";
+			};
+
+			_t.minimizeWidth();
+			// Wait until after all the icons are loaded before running minimizeWidth()
+			window.addEventListener("load", _t.minimizeWidth);
+			window.addEventListener("resize", _t.minimizeWidth);
+		} else {
+			_t.minimizeWidth = function() {};
+		}
+
+
+		_t.parentSetVisible = _t.setVisible;
+		_t.setVisible = function(state) {
+			_t.parentSetVisible(state);
+			_t.minimizeWidth();
+		};
 
 		_t.destroy = function() {
 			_t.buttons.forEach(function(button) {
@@ -1361,6 +1496,8 @@
 				}
 			});
 			componentHandler.downgradeElements(_t.buttons);
+			window.removeEventListener("load", _t.minimizeWidth);
+			window.removeEventListener("resize", _t.minimizeWidth);
 		};
 
 		_t.setValueColor(_t.valueColor);
@@ -2121,6 +2258,7 @@
 
 		var
 			_t = this,
+			color,
 			repeatInterval = 300,
 			interval;
 
@@ -2132,23 +2270,49 @@
 			};
 		}
 
-		_t.value = hex2rgb(_t.parentNode.getAttribute("data-value"));
+		function rgb2color(rgb) {
+			var
+				r = Math.round(rgb.r).toString(16),
+				g = Math.round(rgb.g).toString(16),
+				b = Math.round(rgb.b).toString(16);
+
+			return "#" + (r.length < 2 ? "0" : "") + r + (g.length < 2 ? "0" : "") + g + (b.length < 2 ? "0" : "") + b;
+		}
+
+		color = _t.parentNode.getAttribute("data-value");
+		_t.value = hex2rgb(color);
 		_t.modalControl = null;
 		_t.buttonUp = _t.parentNode.querySelector(o.colorpicker.up);
 		_t.buttonDown = _t.parentNode.querySelector(o.colorpicker.down);
 		_t.buttonPick = _t.parentNode.querySelector(o.colorpicker.pick);
+		_t.colorPreview = _t.parentNode.querySelector(o.colorpicker.rectSvg);
+		_t.colorPreview.setAttribute("fill", color);
 		_t.longPress = false;
 		_t.pressed = false;
 
 		_t.setValue = function(value, itemState) {
 			var
-				t = itemState.split(","),
+				t,
+				hsv,
+				color;
+
+			if (itemState === "NULL" || itemState === "UNDEF") {
+				_t.buttonPick.classList.add("unknown-state");
+				color = "#ffffff";
+				_t.value = hex2rgb(color);
+			} else {
+				_t.buttonPick.classList.remove("unknown-state");
+				t = itemState.split(",");
 				hsv = {
 					h: t[0] / 360,
 					s: t[1] / 100,
 					v: t[2] / 100
 				};
-			_t.value = Colorpicker.hsv2rgb(hsv);
+				_t.value = Colorpicker.hsv2rgb(hsv);
+				color = rgb2color(_t.value);
+			}
+
+			_t.colorPreview.setAttribute("fill", color);
 
 			if (_t.modalControl !== null) {
 				_t.modalControl.updateColor(_t.value);
@@ -2251,6 +2415,217 @@
 
 		smarthome.eventMapper.map(eventMap);
 	}
+
+	/* class Colortemppicker */
+	function Colortemppicker(parentNode, min, max, current, gradientColors, callback) {
+		var
+			_t = this,
+			lastColorTemperatureSent = null;
+
+		_t.container = parentNode;
+		_t.isBeingChanged = false;
+
+		_t.colortemppicker = _t.container.querySelector(o.colortemppicker.colortemppicker);
+		_t.slider = _t.container.querySelector(o.colortemppicker.slider);
+		if (gradientColors !== "") {
+			_t.slider.style.background = "linear-gradient(to right, " + gradientColors + ")";
+		}
+		// Extend min/max to integers
+		_t.slider.min = Math.floor(min);
+		_t.slider.max = Math.ceil(max);
+
+		function setCorTemperature(value) {
+			if (isNaN(value)) {
+				_t.value = NaN;
+				_t.slider.value = _t.slider.min;
+			} else {
+				if (value < _t.slider.min) {
+					_t.value = _t.slider.min;
+				} else if (value > _t.slider.max) {
+					_t.value = _t.slider.max;
+				} else {
+					_t.value = value;
+				}
+				_t.slider.value = _t.value;
+			}
+			if (_t.slider.MaterialSlider) {
+				_t.slider.MaterialSlider.change();
+			}
+		}
+
+		setCorTemperature(current);
+
+		_t.button = _t.container.querySelector(o.controlButton);
+
+		componentHandler.upgradeElement(_t.button, "MaterialButton");
+		componentHandler.upgradeElement(_t.button, "MaterialRipple");
+
+		_t.debounceProxy = new DebounceProxy(function() {
+			if (_t.value !== lastColorTemperatureSent) {
+				callback(_t.value);
+				lastColorTemperatureSent = _t.value;
+			}
+		}, 200);
+
+		_t.updateColorTemperature = function(value) {
+			if (_t.isBeingChanged) {
+				return;
+			}
+			setCorTemperature(value);
+		};
+
+		function onSliderChangeStart() {
+			lastColorTemperatureSent = null;
+		}
+
+		function onSliderChange() {
+			_t.debounceProxy.finish();
+			_t.value = _t.slider.value;
+			if (_t.value !== lastColorTemperatureSent) {
+				callback(_t.value);
+				lastColorTemperatureSent = _t.value;
+			}
+		}
+
+		function onSliderInput() {
+			_t.value = _t.slider.value;
+			_t.debounceProxy.call();
+		}
+
+		var
+			eventMap = [
+				[ _t.slider, "touchstart", onSliderChangeStart ],
+				[ _t.slider, "mousedown",  onSliderChangeStart ],
+				[ _t.slider, "input",      onSliderInput ],
+				[ _t.slider, "change",     onSliderChange ]
+			];
+
+		_t.destroy = function() {
+			smarthome.eventMapper.unmap(eventMap);
+			componentHandler.downgradeElements([ _t.button ]);
+		};
+
+		smarthome.eventMapper.map(eventMap);
+	}
+
+	/* class ControlColortemppicker extends Control */
+	function ControlColortemppicker(parentNode) {
+		Control.call(this, parentNode);
+
+		var
+			_t = this,
+			color;
+
+		_t.valueNode = _t.parentNode.parentNode.querySelector(o.formValue);
+		_t.hasValue = _t.parentNode.getAttribute("data-has-value") === "true";
+		_t.value = _t.parentNode.getAttribute("data-value") === "" ? NaN : parseFloat(_t.parentNode.getAttribute("data-value"));
+		_t.min = parseFloat(_t.parentNode.getAttribute("data-min"));
+		_t.max = parseFloat(_t.parentNode.getAttribute("data-max"));
+		_t.gradientColors = _t.parentNode.getAttribute("data-gradient-colors");
+		_t.colors = (_t.gradientColors === "" ? "Gray" : _t.gradientColors).split(",");
+		_t.modalControl = null;
+		_t.buttonPick = _t.parentNode.querySelector(o.colortemppicker.pick);
+		_t.colorPreview = _t.parentNode.querySelector(o.colortemppicker.rectSvg);
+		color = _t.parentNode.getAttribute("data-color");
+		if (color === "") {
+			_t.colorPreview.setAttribute("fill", "#ffffff");
+		} else {
+			_t.colorPreview.setAttribute("fill", color);
+		}
+
+		_t.setValuePrivate = function(value, itemState) {
+			if (_t.hasValue) {
+				_t.valueNode.innerHTML = value;
+			}
+
+			// itemState contains value + unit in the display unit (in case unit is set in label pattern)
+			if (itemState === "NULL" || itemState === "UNDEF") {
+				_t.value = NaN;
+			} else  if (itemState.indexOf(" ") > 0) {
+				var stateAndUnit = itemState.split(" ");
+				_t.value = parseFloat(stateAndUnit[0]);
+				_t.value = isNaN(_t.value) ? NaN : (stateAndUnit[1] === "K" ? _t.value : 1000000.0 / _t.value);
+			} else {
+				_t.value = itemState * 1;
+			}
+			if (isNaN(_t.value)) {
+				_t.buttonPick.classList.add("unknown-state");
+			} else {
+				_t.buttonPick.classList.remove("unknown-state");
+			}
+
+			// Set the color in the preview rectange with the most approaching color used to generate the gradient
+			_t.colorPreview.setAttribute("fill", isNaN(_t.value)
+				? "#ffffff"
+				: _t.value < _t.min || _t.value > _t.max
+				? "Gray"
+				: _t.colors[Math.round((_t.value - _t.min) * (_t.colors.length - 1) / (_t.max - _t.min))]);
+
+			if (_t.modalControl !== null) {
+				_t.modalControl.updateColorTemperature(_t.value);
+			}
+		};
+
+		function emitEvent(valueKelvin) {
+			var
+				command = valueKelvin + " K";
+
+			_t.parentNode.dispatchEvent(createEvent(
+				"control-change", {
+					item: _t.item,
+					value: command
+			}));
+		}
+
+		function onPick() {
+			var
+				button;
+
+			function onClick() {
+				_t.modal.hide();
+			}
+
+			_t.modal = new Modal(renderTemplate("template-colortemppicker"));
+			_t.modal.show();
+			_t.modal.container.classList.add(o.colortemppicker.modalClass);
+			_t.modal.onHide = function() {
+				button.removeEventListener("click", onClick);
+				_t.modalControl.destroy();
+				_t.modalControl = null;
+				_t.modal = null;
+			};
+
+			_t.modalControl = new Colortemppicker(_t.modal.container, _t.min, _t.max, _t.value, _t.gradientColors,
+				function(valueKelvin) {
+					var
+						value = valueKelvin;
+
+					if (value < _t.min) {
+						value = _t.min;
+					} else if (value > _t.max) {
+						value = _t.max;
+					}
+					emitEvent(value);
+				}
+			);
+
+			button = _t.modal.container.querySelector(o.colortemppicker.button);
+			button.addEventListener("click", onClick);
+		}
+
+		var
+			eventMap = [
+				[ _t.buttonPick, "click", onPick ]
+			];
+
+		_t.destroy = function() {
+			smarthome.eventMapper.unmap(eventMap);
+			componentHandler.downgradeElements([ _t.buttonPick ]);
+		};
+
+		smarthome.eventMapper.map(eventMap);
+	}
+
 	/* class ControlSwitch extends Control */
 	function ControlSwitch(parentNode) {
 		Control.call(this, parentNode);
@@ -2282,6 +2657,13 @@
 					_t.parentNode.MaterialSwitch.off();
 				}
 			}
+
+			if (itemState === "UNDEF" || itemState === "NULL") {
+				_t.parentNode.classList.add("unknown-state");
+			} else {
+				_t.parentNode.classList.remove("unknown-state");
+			}
+			componentHandler.upgradeElement(_t.parentNode);
 
 			if (_t.hasValue) {
 				_t.valueNode.innerHTML = value;
@@ -2525,7 +2907,8 @@
 		var
 			_t = this,
 			unlockTimeout = null,
-			lastSentCmd = null;
+			lastSentCmd = null,
+			stateUnknown = false;
 
 		_t.input = _t.parentNode.querySelector("input[type=range]");
 		_t.releaseOnly = _t.input.getAttribute("data-release-only") === "true";
@@ -2539,8 +2922,13 @@
 			var
 				value = parseInt(_t.input.getAttribute("data-state"), 10);
 
+			// Make sure it is upgrade before applying the unknown state styling
+			componentHandler.upgradeElement(_t.input);
+
 			if (isNaN(value)) {
+				stateUnknown = true;
 				_t.input.value = 0;
+				_t.input.parentElement.classList.add("unknown-state");
 			} else {
 				_t.input.value = value;
 			}
@@ -2558,6 +2946,8 @@
 			if (value === lastSentCmd) {
 				return;
 			}
+
+			stateUnknown = false;
 
 			if (_t.unit) {
 				command = command + " " + _t.unit;
@@ -2585,9 +2975,13 @@
 				_t.unit = valueAndUnit[1];
 			}
 			if (itemState === "NULL" || itemState === "UNDEF") {
+				stateUnknown = true;
 				_t.input.value = 0;
+				_t.input.parentElement.classList.add("unknown-state");
 			} else {
+				stateUnknown = false;
 				_t.input.value = itemState.split(" ")[0] * 1;
+				_t.input.parentElement.classList.remove("unknown-state");
 			}
 			_t.input.MaterialSlider.change();
 		};
@@ -2614,10 +3008,17 @@
 			}
 			_t.locked = true;
 			lastSentCmd = null;
+			_t.input.parentElement.classList.remove("unknown-state");
 		}
 
 		function onChangeEnd() {
 			unlockTimeout = setTimeout(function() {
+				if (stateUnknown && (_t.input.value * 1) === 0) {
+					// The dimmer was not moved so there will not be a change.
+					// If the value was NULL or UNDEF, show that again.
+					_t.input.parentElement.classList.add("unknown-state");
+					componentHandler.upgradeElement(_t.input.parentElement);
+				}
 				_t.locked = false;
 			}, 300);
 		}
@@ -2682,7 +3083,10 @@
 			type: "POST",
 			url: "/rest/items/" + event.detail.item,
 			data: event.detail.value,
-			headers: {"Content-Type": "text/plain"}
+			headers: {
+								"Content-Type": "text/plain",
+								"X-OpenHAB-Source": "org.openhab.ui.basic$" + smarthome.UI.sitemap + ":" + smarthome.UI.page
+							}
 		});
 	}
 
@@ -2845,6 +3249,15 @@
 				}
 			}
 
+			if (param === null || param === "openhab.ui.basic:buttonRadius") {
+				_t.root.documentElement.classList.remove("ui-button-rounded");
+				_t.root.documentElement.classList.remove("ui-button-fully-rounded");
+				newValue = window.localStorage.getItem("openhab.ui.basic:buttonRadius");
+				if (newValue) {
+					_t.root.documentElement.classList.add("ui-button-" + newValue);
+				}
+			}
+
 			if (param === null || param === "openhab.ui.basic:nbColumnsTablet") {
 				oldValue = _t.cellSizeTablet;
 				newValue = window.localStorage.getItem("openhab.ui.basic:nbColumnsTablet") === null ? 4
@@ -2882,7 +3295,7 @@
 
 			if (param === null || param === "openhab.ui:webaudio.enable") {
 				oldValue = _t.webAudioEnabled;
-				newValue = window.localStorage.getItem("openhab.ui:webaudio.enable") === "enabled";
+				newValue = window.localStorage.getItem("openhab.ui:webaudio.enable") === "true";
 				_t.webAudioEnabled = newValue;
 				if (oldValue !== newValue) {
 					if (newValue) {
@@ -2968,6 +3381,7 @@
 				case "setpoint":
 				case "rollerblind":
 				case "colorpicker":
+				case "colortemppicker":
 				case "buttons":
 					[].slice.call(e.querySelectorAll("button")).forEach(function(button) {
 						upgrade(button, "MaterialButton");
@@ -3153,6 +3567,9 @@
 					break;
 				case "colorpicker":
 					appendControl(new ControlColorpicker(e));
+					break;
+				case "colortemppicker":
+					appendControl(new ControlColortemppicker(e));
 					break;
 				case "mapview":
 					appendControl(new ControlMap(e));
@@ -3705,6 +4122,7 @@
 	buttonTextClass: "mdl-button-text",
 	buttonIconText: ".mdl-button-icon-text",
 	buttonIconTextClass: "mdl-button-icon-text",
+	buttonsMultilineClass: "mdl-form__buttons-multiline",
 	modal: ".mdl-modal",
 	modalContainer: ".mdl-modal__content",
 	selectionRows: ".mdl-form__selection-rows",
@@ -3740,6 +4158,7 @@
 		up: ".mdl-form__colorpicker--up",
 		down: ".mdl-form__colorpicker--down",
 		pick: ".mdl-form__colorpicker--pick",
+		rectSvg: ".mdl-form__colorpicker--pick > svg > rect",
 		modalClass: "mdl-modal--colorpicker",
 		image: ".colorpicker__image",
 		handle: ".colorpicker__handle",
@@ -3748,9 +4167,18 @@
 		colorpicker: ".colorpicker",
 		button: ".colorpicker__buttons > button"
 	},
+	colortemppicker: {
+		pick: ".mdl-form__colortemppicker--pick",
+		rectSvg: ".mdl-form__colortemppicker--pick > svg > rect",
+		modalClass: "mdl-modal--colortemppicker",
+		slider: ".colortemppicker__input",
+		colortemppicker: ".colortemppicker",
+		button: ".colortemppicker__buttons > button"
+	},
 	image: {
 		legendButton: ".chart-legend-button",
 		periodButton: ".chart-period-button",
+		chartUpscaleButton: ".chart-upscale-button",
 		periodRows: ".mdl-form__header-rows",
 		upscaleButton: ".image-upscale-button",
 		upscaleClass: "mdl-form__image-upscale",

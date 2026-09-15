@@ -1,29 +1,62 @@
 <template>
-  <grid-item v-bind="$attrs" v-if="visible" class="oh-grid-item card no-margin" @moved="movedEvent" @resized="resizedEvent" dragAllowFrom=".drag-handle">
+  <grid-item
+    v-if="visible"
+    v-bind="$attrs"
+    class="oh-grid-item card no-margin"
+    @moved="movedEvent"
+    @resized="resizedEvent"
+    dragAllowFrom=".drag-handle">
     <template v-if="context.editmode">
-      <f7-link :popover-open="'.item-popover-' + _uid" class="configure-item-menu">
+      <f7-link :popover-open="'.item-popover-' + uid" class="configure-item-menu">
         <f7-icon f7="gear_alt" />
       </f7-link>
-      <f7-popover :class="'item-popover-' + _uid" ref="popover" :backdrop="false" :style="{ width: context.component.slots.default.length > 0 ? '208px' : '76px' }" :animate="false">
+      <f7-popover
+        :class="'item-popover-' + uid"
+        :backdrop="false"
+        :style="{ width: defaultSlots.length > 0 ? '208px' : '76px' }"
+        :animate="false">
         <div class="display-flex margin justify-content-center">
-          <f7-link href="#" v-if="context.component.slots.default.length > 0" class="text-color-blue display-flex flex-direction-column margin-right" :popover-close="'.item-popover-' + _uid" @click="$refs.popover.f7Popover.close(false); context.editmode.configureWidget(context.component.slots.default[0], context)" icon-f7="square_pencil">
-            Configure
+          <f7-link
+            v-if="defaultSlots.length > 0"
+            href="#"
+            class="text-color-theme-alt display-flex flex-direction-column margin-right"
+            :popover-close="'.item-popover-' + uid"
+            @click="context.editmode.configureWidget(defaultSlots[0], context)"
+            icon-f7="square_pencil">
+            Settings
           </f7-link>
-          <f7-link href="#" v-if="context.component.slots.default.length > 0" class="text-color-blue display-flex flex-direction-column margin-right" :popover-close="'.item-popover-' + _uid" @click="$refs.popover.f7Popover.close(false); context.editmode.editWidgetCode(context.component.slots.default[0], context)" icon-f7="doc_text">
-            YAML
+          <f7-link
+            v-if="defaultSlots.length > 0"
+            href="#"
+            class="text-color-theme-alt display-flex flex-direction-column margin-right"
+            :popover-close="'.item-popover-' + uid"
+            @click="context.editmode.editWidgetCode(defaultSlots[0], context)"
+            icon-f7="doc_text">
+            {{ context.editmode.isEditable ? 'Edit YAML' : 'View YAML' }}
           </f7-link>
-          <f7-link href="#" class="text-color-red display-flex flex-direction-column" @click="$refs.popover.f7Popover.close(false); context.editmode.removeWidget(context.component, context.parent, 'grid')" icon-f7="trash">
+          <f7-link
+            v-if="context.editmode.isEditable"
+            href="#"
+            class="text-color-red display-flex flex-direction-column"
+            :popover-close="'.item-popover-' + uid"
+            @click="context.editmode.removeWidget(context.component, context.parent, 'grid')"
+            icon-f7="trash">
             Remove
           </f7-link>
         </div>
       </f7-popover>
     </template>
-    <oh-placeholder-widget v-if="context.editmode && !context.component.slots.default.length" @click="context.editmode.addWidget(context.component, null, context.parent)" class="oh-grid-item-content" />
-    <generic-widget-component v-else-if="context.component.slots.default.length" @command="onCommand" class="oh-grid-item-content"
-                              :context="childContext(context.component.slots.default[0])"
-                              :style="{ overflow: context.editmode ? 'visible' : 'hidden' }" />
+    <oh-placeholder-widget
+      v-if="context.editmode?.isEditable && !defaultSlots.length"
+      @click="context.editmode.addWidget(context.component, null, context.parent)"
+      class="oh-grid-item-content" />
+    <generic-widget-component
+      v-else-if="defaultSlots.length"
+      class="oh-grid-item-content"
+      :context="childContext(defaultSlots[0])"
+      :style="{ overflow: context.editmode ? 'visible' : 'hidden' }" />
 
-    <f7-icon v-if="context.editmode" class="drag-handle" f7="move" />
+    <f7-icon v-if="context.editmode?.isEditable" class="drag-handle" f7="move" />
   </grid-item>
 </template>
 
@@ -115,21 +148,35 @@
 </style>
 
 <script>
-import mixin from '../widget-mixin'
+import { defineAsyncComponent, computed } from 'vue'
+import { f7 } from 'framework7-vue'
+
+import { useWidgetContext } from '@/components/widgets/useWidgetContext'
 import OhPlaceholderWidget from '../layout/oh-placeholder-widget.vue'
 
 export default {
-  mixins: [mixin],
+  props: {
+    context: Object
+  },
   components: {
-    'grid-item': () => import('vue-grid-layout').then((mod) => mod.GridItem),
+    'grid-item': defineAsyncComponent(() => import('grid-layout-plus').then((mod) => mod.GridItem)),
     OhPlaceholderWidget
   },
+  setup(props) {
+    const { config, childContext, visible, defaultSlots } = useWidgetContext(computed(() => props.context))
+    return { config, childContext, visible, defaultSlots }
+  },
+  data() {
+    return {
+      uid: f7.utils.id()
+    }
+  },
   methods: {
-    movedEvent (i, newX, newY) {
+    movedEvent(i, newX, newY) {
       this.context.component.config.x = newX
       this.context.component.config.y = newY
     },
-    resizedEvent (i, newH, newW, newHPx, newWPx) {
+    resizedEvent(i, newH, newW, newHPx, newWPx) {
       this.context.component.config.w = newW
       this.context.component.config.h = newH
     }

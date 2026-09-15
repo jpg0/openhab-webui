@@ -1,30 +1,30 @@
 <template>
-  <f7-card :no-border="config.noBorder" :no-shadow="config.noShadow" :outline="config.outline">
-    <f7-card-header v-if="config.title">
-      <div>{{ config.title }}</div>
-    </f7-card-header>
-    <f7-card-content class="display-flex justify-content-center">
-      <oh-knob :context="childContext(context.component)" @command="onCommand" />
-    </f7-card-content>
-    <oh-card-footer v-if="config.footer" :texts="config.footer" />
-  </f7-card>
+  <oh-card :context="context" :content-class="['display-flex', 'justify-content-center']">
+    <template #content>
+      <oh-knob :context="cardChildContext(context.component)" />
+    </template>
+  </oh-card>
 </template>
 
-<style lang="stylus">
-</style>
-
 <script>
-import mixin from '../widget-mixin'
+import { computed } from 'vue'
+import { useWidgetContext } from '@/components/widgets/useWidgetContext'
+import OhCard from '@/components/widgets/standard/oh-card.vue'
 import OhKnob from '../system/oh-knob.vue'
-import OhCardFooter from '../system/oh-card-footer.vue'
 import { OhKnobCardDefinition } from '@/assets/definitions/widgets/standard/cards'
 
 export default {
-  mixins: [mixin],
-  components: {
-    OhKnob,
-    OhCardFooter
+  props: {
+    context: Object
   },
-  widget: OhKnobCardDefinition
+  components: {
+    OhCard,
+    OhKnob
+  },
+  widget: OhKnobCardDefinition,
+  setup(props) {
+    const { cardChildContext } = useWidgetContext(computed(() => props.context))
+    return { cardChildContext }
+  }
 }
 </script>

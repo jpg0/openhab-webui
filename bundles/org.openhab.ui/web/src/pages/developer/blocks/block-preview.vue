@@ -3,12 +3,17 @@
     <code v-if="definitionError" class="definition-error text-color-red" ref="blockPreview">
       {{ definitionError }}
     </code>
-    <f7-menu style="position: absolute; right: 20px; top: 20px" v-if="blocksDefinition && blocksDefinition.slots && blocksDefinition.slots.blocks">
+    <f7-menu
+      v-if="blocksDefinition && blocksDefinition.slots && blocksDefinition.slots.blocks"
+      style="position: absolute; right: 20px; top: 20px">
       <f7-menu-item style="margin-left: auto" :text="currentBlock" dropdown>
         <f7-menu-dropdown right>
           <f7-menu-dropdown-item
-            v-for="block in blocksDefinition.slots.blocks.filter((b) => b.component === 'BlockType')" :key="block.config.type"
-            @click="displayCurrentBlock(block)" href="#" :text="block.config.type" />
+            v-for="block in blocksDefinition.slots.blocks.filter((b) => b.component === 'BlockType')"
+            :key="block.config.type"
+            @click="displayCurrentBlock(block)"
+            href="#"
+            :text="block.config.type" />
         </f7-menu-dropdown>
       </f7-menu-item>
     </f7-menu>
@@ -42,37 +47,51 @@
 </style>
 
 <script>
-import Blockly from 'blockly'
-import Vue from 'vue'
+import { markRaw } from 'vue'
+import { mapStores } from 'pinia'
+import * as Blockly from 'blockly'
 
-Vue.config.ignoredElements = ['field', 'block', 'category', 'xml', 'mutation', 'value', 'sep']
+import { useUIOptionsStore } from '@/js/stores/useUIOptionsStore'
+
+// Vue is configured to treat these elements as custom elements: ['field', 'block', 'category', 'xml', 'mutation', 'value', 'sep']
+
 export default {
-  props: ['blocksDefinition'],
-  data () {
+  props: {
+    blocksDefinition: Object,
+    readOnly: {
+      type: Boolean,
+      default: false
+    }
+  },
+  data() {
     return {
       workspace: null,
       definitionError: null,
       currentBlock: null
     }
   },
-  mounted () {
+  computed: {
+    ...mapStores(useUIOptionsStore)
+  },
+  mounted() {
     this.initWorkspace()
     this.defineBlocks()
   },
   watch: {
-    blocksDefinition () {
+    blocksDefinition() {
       this.defineBlocks()
     }
   },
   methods: {
-    initWorkspace () {
-      this.workspace = Blockly.inject(this.$refs.blockPreview, {
-        theme: (this.$f7.data.themeOptions.dark === 'dark') ? 'dark' : undefined,
+    initWorkspace() {
+      const injectedWorkspace = Blockly.inject(this.$refs.blockPreview, {
+        theme: useUIOptionsStore().darkMode === 'dark' ? 'dark' : undefined,
         trashcan: false,
-        readOnly: false
+        readOnly: this.readOnly
       })
+      this.workspace = markRaw(injectedWorkspace)
     },
-    defineBlocks () {
+    defineBlocks() {
       try {
         this.definitionError = null
         if (this.blocksDefinition && this.blocksDefinition.slots && this.blocksDefinition.slots.blocks) {
@@ -91,7 +110,7 @@ export default {
         this.definitionError = e.toString()
       }
     },
-    displayCurrentBlock (block) {
+    displayCurrentBlock(block) {
       if (block) this.currentBlock = block.config.type
       if (!this.currentBlock) this.currentBlock = this.blocksDefinition.slots.blocks[0].config.type
       let xml = '<xml>'

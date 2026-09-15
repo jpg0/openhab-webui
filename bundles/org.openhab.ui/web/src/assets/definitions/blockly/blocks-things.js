@@ -1,16 +1,14 @@
 /*
-* General Thing functionality for blockly
-* supports jsscripting
-*/
+ * General Thing functionality for blockly
+ * supports jsscripting
+ */
 
-import Blockly from 'blockly'
-import { javascriptGenerator } from 'blockly/javascript.js'
+import * as Blockly from 'blockly'
+import { javascriptGenerator } from 'blockly/javascript'
 import { FieldThingPicker } from './fields/thing-field.js'
-import { blockGetCheckedInputType } from './utils.js'
+import { blockGetCheckedInputType, valueToCode } from './utils.js'
 
-const unavailMsg = 'Advanced Thing blocks aren\'t supported in "application/javascript;version=ECMAScript-5.1"'
-
-export default function defineOHBlocks (f7, isGraalJs) {
+export default function defineOHBlocks(f7) {
   Blockly.Blocks['oh_thing'] = {
     init: function () {
       this.appendDummyInput()
@@ -32,9 +30,7 @@ export default function defineOHBlocks (f7, isGraalJs) {
 
   Blockly.Blocks['oh_getthing'] = {
     init: function () {
-      this.appendValueInput('thingUid')
-        .appendField('get thing')
-        .setCheck(['String', 'oh_thing'])
+      this.appendValueInput('thingUid').appendField('get thing').setCheck(['String', 'oh_thing'])
       this.setInputsInline(false)
       this.setOutput(true, 'oh_thingtype')
       this.setColour(0)
@@ -44,19 +40,13 @@ export default function defineOHBlocks (f7, isGraalJs) {
   }
 
   javascriptGenerator.forBlock['oh_getthing'] = function (block) {
-    const thingUid = javascriptGenerator.valueToCode(block, 'thingUid', javascriptGenerator.ORDER_ATOMIC)
-    if (isGraalJs) {
-      return [`things.getThing(${thingUid})`, 0]
-    } else {
-      throw new Error(unavailMsg)
-    }
+    const thingUid = valueToCode(block, 'thingUid', javascriptGenerator.ORDER_ATOMIC)
+    return [`things.getThing(${thingUid})`, 0]
   }
 
   Blockly.Blocks['oh_getthing_state'] = {
     init: function () {
-      this.appendValueInput('thingUid')
-        .appendField('get thing status')
-        .setCheck(['String', 'oh_thing', 'oh_thingtype'])
+      this.appendValueInput('thingUid').appendField('get thing status').setCheck(['String', 'oh_thing', 'oh_thingtype'])
       this.setInputsInline(false)
       this.setOutput(true, 'String')
       this.setColour(0)
@@ -66,23 +56,67 @@ export default function defineOHBlocks (f7, isGraalJs) {
   }
 
   javascriptGenerator.forBlock['oh_getthing_state'] = function (block) {
-    const thingUid = javascriptGenerator.valueToCode(block, 'thingUid', javascriptGenerator.ORDER_ATOMIC)
+    const thingUid = valueToCode(block, 'thingUid', javascriptGenerator.ORDER_ATOMIC)
     const inputType = blockGetCheckedInputType(block, 'thingUid')
-    if (isGraalJs) {
-      let code = (inputType === 'oh_thingtype') ? `${thingUid}.status` : `things.getThing(${thingUid}).status`
-      return [code, 0]
-    } else {
-      const things = javascriptGenerator.provideFunction_(
-        'things',
-        ['var ' + javascriptGenerator.FUNCTION_NAME_PLACEHOLDER_ + ' = Java.type("org.openhab.core.model.script.actions.Things")'])
-      return [`things.getThingStatusInfo(${thingUid}).getStatus()`, 0]
+    const code = inputType === 'oh_thingtype' ? `${thingUid}.status` : `things.getThing(${thingUid}).status`
+    return [code, 0]
+  }
+
+  Blockly.Blocks['oh_getthing_isenabled'] = {
+    init: function () {
+      this.appendValueInput('thingUid').appendField('get thing enabled status').setCheck(['String', 'oh_thing', 'oh_thingtype'])
+      this.setInputsInline(false)
+      this.setOutput(true, 'Boolean')
+      this.setColour(0)
+      this.setTooltip('Checks if the given thing is enabled')
+      this.setHelpUrl('https://www.openhab.org/docs/configuration/blockly/rules-blockly-items-things.html#get-thing-enabled-status')
     }
+  }
+
+  javascriptGenerator.forBlock['oh_getthing_isenabled'] = function (block) {
+    const thingUid = valueToCode(block, 'thingUid', javascriptGenerator.ORDER_ATOMIC)
+    const inputType = blockGetCheckedInputType(block, 'thingUid')
+    const code = inputType === 'oh_thingtype' ? `${thingUid}.isEnabled` : `things.getThing(${thingUid}).isEnabled`
+    return [code, 0]
+  }
+
+  Blockly.Blocks['oh_setthing_enabled'] = {
+    init: function () {
+      this.appendValueInput('thingUid').appendField('set thing enabled status').setCheck(['String', 'oh_thing', 'oh_thingtype'])
+      this.appendValueInput('enabledState').appendField('to').setCheck('Boolean')
+      this.setInputsInline(true)
+      this.setPreviousStatement(true, null)
+      this.setNextStatement(true, null)
+      this.setColour(0)
+      this.setTooltip('Enables or disables the given thing')
+      this.setHelpUrl('https://www.openhab.org/docs/configuration/blockly/rules-blockly-items-things.html#set-thing-enabled-status')
+    },
+
+    onchange: function (event) {
+      if (!this.workspace || this.workspace.isDragging()) {
+        return
+      }
+
+      if (!this.getInputTargetBlock('enabledState')) {
+        this.setWarningText('A True/False value is required here')
+      } else {
+        this.setWarningText(null)
+      }
+    }
+  }
+
+  javascriptGenerator.forBlock['oh_setthing_enabled'] = function (block) {
+    const thingUid = valueToCode(block, 'thingUid', javascriptGenerator.ORDER_ATOMIC)
+    const enabledState = valueToCode(block, 'enabledState', javascriptGenerator.ORDER_ATOMIC) || 'true'
+    const inputType = blockGetCheckedInputType(block, 'thingUid')
+
+    const thing = inputType === 'oh_thingtype' ? thingUid : `things.getThing(${thingUid})`
+    return `${thing}.setEnabled(${enabledState});\n`
   }
 
   Blockly.Blocks['oh_getthings'] = {
     init: function () {
-      this.appendDummyInput()
-        .appendField('get things')
+      this.appendDummyInput().appendField('get things')
       this.setInputsInline(false)
       this.setOutput(true, 'Array')
       this.setColour(0)
@@ -93,18 +127,12 @@ export default function defineOHBlocks (f7, isGraalJs) {
   }
 
   javascriptGenerator.forBlock['oh_getthings'] = function (block) {
-    if (isGraalJs) {
-      return ['things.getThings()', 0]
-    } else {
-      throw new Error(unavailMsg)
-    }
+    return ['things.getThings()', 0]
   }
 
   Blockly.Blocks['oh_getthing'] = {
     init: function () {
-      this.appendValueInput('thingUid')
-        .appendField('get thing')
-        .setCheck(['String', 'oh_thing'])
+      this.appendValueInput('thingUid').appendField('get thing').setCheck(['String', 'oh_thing'])
       this.setInputsInline(false)
       this.setOutput(true, 'oh_thingtype')
       this.setColour(0)
@@ -114,22 +142,28 @@ export default function defineOHBlocks (f7, isGraalJs) {
   }
 
   javascriptGenerator.forBlock['oh_getthing'] = function (block) {
-    const thingUid = javascriptGenerator.valueToCode(block, 'thingUid', javascriptGenerator.ORDER_ATOMIC)
-    if (isGraalJs) {
-      return [`things.getThing(${thingUid})`, 0]
-    } else {
-      throw new Error(unavailMsg)
-    }
+    const thingUid = valueToCode(block, 'thingUid', javascriptGenerator.ORDER_ATOMIC)
+    return [`things.getThing(${thingUid})`, 0]
   }
 
   Blockly.Blocks['oh_getthing_attribute'] = {
     init: function () {
       const block = this
       const dropdown = new Blockly.FieldDropdown(
-        [['UID', 'uid'], ['label', 'label'], ['status', 'status'], ['status info', 'statusInfo'], ['location', 'location'], ['is enabled', 'isEnabled'], ['thing type UID', 'thingTypeUID'], ['bridge UID', 'bridgeUID']],
+        [
+          ['UID', 'uid'],
+          ['label', 'label'],
+          ['status', 'status'],
+          ['status info', 'statusInfo'],
+          ['location', 'location'],
+          ['is enabled', 'isEnabled'],
+          ['thing type UID', 'thingTypeUID'],
+          ['bridge UID', 'bridgeUID']
+        ],
         function (newMode) {
           block._updateType(newMode)
-        })
+        }
+      )
       this.appendValueInput('thing')
         .setCheck(['oh_thingtype', 'oh_thing'])
         .appendField('get ')
@@ -139,22 +173,29 @@ export default function defineOHBlocks (f7, isGraalJs) {
 
       this.setOutput(true, 'String')
       this.setColour(0)
-      this.setTooltip('Retrieve a specific attribute from the thing. Note that groups and tags return a list and should be used with the loops-block \'for each item ... in list\'. ')
+      this.setTooltip(
+        "Retrieve a specific attribute from the thing. Note that groups and tags return a list and should be used with the loops-block 'for each item ... in list'. "
+      )
       this.setTooltip(function () {
         const attributeName = block.getFieldValue('attributeName')
         let TIP = {
-          'uid': 'unique id of the Thing (string)',
-          'label': 'label of the Thing (string)',
-          'status': 'status of the Thing (string)',
-          'statusInfo': 'detailed status of the Thing (string)',
-          'location': 'location of the Thing (string)',
-          'enabled': 'is the thing enabled (boolean)',
-          'thingTypeUID': 'unique id of the Thing\'s type (string)',
-          'bridgeUID': 'unique id of the Thing\'s bridge (string)'
+          uid: 'unique id of the Thing (string)',
+          label: 'label of the Thing (string)',
+          status: 'status of the Thing (string)',
+          statusInfo: 'detailed status of the Thing (string)',
+          location: 'location of the Thing (string)',
+          enabled: 'is the thing enabled (boolean)',
+          thingTypeUID: "unique id of the Thing's type (string)",
+          bridgeUID: "unique id of the Thing's bridge (string)"
         }
-        return TIP[attributeName] + ' \n Note: make sure to use "get thing xxx"-Block for the connected block when working with Variables, not "thing xxx"-Block'
+        return (
+          TIP[attributeName] +
+          ' \n Note: make sure to use "get thing xxx"-Block for the connected block when working with Variables, not "thing xxx"-Block'
+        )
       })
-      this.setHelpUrl('https://www.openhab.org/docs/configuration/blockly/rules-blockly-items-things.html#get-particular-attributes-of-a-thing')
+      this.setHelpUrl(
+        'https://www.openhab.org/docs/configuration/blockly/rules-blockly-items-things.html#get-particular-attributes-of-a-thing'
+      )
     },
     /**
      * Modify this block to have the correct output type based on the attribute.
@@ -189,19 +230,14 @@ export default function defineOHBlocks (f7, isGraalJs) {
   }
 
   /*
-* Provides all attributes from a Thing
-* Code part
-*/
+   * Provides all attributes from a Thing
+   * Code part
+   */
   javascriptGenerator.forBlock['oh_getthing_attribute'] = function (block) {
-    const thing = javascriptGenerator.valueToCode(block, 'thing', javascriptGenerator.ORDER_ATOMIC)
+    const thing = valueToCode(block, 'thing', javascriptGenerator.ORDER_ATOMIC)
     const inputType = blockGetCheckedInputType(block, 'thing')
     const attributeName = block.getFieldValue('attributeName')
-
-    if (isGraalJs) {
-      let code = (inputType === 'oh_thing') ? `things.getThing(${thing}).${attributeName}` : `${thing}.${attributeName}`
-      return [code, 0]
-    } else {
-      throw new Error(unavailMsg)
-    }
+    const code = inputType === 'oh_thing' ? `things.getThing(${thing}).${attributeName}` : `${thing}.${attributeName}`
+    return [code, 0]
   }
 }

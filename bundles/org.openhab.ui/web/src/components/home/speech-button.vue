@@ -1,7 +1,11 @@
 <template>
-  <f7-link class="habot-speech-icon" v-if="supported"
-           :icon-f7="(listening && activity) ? 'mic_fill' : 'mic'" :icon-size="24" :icon-color="listening ? 'red' : 'gray'"
-           @click="toggleSpeech" />
+  <f7-link
+    v-if="supported"
+    class="habot-speech-icon"
+    :icon-f7="listening && activity ? 'mic_fill' : 'mic'"
+    :icon-size="24"
+    :icon-color="listening ? 'red' : 'gray'"
+    @click="toggleSpeech" />
 </template>
 
 <style lang="stylus">
@@ -23,13 +27,17 @@
 .aurora .habot-speech-icon
   top calc(-0.80 * var(--f7-searchbar-height))
   float right
-
 </style>
 
 <script>
+import { f7 } from 'framework7-vue'
+
 export default {
-  props: ['lang'],
-  data () {
+  props: {
+    lang: String
+  },
+  emits: ['result'],
+  data() {
     return {
       supported: this.$oh.speech.isRecognitionSupported(),
       listening: false,
@@ -37,27 +45,30 @@ export default {
     }
   },
   methods: {
-    toggleSpeech () {
+    toggleSpeech() {
       const self = this
       if (!this.supported) return
       if (!this.listening) {
         // FIXME
-        const locale = (this.lang === 'en') ? 'en-US' : this.lang + '-' + this.lang.toUpperCase()
+        const locale = this.lang === 'en' ? 'en-US' : this.lang + '-' + this.lang.toUpperCase()
 
-        this.$oh.speech.startRecognition(locale,
+        this.$oh.speech.startRecognition(
+          locale,
           // start
           (ev) => {
             this.listening = true
           },
           // error
           (ev) => {
-            self.$f7.toast.create({
-              icon: '<i class="f7-icons">mic_slash_fill</i>',
-              text: ev.error,
-              position: 'center',
-              destroyOnClose: true,
-              closeTimeout: 2000
-            }).open()
+            f7.toast
+              .create({
+                icon: '<i class="f7-icons">mic_slash_fill</i>',
+                text: ev.error,
+                position: 'center',
+                destroyOnClose: true,
+                closeTimeout: 2000
+              })
+              .open()
           },
           // activity
           (ev) => {

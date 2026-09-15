@@ -1,111 +1,185 @@
 <template>
   <f7-page @page:afterin="onPageAfterIn" @page:afterout="stopEventSource">
-    <f7-navbar title="Inbox" back-link="Things" back-link-url="/settings/things/" back-link-force>
-      <f7-nav-right>
-        <f7-link icon-md="material:done_all" @click="toggleCheck()"
-                 :text="(!$theme.md) ? ((showCheckboxes) ? 'Done' : 'Select') : ''" />
-      </f7-nav-right>
-      <f7-subnavbar :inner="false" v-show="initSearchbar">
+    <f7-navbar>
+      <oh-nav-content title="Inbox" back-link="Things" back-link-url="/settings/things/" :f7router>
+        <template #right>
+          <f7-link icon-md="material:done_all" @click="toggleCheck()" :text="!theme.md ? (showCheckboxes ? 'Done' : 'Select') : ''" />
+        </template>
+      </oh-nav-content>
+      <f7-subnavbar v-show="initSearchbar" :inner="false">
         <f7-searchbar
           v-if="initSearchbar"
           ref="searchbar"
           class="searchbar-inbox"
           :init="initSearchbar"
-          search-container=".contacts-list"
-          search-in=".item-inner"
-          :disable-button="!$theme.aurora" />
+          custom-search
+          @searchbar:search="search"
+          @searchbar:clear="clearSearch"
+          :disable-button="!theme.aurora" />
       </f7-subnavbar>
     </f7-navbar>
-    <f7-toolbar class="contextual-toolbar" :class="{ 'navbar': $theme.md }" v-if="showCheckboxes" bottom-ios bottom-aurora>
-      <f7-link color="red" v-show="selectedItems.length" v-if="!$theme.md" class="delete" icon-ios="f7:trash" icon-aurora="f7:trash" @click="confirmActionOnSelection('delete')">
-        &nbsp;Remove {{ selectedItems.length }}
-      </f7-link>
-      <f7-link color="orange" v-show="selectedItems.length" v-if="!$theme.md" class="ignore" @click="confirmActionOnSelection('ignore')" icon-ios="f7:eye_slash" icon-aurora="f7:eye_slash">
-        &nbsp;Ignore {{ selectedItems.length }}
-      </f7-link>
-      <f7-link color="green" v-show="selectedItems.length" v-if="!$theme.md" class="approve" @click="confirmActionOnSelection('approve')" icon-ios="f7:hand_thumbsup" icon-aurora="f7:hand_thumbsup">
-        &nbsp;Approve {{ selectedItems.length }}
-      </f7-link>
-      <f7-link v-if="$theme.md" icon-md="material:close" icon-color="white" @click="showCheckboxes = false" />
-      <div class="title" v-if="$theme.md">
-        {{ selectedItems.length }} selected
+    <f7-toolbar v-if="showCheckboxes" class="contextual-toolbar" :class="{ navbar: theme.md }" bottom-ios bottom-aurora>
+      <div v-if="!theme.md && selectedItems.length > 0" class="display-flex justify-content-center" style="width: 100%">
+        <f7-button
+          @click="confirmActionOnSelection('delete')"
+          color="red"
+          class="delete display-flex flex-direction-row margin-right"
+          icon-ios="f7:trash"
+          icon-aurora="f7:trash">
+          &nbsp;Remove
+        </f7-button>
+        <f7-button
+          v-if="selectedItems.map((uid) => inbox.find((e) => e.thingUID === uid))?.filter((e) => e.flag !== 'IGNORED').length"
+          @click="confirmActionOnSelection('ignore')"
+          color="orange"
+          class="ignore display-flex flex-direction-row margin-right"
+          icon-ios="f7:eye_slash"
+          icon-aurora="f7:eye_slash">
+          &nbsp;Ignore
+        </f7-button>
+        <f7-button
+          v-else
+          @click="confirmActionOnSelection('unignore')"
+          color="orange"
+          class="unignore display-flex flex-direction-row margin-right"
+          icon-ios="f7:eye"
+          icon-aurora="f7:eye">
+          &nbsp;Unignore
+        </f7-button>
+        <f7-button
+          @click="confirmActionOnSelection('approve')"
+          color="green"
+          class="approve display-flex flex-direction-row margin-right"
+          icon-ios="f7:hand_thumbsup"
+          icon-aurora="f7:hand_thumbsup">
+          &nbsp;Approve
+        </f7-button>
+        <!-- buttons for wider screen -->
+        <template v-if="$f7dim.width >= 500">
+          <f7-button
+            @click="copyFileDefinitionToClipboard(ObjectType.THING, selectedItems)"
+            color="theme-alt"
+            class="copy wider-screen display-flex flex-direction-row"
+            icon-ios="f7:square_on_square"
+            icon-aurora="f7:square_on_square">
+            &nbsp;Copy
+          </f7-button>
+        </template>
+        <!-- buttons for narrower screen -->
+        <template v-else>
+          <f7-button color="theme-alt" class="popover-button narrower-screen" popover-open=".item-popover"> ... </f7-button>
+          <f7-popover
+            class="item-popover"
+            ref="popover"
+            :backdrop="false"
+            :close-by-backdrop-click="true"
+            :style="{ width: '96px' }"
+            :animate="false">
+            <div class="margin-vertical display-flex justify-content-center" style="width: 100%">
+              <f7-link
+                @click="performActionOnSelection('copy')"
+                color="theme-alt"
+                class="copy display-flex flex-direction-column margin-right"
+                icon-ios="f7:square_on_square"
+                icon-aurora="f7:square_on_square"
+                popover-close=".item-popover">
+                Copy
+              </f7-link>
+            </div>
+          </f7-popover>
+        </template>
       </div>
-      <div class="right" v-if="$theme.md">
+      <f7-link v-if="theme.md" icon-md="material:close" icon-color="white" @click="showCheckboxes = false" />
+      <div v-if="theme.md" class="title">{{ selectedItems.length }} selected</div>
+      <div v-if="theme.md && selectedItems.length > 0" class="right">
         <f7-link v-show="selectedItems.length" icon-md="material:delete" icon-color="white" @click="confirmActionOnSelection('delete')" />
-        <f7-link v-show="selectedItems.length" icon-md="material:visibility_off" icon-color="white" @click="confirmActionOnSelection('ignore')" />
-        <f7-link v-show="selectedItems.length" icon-md="material:thumb_up" icon-color="white" @click="confirmActionOnSelection('approve')" />
+        <f7-link
+          v-show="selectedItems.length"
+          icon-md="material:visibility_off"
+          icon-color="white"
+          @click="confirmActionOnSelection('ignore')" />
+        <f7-link
+          v-show="selectedItems.length"
+          icon-md="material:thumb_up"
+          icon-color="white"
+          @click="confirmActionOnSelection('approve')" />
+        <f7-link
+          v-show="selectedItems.length"
+          icon-md="material:content_copy"
+          icon-color="white"
+          @click="copyFileDefinitionToClipboard(ObjectType.THING, selectedItems)" />
       </div>
     </f7-toolbar>
 
     <f7-list-index
-      ref="listIndex"
       v-show="groupBy === 'alphabetical' && !$device.desktop"
+      ref="listIndex"
       list-el=".inbox-list"
       :scroll-list="true"
       :label="true" />
 
     <f7-block class="block-narrow">
       <f7-col>
-        <f7-block-title>
-          <span v-if="ready">{{ inboxCount }} entries</span>
-          <div v-if="!$device.desktop && $f7.width < 1024" style="text-align:right; color:var(--f7-block-text-color); font-weight: normal" class="float-right">
-            <f7-checkbox :checked="showIgnored" @change="toggleIgnored" /> <label @click="toggleIgnored" style="cursor:pointer">Show ignored</label>
-          </div>
-          <div v-else style="text-align:right; color:var(--f7-block-text-color); font-weight: normal" class="float-right">
-            <label @click="toggleIgnored" style="cursor:pointer">Show ignored</label> <f7-checkbox :checked="showIgnored" @change="toggleIgnored" />
-          </div>
-        </f7-block-title>
-        <div class="searchbar-found padding-left padding-right" v-show="!ready || inboxCount > 0">
+        <div v-show="!ready || inboxCount > 0" class="searchbar-found padding-left padding-right">
           <f7-segmented strong tag="p">
-            <f7-button :active="groupBy === 'alphabetical'" @click="switchGroupOrder('alphabetical')">
-              Alphabetical
-            </f7-button>
-            <f7-button :active="groupBy === 'binding'" @click="switchGroupOrder('binding')">
-              By binding
-            </f7-button>
+            <f7-button :active="groupBy === 'alphabetical'" @click="switchGroupOrder('alphabetical')"> Alphabetical </f7-button>
+            <f7-button :active="groupBy === 'binding'" @click="switchGroupOrder('binding')"> By binding </f7-button>
           </f7-segmented>
         </div>
 
-        <!-- skeleton for not ready -->
-        <f7-list v-if="!ready" contacts-list class="col inbox-list">
-          <f7-list-group>
-            <f7-list-item
-              media-item
-              v-for="n in 10"
-              :key="n"
-              :class="`skeleton-text skeleton-effect-blink`"
-              title="Label of the thing"
-              subtitle="This contains the inbox UID"
-              footer="binding:thingUID" />
-          </f7-list-group>
-        </f7-list>
+        <group-box :title="listTitle">
+          <template #after-title>
+            <div class="header-controls">
+              <template v-if="showCheckboxes">
+                <f7-link @click="selectDeselectAll" :text="areAllSelected ? 'Deselect all' : 'Select all'" />
+                <span class="divider">|</span>
+              </template>
 
-        <f7-list v-else class="searchbar-found col" :contacts-list="groupBy === 'alphabetical'">
-          <f7-list-group v-for="(inboxWithInitial, initial) in indexedInbox" :key="initial">
-            <f7-list-item v-if="inboxWithInitial.length" :title="initial" group-title />
-            <f7-list-item v-for="entry in inboxWithInitial"
-                          :key="entry.thingUID"
-                          :link="true"
-                          media-item
-                          :checkbox="showCheckboxes"
-                          :checked="isChecked(entry.thingUID)"
-                          @change="(e) => toggleItemCheck(e, entry.thingUID)"
-                          @click.ctrl="(e) => ctrlClick(e, entry)"
-                          @click.meta="(e) => ctrlClick(e, entry)"
-                          @click.exact="(e) => click(e, entry)"
-                          :title="entry.label"
-                          :subtitle="entry.representationProperty ? entry.properties[entry.representationProperty] : ''"
-                          :footer="entry.thingUID"
-                          :badge="(entry.flag === 'IGNORED') ? 'IGNORED' : ''">
-                          <!-- <f7-button icon-f7="add_round" color="blue" slot="after"></f7-button>
-              <f7-button icon-f7="eye_off" color="blue" slot="after"></f7-button>
-              <f7-button icon-f7="trash" color="blue" slot="after"></f7-button> -->
-            </f7-list-item>
-          </f7-list-group>
-        </f7-list>
-        <f7-list class="searchbar-not-found">
-          <f7-list-item title="Nothing found" />
-        </f7-list>
+              <label>
+                Show ignored
+                <f7-checkbox v-model:checked="showIgnored" @change="changeIgnored" />
+              </label>
+            </div>
+          </template>
+
+          <!-- skeleton for not ready -->
+          <f7-list v-if="!ready" contacts-list class="col inbox-list">
+            <f7-list-group>
+              <f7-list-item
+                v-for="n in 10"
+                media-item
+                :key="n"
+                :class="`skeleton-text skeleton-effect-blink`"
+                title="Label of the thing"
+                subtitle="This contains the inbox UID"
+                footer="binding:thingUID" />
+            </f7-list-group>
+          </f7-list>
+
+          <f7-list v-else media-list class="searchbar-found col" :contacts-list="groupBy === 'alphabetical'">
+            <f7-list-group v-for="(inboxWithInitial, initial) in filteredIndexedInbox" :key="initial">
+              <f7-list-item v-if="inboxWithInitial.length" :title="initial" group-title />
+              <f7-list-item
+                v-for="entry in inboxWithInitial"
+                :key="entry.thingUID"
+                :link="true"
+                media-item
+                :checkbox="showCheckboxes"
+                :checked="isChecked(entry.thingUID) ? true : null"
+                @change="(e) => toggleItemCheck(e, entry.thingUID)"
+                @click.ctrl="(e) => ctrlClick(e, entry)"
+                @click.meta="(e) => ctrlClick(e, entry)"
+                @click.exact="(e) => click(e, entry)"
+                :title="entry.label"
+                :subtitle="entry.representationProperty ? entry.properties[entry.representationProperty] : ''"
+                :footer="entry.thingUID"
+                :badge="entry.flag === 'IGNORED' ? 'IGNORED' : ''" />
+            </f7-list-group>
+          </f7-list>
+          <f7-list v-if="ready && searchQuery && filteredItems.length === 0">
+            <f7-list-item title="Nothing found" />
+          </f7-list>
+        </group-box>
       </f7-col>
     </f7-block>
 
@@ -113,37 +187,65 @@
       <empty-state-placeholder icon="tray" title="inbox.title" text="inbox.text" />
     </f7-block>
 
-    <f7-fab v-show="!showCheckboxes" position="right-bottom" slot="fixed" color="blue" href="/settings/things/add">
-      <f7-icon ios="f7:plus" md="material:add" aurora="f7:plus" />
-      <f7-icon ios="f7:close" md="material:close" aurora="f7:close" />
-      <!-- <f7-fab-buttons position="top">
-        <f7-fab-button label="Scan and add to Inbox">S</f7-fab-button>
-        <f7-fab-button label="Add thing manually">M</f7-fab-button>
-      </f7-fab-buttons> -->
-    </f7-fab>
+    <template #fixed>
+      <f7-fab v-show="!showCheckboxes" position="right-bottom" color="theme-alt" href="/settings/things/add/">
+        <f7-icon ios="f7:plus" md="material:add" aurora="f7:plus" />
+        <f7-icon ios="f7:close" md="material:close" aurora="f7:close" />
+      </f7-fab>
+    </template>
   </f7-page>
 </template>
 
-<style lang="stylus">
+<style lang="stylus" scoped>
+.header-controls
+  display: flex
+  align-items: center
+  gap: 8px
+
+  .divider
+    opacity: 0.4
+    font-weight: 300
+
 .searchbar-found
   @media (min-width 960px)
     padding-left 0 !important
     padding-right 0 !important
 </style>
 
+/* Unscoped styles for root-level dynamic dialogs */
+<style lang="stylus">
+.thing-inbox-approve-dialog
+  width auto
+</style>
+
 <script>
+import { nextTick } from 'vue'
+import { f7, theme } from 'framework7-vue'
+
+import ThingInboxMixin from '@/pages/settings/things/thing-inbox-mixin'
+import EmptyStatePlaceholder from '@/components/empty-state-placeholder.vue'
+import { showToast } from '@/js/dialog-promises'
+
 export default {
-  components: {
-    'empty-state-placeholder': () => import('@/components/empty-state-placeholder.vue')
+  mixins: [ThingInboxMixin],
+  props: {
+    f7router: Object
   },
-  data () {
+  components: {
+    EmptyStatePlaceholder
+  },
+  setup() {
+    return { f7, theme }
+  },
+  data() {
     return {
       ready: false,
       loading: false,
       initSearchbar: false,
+      things: [], // for validating thingUIDs against existing things
       inbox: [],
-      // indexedInbox: {},
       selectedItems: [],
+      searchQuery: null,
       showIgnored: false,
       groupBy: 'alphabetical',
       showCheckboxes: false,
@@ -151,12 +253,21 @@ export default {
     }
   },
   computed: {
-    inboxCount () {
+    inboxCount() {
       if (!this.inbox) return 0
-      return (this.showIgnored) ? this.inbox.length : this.inbox.filter((e) => e.flag !== 'IGNORED').length
+      return this.showIgnored ? this.inbox.length : this.inbox.filter((e) => e.flag !== 'IGNORED').length
     },
-    indexedInbox () {
-      const filteredInbox = (this.showIgnored) ? this.inbox : this.inbox.filter((e) => e.flag !== 'IGNORED')
+    filteredIndexedInbox() {
+      let filteredInbox = this.showIgnored ? this.inbox : this.inbox.filter((e) => e.flag !== 'IGNORED')
+      if (this.searchQuery) {
+        const searchQuery = this.searchQuery.toLowerCase()
+        filteredInbox = filteredInbox.filter(
+          (e) =>
+            e.label.toLowerCase().includes(searchQuery) ||
+            e.thingUID.toLowerCase().includes(searchQuery) ||
+            e.properties[e.representationProperty]?.toLowerCase()?.includes(searchQuery)
+        )
+      }
       if (this.groupBy === 'alphabetical') {
         return filteredInbox.reduce((prev, entry, i, inbox) => {
           const initial = entry.label.substring(0, 1).toUpperCase()
@@ -177,36 +288,57 @@ export default {
 
           return prev
         }, {})
-        return Object.keys(bindingGroups).sort((a, b) => a.localeCompare(b)).reduce((objEntries, key) => {
-          objEntries[key] = bindingGroups[key]
-          return objEntries
-        }, {})
+        return Object.keys(bindingGroups)
+          .sort((a, b) => a.localeCompare(b))
+          .reduce((objEntries, key) => {
+            objEntries[key] = bindingGroups[key]
+            return objEntries
+          }, {})
       }
+    },
+    filteredItems() {
+      return Object.values(this.filteredIndexedInbox)
+        .flat()
+        .map((e) => e.thingUID)
+    },
+    areAllSelected() {
+      return this.selectedItems.length >= this.filteredItems.length
+    },
+    listTitle() {
+      if (!this.ready) return ''
+
+      const prefix = this.searchQuery ? `${this.filteredItems.length} of ` : ''
+      const suffix = this.selectedItems.length ? `, ${this.selectedItems.length} selected` : ''
+
+      return `${prefix}${this.inboxCount} Inbox entries${suffix}`
     }
   },
   methods: {
-    load () {
+    load() {
       this.loading = true
       this.$oh.api.get('/rest/inbox?includeIgnored=true').then((data) => {
         this.inbox = data.sort((a, b) => a.label.localeCompare(b.label))
         this.initSearchbar = true
         this.loading = false
-        this.ready = true
-        setTimeout(() => {
+        nextTick(() => {
           this.$refs.listIndex.update()
-          this.$nextTick(() => {
+          nextTick(() => {
             if (this.$device.desktop && this.$refs.searchbar) {
-              this.$refs.searchbar.f7Searchbar.$inputEl[0].focus()
+              this.$refs.searchbar.$el.f7Searchbar.$inputEl[0].focus()
             }
           })
         })
+        this.$oh.api.get('/rest/things?summary=true&staticDataOnly=true').then((things) => {
+          this.things = things
+          this.ready = true
+        })
       })
     },
-    switchGroupOrder (groupBy) {
+    switchGroupOrder(groupBy) {
       this.groupBy = groupBy
       const searchbar = this.$refs.searchbar.$el.f7Searchbar
       const filterQuery = searchbar.query
-      this.$nextTick(() => {
+      nextTick(() => {
         if (filterQuery) {
           searchbar.clear()
           searchbar.search(filterQuery)
@@ -214,38 +346,38 @@ export default {
         if (groupBy === 'alphabetical') this.$refs.listIndex.update()
       })
     },
-    onPageAfterIn () {
+    onPageAfterIn() {
       this.load()
       this.startEventSource()
     },
-    startEventSource () {
+    startEventSource() {
       this.eventSource = this.$oh.sse.connect('/rest/events?topics=openhab/inbox/*', null, (event) => {
         // const topicParts = event.topic.split('/')
         this.load()
       })
     },
-    stopEventSource () {
+    stopEventSource() {
       this.$oh.sse.close(this.eventSource)
       this.eventSource = null
     },
-    click (event, item) {
+    click(event, item) {
       if (this.showCheckboxes) {
         this.toggleItemCheck(event, item.thingUID, item)
       } else {
         this.openEntryActions(event, item)
       }
     },
-    ctrlClick (event, item) {
+    ctrlClick(event, item) {
       this.toggleItemCheck(event, item.thingUID, item)
       if (!this.selectedItems.length) this.showCheckboxes = false
     },
-    openEntryActions (e, entry) {
+    openEntryActions(e, entry) {
       if (this.showCheckboxes) {
         this.toggleItemCheck(e, entry.thingUID)
         return
       }
       let ignored = entry.flag === 'IGNORED'
-      let actions = this.$f7.actions.create({
+      let actions = f7.actions.create({
         convertToPopover: true,
         closeOnEscape: true,
         buttons: [
@@ -256,148 +388,29 @@ export default {
             }
           ],
           [
-            {
-              text: 'Add as Thing',
-              color: 'green',
-              bold: true,
-              onClick: () => {
-                this.$f7.dialog.prompt(`This will create a new Thing of type ${entry.thingTypeUID} with the following name:`,
-                  'Add as Thing',
-                  (name) => {
-                    this.approveEntry(entry, name)
-                  },
-                  null,
-                  entry.label)
-              }
-            },
-            {
-              text: 'Add as Thing (with custom ID)',
-              color: 'blue',
-              bold: true,
-              onClick: () => {
-                this.$f7.dialog.prompt(`This will create a new Thing of type ${entry.thingTypeUID}. You can change the suggested thing ID below:`,
-                  'Add as Thing',
-                  (newThingId) => {
-                    this.$f7.dialog.prompt('Enter the desired name of the new Thing:',
-                      'Add as Thing',
-                      (name) => {
-                        this.approveEntry(entry, name, newThingId)
-                      },
-                      null,
-                      entry.label)
-                  },
-                  null,
-                  entry.thingUID.substring(entry.thingUID.lastIndexOf(':') + 1))
-              }
-            },
-            {
-              text: (!ignored) ? 'Ignore' : 'Unignore',
-              color: (!ignored) ? 'orange' : 'blue',
-              onClick: () => {
-                if (ignored) {
-                  this.unignoreEntry(entry)
-                } else {
-                  this.ignoreEntry(entry)
-                }
-              }
-            }
+            this.entryActionsAddAsThingButton(entry, this.load),
+            this.entryActionsCopyThingDefinitionButton(entry),
+            this.entryActionsIgnoreButton(entry, this.load, ignored)
           ],
-          [
-            {
-              text: 'Remove',
-              color: 'red',
-              onClick: () => {
-                this.$f7.dialog.confirm(`Remove ${entry.label} from the Inbox?`, 'Remove Entry', () => {
-                  this.removeEntry(entry)
-                })
-              }
-            }
-          ]
+          [this.entryActionsRemoveButton(entry, this.load)]
         ]
       })
 
       actions.open()
     },
-    approveEntry (entry, name, newThingId) {
-      this.$oh.api.postPlain(`/rest/inbox/${entry.thingUID}/approve${newThingId ? '?newThingId=' + newThingId : ''}`, name).then((res) => {
-        this.$f7.toast.create({
-          text: 'Entry approved',
-          destroyOnClose: true,
-          closeTimeout: 2000
-        }).open()
-        this.load()
-      }).catch((err) => {
-        this.$f7.toast.create({
-          text: 'Error during thing creation: ' + err,
-          destroyOnClose: true,
-          closeTimeout: 2000
-        }).open()
-        this.load()
+    changeIgnored() {
+      setTimeout(() => {
+        this.$refs.listIndex.update()
       })
     },
-    ignoreEntry (entry) {
-      this.$oh.api.postPlain(`/rest/inbox/${entry.thingUID}/ignore`).then((res) => {
-        this.$f7.toast.create({
-          text: 'Entry ignored',
-          destroyOnClose: true,
-          closeTimeout: 2000
-        }).open()
-        this.load()
-      }).catch((err) => {
-        this.$f7.toast.create({
-          text: 'Error while ignoring entry: ' + err,
-          destroyOnClose: true,
-          closeTimeout: 2000
-        }).open()
-        this.load()
-      })
-    },
-    unignoreEntry (entry) {
-      this.$oh.api.postPlain(`/rest/inbox/${entry.thingUID}/unignore`).then((res) => {
-        this.$f7.toast.create({
-          text: 'Entry unignored',
-          destroyOnClose: true,
-          closeTimeout: 2000
-        }).open()
-        this.load()
-      }).catch((err) => {
-        this.$f7.toast.create({
-          text: 'Error while unignoring entry: ' + err,
-          destroyOnClose: true,
-          closeTimeout: 2000
-        }).open()
-        this.load()
-      })
-    },
-    removeEntry (entry) {
-      this.$oh.api.delete('/rest/inbox/' + entry.thingUID).then((res) => {
-        this.$f7.toast.create({
-          text: 'Entry removed',
-          destroyOnClose: true,
-          closeTimeout: 2000
-        }).open()
-        this.load()
-      }).catch((err) => {
-        this.$f7.toast.create({
-          text: 'Error while removing entry: ' + err,
-          destroyOnClose: true,
-          closeTimeout: 2000
-        }).open()
-        this.load()
-      })
-    },
-    toggleIgnored () {
-      this.showIgnored = !this.showIgnored
-      setTimeout(() => { this.$refs.listIndex.update() })
-    },
-    toggleCheck () {
+    toggleCheck() {
       this.showCheckboxes = !this.showCheckboxes
       this.selectedItems = []
     },
-    isChecked (item) {
+    isChecked(item) {
       return this.selectedItems.indexOf(item) >= 0
     },
-    toggleItemCheck (event, item) {
+    toggleItemCheck(event, item) {
       if (!this.showCheckboxes) this.showCheckboxes = true
       if (this.isChecked(item)) {
         this.selectedItems.splice(this.selectedItems.indexOf(item), 1)
@@ -405,7 +418,7 @@ export default {
         this.selectedItems.push(item)
       }
     },
-    confirmActionOnSelection (action) {
+    confirmActionOnSelection(action) {
       const vm = this
 
       let title, message
@@ -428,10 +441,13 @@ export default {
           break
       }
 
-      this.$f7.dialog.confirm(message, title, () => { vm.performActionOnSelection(action) })
+      f7.dialog.confirm(message, title, () => {
+        vm.performActionOnSelection(action)
+      })
     },
-    performActionOnSelection (action) {
+    performActionOnSelection(action) {
       let progressMessage, successMessage, promises
+      let navigateToThingsPage = false
       switch (action) {
         case 'delete':
           progressMessage = 'Removing Inbox Entries...'
@@ -442,6 +458,7 @@ export default {
           progressMessage = 'Approving Inbox Entries...'
           successMessage = `${this.selectedItems.length} entries approved`
           promises = this.filterSelectedItems().map((e) => this.$oh.api.postPlain('/rest/inbox/' + e.thingUID + '/approve', e.label))
+          navigateToThingsPage = true
           break
         case 'ignore':
           progressMessage = 'Ignoring Inbox Entries...'
@@ -455,26 +472,52 @@ export default {
           break
       }
 
-      let dialog = this.$f7.dialog.progress(progressMessage)
+      let dialog = f7.dialog.progress(progressMessage)
 
-      Promise.all(promises).then((data) => {
-        this.$f7.toast.create({
-          text: successMessage,
-          destroyOnClose: true,
-          closeTimeout: 2000
-        }).open()
-        this.selectedItems = []
-        dialog.close()
-        this.load()
-      }).catch((err) => {
-        dialog.close()
-        this.load()
-        console.error(err)
-        this.$f7.dialog.alert('An error occurred: ' + err)
-      })
+      Promise.all(promises)
+        .then(() => {
+          showToast(successMessage)
+          const searchFor = this.selectedItems.join(',')
+          this.selectedItems = []
+          dialog.close()
+          if (navigateToThingsPage) {
+            this.f7router.navigate('/settings/things/', {
+              props: {
+                searchFor
+              }
+            })
+          } else {
+            this.load()
+          }
+        })
+        .catch((err) => {
+          dialog.close()
+          this.load()
+          console.error(err)
+          f7.dialog.alert('An error occurred: ' + err)
+        })
     },
-    filterSelectedItems () {
+    filterSelectedItems() {
       return this.inbox.filter((e) => this.selectedItems.indexOf(e.thingUID) >= 0)
+    },
+    search(searchbar, query, previousQuery) {
+      if (query) {
+        this.searchQuery = query
+        this.selectedItems = this.selectedItems.filter((selected) => this.filteredItems.includes(selected))
+      } else {
+        this.clearSearch()
+      }
+    },
+    clearSearch() {
+      this.searchQuery = null
+    },
+    selectDeselectAll() {
+      if (this.areAllSelected) {
+        this.selectedItems = []
+      } else {
+        // copy the array, so when we remove some selectedItems (unchecking them), it won't affect filteredItems
+        this.selectedItems = this.filteredItems.slice()
+      }
     }
   }
 }

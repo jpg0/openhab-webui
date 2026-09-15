@@ -1,108 +1,164 @@
 import { authorize, isLoggedIn, enforceAdminForRoute } from '@/js/openhab/auth'
+import { beforeLeave } from '@/pages/useDirty'
 
 import HomePage from '../pages/home.vue'
 import NotFoundPage from '../pages/not-found.vue'
 import PageViewPage from '../pages/page/page-view.vue'
 import AnalyzerPopup from '../pages/analyzer/analyzer-popup.vue'
-import { AddonTitles } from '@/assets/addon-store'
+import { AddonTitles } from '@/assets/addon-store.ts'
 
-const AboutPage = () => import(/* webpackChunkName: "about-page" */ '../pages/about.vue')
-const UserProfilePage = () => import(/* webpackChunkName: "profile-page" */ '../pages/profile.vue')
+const AboutPage = () => import(/* webpackChunkName: "about-page" */ '@/pages/about.vue')
+const UserProfilePage = () => import(/* webpackChunkName: "profile-page" */ '@/pages/profile.vue')
+const ChatPage = () => import(/* webpackChunkName: "chat" */ '@/pages/chat/chat-page.vue')
 
-const SettingsMenuPage = () => import(/* webpackChunkName: "admin-base" */ '../pages/settings/menu/settings-menu.vue')
-const ServiceSettingsPage = () => import(/* webpackChunkName: "admin-base" */ '../pages/settings/services/service-settings.vue')
+const SettingsMenuPage = () => import(/* webpackChunkName: "admin-base" */ '@/pages/settings/menu/settings-menu.vue')
+const ServiceSettingsPage = () => import(/* webpackChunkName: "admin-base" */ '@/pages/settings/services/service-settings.vue')
 const AddonsConfigureBindingPage = () => import(/* webpackChunkName: "admin-base" */ '@/pages/addons/addon-config.vue')
 const AddonsStorePage = () => import(/* webpackChunkName: "admin-base" */ '@/pages/addons/addons-store.vue')
 const AddonDetailsPage = () => import(/* webpackChunkName: "admin-base" */ '@/pages/addons/addon-details.vue')
 
-const ItemsListPage = () => import(/* webpackChunkName: "admin-config" */ '../pages/settings/items/items-list-vlist.vue')
-const ItemDetailsPage = () => import(/* webpackChunkName: "admin-config" */ '../pages/settings/items/item-details.vue')
-const ItemEditPage = () => import(/* webpackChunkName: "admin-config" */ '../pages/settings/items/item-edit.vue')
-const ItemMetadataEditPage = () => import(/* webpackChunkName: "admin-config" */ '../pages/settings/items/metadata/item-metadata-edit.vue')
-const ItemsAddFromTextualDefinition = () => import(/* webpackChunkName: "admin-config" */ '../pages/settings/items/parser/items-add-from-textual-definition.vue')
+const ItemsListPage = () => import(/* webpackChunkName: "admin-config" */ '@/pages/settings/items/items-list-vlist.vue')
+const ItemDetailsPage = () => import(/* webpackChunkName: "admin-config" */ '@/pages/settings/items/item-details.vue')
+const ItemEditPage = () => import(/* webpackChunkName: "admin-config" */ '@/pages/settings/items/item-edit.vue')
+const ItemMetadataEditPage = () => import(/* webpackChunkName: "admin-config" */ '@/pages/settings/items/metadata/item-metadata-edit.vue')
+const ItemsAddFromTextualDefinition = () =>
+  import(/* webpackChunkName: "admin-config" */ '@/pages/settings/items/parser/items-add-from-textual-definition.vue')
 
-const HealthOverviewPage = () => import(/* webpackChunkName: "admin-config" */ '../pages/settings/health/health-overview.vue')
-const HealthOrphanLinksPage = () => import(/* webpackChunkName: "admin-config" */ '../pages/settings/health/health-orphanlinks.vue')
-const ThingsListPage = () => import(/* webpackChunkName: "admin-config" */ '../pages/settings/things/things-list.vue')
-const ThingDetailsPage = () => import(/* webpackChunkName: "admin-config" */ '../pages/settings/things/thing-details.vue')
-const AddThingChooseBindingPage = () => import(/* webpackChunkName: "admin-config" */ '../pages/settings/things/add/choose-binding.vue')
-const AddThingChooseThingTypePage = () => import(/* webpackChunkName: "admin-config" */ '../pages/settings/things/add/choose-thing-type.vue')
-const AddThingPage = () => import(/* webpackChunkName: "admin-config" */ '../pages/settings/things/add/thing-add.vue')
+const HealthOverviewPage = () => import(/* webpackChunkName: "admin-config" */ '@/pages/settings/health/health-overview.vue')
+const HealthOrphanLinksPage = () => import(/* webpackChunkName: "admin-config" */ '@/pages/settings/health/health-orphanlinks.vue')
+const HealthSemanticsPage = () => import(/* webpackChunkName: "admin-config" */ '@/pages/settings/health/health-semantics.vue')
+const HealthPersistencePage = () => import(/* webpackChunkName: "admin-config" */ '../pages/settings/health/health-persistence.vue')
+const ThingsListPage = () => import(/* webpackChunkName: "admin-config" */ '@/pages/settings/things/things-list.vue')
+const ThingDetailsPage = () => import(/* webpackChunkName: "admin-config" */ '@/pages/settings/things/thing-details.vue')
+const ChannelEditPage = () => import(/* webpackChunkName: "admin-config" */ '@/pages/settings/things/link/link-edit.vue')
+const AddThingChooseBindingPage = () => import(/* webpackChunkName: "admin-config" */ '@/pages/settings/things/add/choose-binding.vue')
+const AddThingChooseThingTypePage = () => import(/* webpackChunkName: "admin-config" */ '@/pages/settings/things/add/choose-thing-type.vue')
+const AddThingPage = () => import(/* webpackChunkName: "admin-config" */ '@/pages/settings/things/add/thing-add.vue')
 
-const InboxListPage = () => import(/* webpackChunkName: "admin-config" */ '../pages/settings/things/inbox/inbox-list.vue')
+const InboxListPage = () => import(/* webpackChunkName: "admin-config" */ '@/pages/settings/things/inbox/inbox-list.vue')
 
-const TransformationsListPage = () => import(/* webpackChunkName: "admin-config" */ '../pages/settings/transformations/transformations-list.vue')
-const TransformationsEditPage = () => import(/* webpackChunkName: "admin-rules" */ '../pages/settings/transformations/transformation-edit.vue')
+const TransformationsListPage = () =>
+  import(/* webpackChunkName: "admin-config" */ '@/pages/settings/transformations/transformations-list.vue')
+const TransformationsEditPage = () =>
+  import(/* webpackChunkName: "admin-rules" */ '@/pages/settings/transformations/transformation-edit.vue')
 
-const PersistenceSettingsPage = () => import(/* webpackChunkName: "admin-config" */ '../pages/settings/persistence/persistence-settings.vue')
-const PersistenceEditPage = () => import(/* webpackChunkName: "admin-config" */ '../pages/settings/persistence/persistence-edit.vue')
+const PersistenceSettingsPage = () => import(/* webpackChunkName: "admin-config" */ '@/pages/settings/persistence/persistence-settings.vue')
+const PersistenceEditPage = () => import(/* webpackChunkName: "admin-config" */ '@/pages/settings/persistence/persistence-edit.vue')
 
-const SemanticModelPage = () => import(/* webpackChunkName: "admin-config" */ '../pages/settings/model/model.vue')
+const SemanticModelPage = () => import(/* webpackChunkName: "admin-config" */ '@/pages/settings/model/model.vue')
 
-const PagesListPage = () => import(/* webpackChunkName: "admin-pages" */ '../pages/settings/pages/pages-list.vue')
+const PagesListPage = () => import(/* webpackChunkName: "admin-pages" */ '@/pages/settings/pages/pages-list.vue')
 const PageEditors = {
-  home: () => import(/* webpackChunkName: "admin-pages" */ '../pages/settings/pages/home/home-edit.vue'),
-  layout: () => import(/* webpackChunkName: "admin-pages" */ '../pages/settings/pages/layout/layout-edit.vue'),
-  tabs: () => import(/* webpackChunkName: "admin-pages" */ '../pages/settings/pages/tabs/tabs-edit.vue'),
-  map: () => import(/* webpackChunkName: "admin-pages-leaflet" */ '../pages/settings/pages/map/map-edit.vue'),
-  plan: () => import(/* webpackChunkName: "admin-pages-leaflet" */ '../pages/settings/pages/plan/plan-edit.vue'),
-  chart: () => import(/* webpackChunkName: "admin-pages-echarts" */ '../pages/settings/pages/chart/chart-edit.vue'),
-  sitemap: () => import(/* webpackChunkName: "admin-pages" */ '../pages/settings/pages/sitemap/sitemap-edit.vue')
+  home: () => import(/* webpackChunkName: "admin-pages" */ '@/pages/settings/pages/home/home-edit.vue'),
+  layout: () => import(/* webpackChunkName: "admin-pages" */ '@/pages/settings/pages/layout/layout-edit.vue'),
+  tabs: () => import(/* webpackChunkName: "admin-pages" */ '@/pages/settings/pages/tabs/tabs-edit.vue'),
+  map: () => import(/* webpackChunkName: "admin-pages-leaflet" */ '@/pages/settings/pages/map/map-edit.vue'),
+  plan: () => import(/* webpackChunkName: "admin-pages-leaflet" */ '@/pages/settings/pages/plan/plan-edit.vue'),
+  chart: () => import(/* webpackChunkName: "admin-pages-echarts" */ '@/pages/settings/pages/chart/chart-edit.vue'),
+  unknown: () => import(/* webpackChunkName: "admin-pages" */ '@/pages/settings/pages/unknown/unknown-edit.vue')
 }
 
-const RulesListPage = () => import(/* webpackChunkName: "admin-rules" */ '../pages/settings/rules/rules-list.vue')
-const RuleEditPage = () => import(/* webpackChunkName: "admin-rules" */ '../pages/settings/rules/rule-edit.vue')
-const SceneEditPage = () => import(/* webpackChunkName: "admin-rules" */ '../pages/settings/rules/scene/scene-edit.vue')
-const ScriptEditPage = () => import(/* webpackChunkName: "admin-rules" */ '../pages/settings/rules/script/script-edit.vue')
-const SchedulePage = () => import(/* webpackChunkName: "admin-schedule" */ '../pages/settings/schedule/schedule.vue')
+const SitemapsListPage = () => import(/* webpackChunkName: "admin-pages" */ '@/pages/settings/pages/sitemaps-list.vue')
+const SitemapEditPage = () => import(/* webpackChunkName: "admin-pages" */ '@/pages/settings/pages/sitemap/sitemap-edit.vue')
 
-const DeveloperToolsPage = () => import(/* webpackChunkName: "admin-devtools" */ '../pages/developer/developer-tools.vue')
-const WidgetsListPage = () => import(/* webpackChunkName: "admin-devtools" */ '../pages/developer/widgets/widget-list.vue')
-const WidgetEditPage = () => import(/* webpackChunkName: "admin-devtools" */ '../pages/developer/widgets/widget-edit.vue')
-const BlocksListPage = () => import(/* webpackChunkName: "admin-devtools" */ '../pages/developer/blocks/blocks-list.vue')
-const BlocksEditPage = () => import(/* webpackChunkName: "blockly-editor" */ '../pages/developer/blocks/blocks-edit.vue')
-const ApiExplorerPage = () => import(/* webpackChunkName: "admin-devtools" */ '../pages/developer/api-explorer.vue')
+const RulesListPage = () => import(/* webpackChunkName: "admin-rules" */ '@/pages/settings/rules/rules-list.vue')
+const RuleEditPage = () => import(/* webpackChunkName: "admin-rules" */ '@/pages/settings/rules/rule-edit.vue')
+const SceneEditPage = () => import(/* webpackChunkName: "admin-rules" */ '@/pages/settings/rules/scene/scene-edit.vue')
+const ScriptEditPage = () => import(/* webpackChunkName: "admin-rules" */ '@/pages/settings/rules/script/script-edit.vue')
+const SchedulePage = () => import(/* webpackChunkName: "admin-schedule" */ '@/pages/settings/schedule/schedule.vue')
 
-const SetupWizardPage = () => import(/* webpackChunkName: "setup-wizard" */ '../pages/wizards/setup-wizard.vue')
+const DeveloperToolsPage = () => import(/* webpackChunkName: "admin-devtools" */ '@/pages/developer/developer-tools.vue')
+const WidgetsListPage = () => import(/* webpackChunkName: "admin-devtools" */ '@/pages/developer/widgets/widget-list.vue')
+const WidgetEditPage = () => import(/* webpackChunkName: "admin-devtools" */ '@/pages/developer/widgets/widget-edit.vue')
+const BlocksListPage = () => import(/* webpackChunkName: "admin-devtools" */ '@/pages/developer/blocks/blocks-list.vue')
+const BlocksEditPage = () => import(/* webpackChunkName: "blockly-editor" */ '@/pages/developer/blocks/blocks-edit.vue')
+const SemanticsEditPage = () => import(/* webpackChunkName: "semantics-editor" */ '@/pages/developer/semantics/semantic-tags-edit.vue')
+const ApiExplorerPage = () => import(/* webpackChunkName: "admin-devtools" */ '@/pages/developer/api-explorer.vue')
+const LogViewerPage = () => import(/* webpackChunkName: "admin-devtools" */ '@/pages/developer/log-viewer/log-viewer-page.vue')
 
-const checkDirtyBeforeLeave = function (routeTo, routeFrom, resolve, reject) {
-  if (this.currentPageEl && this.currentPageEl.__vue__ && this.currentPageEl.__vue__.$parent && this.currentPageEl.__vue__.$parent.beforeLeave &&
-    !routeTo.path.startsWith(routeFrom.path)) {
-    this.currentPageEl.__vue__.$parent.beforeLeave(this, routeTo, routeFrom, resolve, reject)
+const SetupWizardPage = () => import(/* webpackChunkName: "setup-wizard" */ '@/pages/wizards/setup-wizard.vue')
+
+const checkDirtyBeforeLeave = async function ({ router, to, from, resolve, reject }) {
+  // Check if not navigating to a sub-path of current path
+  if (to.path.startsWith(from.path)) {
+    resolve()
+    return
+  }
+
+  // Check if there's unsaved changes in the component
+  const dirtyRef = this.currentPageEl?.__dirty
+  if (dirtyRef?.value) {
+    await beforeLeave({ resolve, reject, router, from, dirty: dirtyRef })
   } else {
     resolve()
   }
 }
 
 const loadAsync = (page, props) => {
-  return (routeTo, routeFrom, resolve, reject) => {
+  return async ({ router, to, from, resolve, reject }) => {
     if (!props) {
-      page().then((c) => {
-        resolve({ component: c.default })
-      })
+      page()
+        .then((c) => {
+          resolve({ component: c.default })
+        })
+        .catch((err) => {
+          console.error('Failed to load page component:', err)
+          reject(err)
+        })
     } else if (typeof props === 'object') {
-      page().then((c) => {
-        resolve({ component: c.default }, { props })
-      })
+      page()
+        .then((c) => {
+          resolve({ component: c.default }, { props })
+        })
+        .catch((err) => {
+          console.error('Failed to load page component:', err)
+          reject(err)
+        })
     } else if (typeof props === 'function') {
-      page().then((c) => {
-        resolve({ component: c.default }, { props: props(routeTo, routeFrom, resolve, reject) })
-      })
+      page()
+        .then((c) => {
+          resolve({ component: c.default }, { props: props({ router, to, from, resolve, reject }) })
+        })
+        .catch((err) => {
+          console.error('Failed to load page component:', err)
+          reject(err)
+        })
     }
   }
 }
 
+const PageRoutes = Object.entries(PageEditors)
+  .flatMap(([k, v]) => {
+    return [
+      {
+        path: `${k}/add`,
+        beforeEnter: [enforceAdminForRoute],
+        beforeLeave: [checkDirtyBeforeLeave],
+        async: loadAsync(v, { createMode: true })
+      },
+      {
+        path: `${k}/duplicate`,
+        beforeEnter: [enforceAdminForRoute],
+        beforeLeave: [checkDirtyBeforeLeave],
+        async: loadAsync(v, { createMode: true })
+      },
+      {
+        path: `${k}/:uid`,
+        beforeEnter: [enforceAdminForRoute],
+        beforeLeave: [checkDirtyBeforeLeave],
+        async: loadAsync(v)
+      }
+    ]
+  })
+  .reduce((acc, route) => acc.concat(route), [])
+
 export default [
   {
     path: '/',
-    component: HomePage,
-    // keepAlive: true,
-    options: {
-      transition: 'f7-dive'
-    },
+    redirect: '/overview/',
     routes: [
       {
-        path: 'overview',
+        path: 'overview/',
         component: HomePage,
         options: {
           props: {
@@ -111,7 +167,11 @@ export default [
         }
       },
       {
-        path: 'locations',
+        path: 'overview',
+        redirect: '/overview/'
+      },
+      {
+        path: 'locations/',
         component: HomePage,
         options: {
           props: {
@@ -120,7 +180,7 @@ export default [
         }
       },
       {
-        path: 'equipment',
+        path: 'equipment/',
         component: HomePage,
         options: {
           props: {
@@ -129,7 +189,7 @@ export default [
         }
       },
       {
-        path: 'properties',
+        path: 'properties/',
         component: HomePage,
         options: {
           props: {
@@ -140,12 +200,20 @@ export default [
     ]
   },
   {
+    path: '/page/:uid/:initialTab',
+    component: PageViewPage
+  },
+  {
     path: '/page/:uid',
     component: PageViewPage
   },
   {
-    path: '/page/:uid/:initialTab',
-    component: PageViewPage
+    path: '/chat/',
+    async: loadAsync(ChatPage)
+  },
+  {
+    path: '/chat',
+    redirect: '/chat/'
   },
   {
     path: '/about/',
@@ -161,14 +229,16 @@ export default [
   },
   {
     path: '/profile/',
-    beforeEnter: [(to, from, resolve, reject) => {
-      if (isLoggedIn()) {
-        resolve()
-      } else {
-        reject()
-        authorize()
+    beforeEnter: [
+      ({ resolve, reject }) => {
+        if (isLoggedIn()) {
+          resolve()
+        } else {
+          reject()
+          authorize()
+        }
       }
-    }],
+    ],
     async: loadAsync(UserProfilePage),
     options: {
       animate: false
@@ -178,15 +248,20 @@ export default [
     path: '/settings/',
     beforeEnter: [enforceAdminForRoute],
     async: loadAsync(SettingsMenuPage),
-    keepAlive: true,
+    // keepAlive: true, // keepAlive is not supported for async routes
     routes: [
       {
-        path: 'items',
+        path: 'items/',
         beforeEnter: [enforceAdminForRoute],
         async: loadAsync(ItemsListPage),
         routes: [
           {
             path: 'add',
+            beforeEnter: [enforceAdminForRoute],
+            async: loadAsync(ItemEditPage, { createMode: true })
+          },
+          {
+            path: 'duplicate',
             beforeEnter: [enforceAdminForRoute],
             async: loadAsync(ItemEditPage, { createMode: true })
           },
@@ -211,25 +286,45 @@ export default [
                 beforeEnter: [enforceAdminForRoute],
                 beforeLeave: [checkDirtyBeforeLeave],
                 async: loadAsync(ItemMetadataEditPage)
+              },
+              {
+                path: 'links/edit/:thingId/:channelId',
+                beforeEnter: [enforceAdminForRoute],
+                beforeLeave: [checkDirtyBeforeLeave],
+                async: loadAsync(ChannelEditPage)
               }
             ]
           }
         ]
       },
       {
-        path: 'pages',
+        path: 'pages/',
         async: loadAsync(PagesListPage),
         beforeEnter: [enforceAdminForRoute],
+        routes: PageRoutes
+      },
+      {
+        path: 'sitemaps/',
+        beforeEnter: [enforceAdminForRoute],
+        async: loadAsync(SitemapsListPage),
         routes: [
           {
-            path: ':type/:uid',
+            path: 'add',
             beforeEnter: [enforceAdminForRoute],
             beforeLeave: [checkDirtyBeforeLeave],
-            async: (routeTo, routeFrom, resolve, reject) => {
-              PageEditors[routeTo.params.type]().then((c) => {
-                resolve({ component: c.default }, (routeTo.params.uid === 'add') ? { props: { createMode: true } } : {})
-              })
-            }
+            async: loadAsync(SitemapEditPage, { createMode: true })
+          },
+          {
+            path: 'duplicate',
+            beforeEnter: [enforceAdminForRoute],
+            beforeLeave: [checkDirtyBeforeLeave],
+            async: loadAsync(SitemapEditPage, { createMode: true })
+          },
+          {
+            path: ':uid',
+            beforeEnter: [enforceAdminForRoute],
+            beforeLeave: [checkDirtyBeforeLeave],
+            async: loadAsync(SitemapEditPage)
           }
         ]
       },
@@ -240,12 +335,12 @@ export default [
           {
             path: ':transformationId',
             beforeLeave: checkDirtyBeforeLeave,
-            async: loadAsync(TransformationsEditPage, (routeTo) => (routeTo.params.transformationId === 'add') ? { createMode: true } : {})
+            async: loadAsync(TransformationsEditPage, ({ to }) => (to.params.transformationId === 'add' ? { createMode: true } : {}))
           }
         ]
       },
       {
-        path: 'health',
+        path: 'health/',
         beforeEnter: [enforceAdminForRoute],
         async: loadAsync(HealthOverviewPage),
         routes: [
@@ -253,6 +348,16 @@ export default [
             path: 'orphanlinks',
             beforeEnter: [enforceAdminForRoute],
             async: loadAsync(HealthOrphanLinksPage)
+          },
+          {
+            path: 'semantics',
+            beforeEnter: [enforceAdminForRoute],
+            async: loadAsync(HealthSemanticsPage)
+          },
+          {
+            path: 'persistence',
+            beforeEnter: [enforceAdminForRoute],
+            async: loadAsync(HealthPersistencePage)
           }
         ]
       },
@@ -262,14 +367,10 @@ export default [
         async: loadAsync(ThingsListPage),
         routes: [
           {
-            path: 'add',
+            path: 'add/',
             beforeEnter: [enforceAdminForRoute],
             async: loadAsync(AddThingChooseBindingPage),
             routes: [
-              // {
-              //   path: 'install-binding',
-              //   async: loadAsync(AddonsAddPage, { addonType: 'binding' })
-              // },
               {
                 path: ':bindingId',
                 beforeEnter: [enforceAdminForRoute],
@@ -285,6 +386,12 @@ export default [
             ]
           },
           {
+            path: 'duplicate',
+            beforeEnter: [enforceAdminForRoute],
+            beforeLeave: [checkDirtyBeforeLeave],
+            async: loadAsync(AddThingPage)
+          },
+          {
             path: 'inbox',
             beforeEnter: [enforceAdminForRoute],
             async: loadAsync(InboxListPage)
@@ -293,12 +400,20 @@ export default [
             path: ':thingId',
             beforeEnter: [enforceAdminForRoute],
             beforeLeave: [checkDirtyBeforeLeave],
-            async: loadAsync(ThingDetailsPage)
+            async: loadAsync(ThingDetailsPage),
+            routes: [
+              {
+                path: '/links/:itemName/:channelId',
+                beforeEnter: [enforceAdminForRoute],
+                beforeLeave: [checkDirtyBeforeLeave],
+                async: loadAsync(ChannelEditPage, { source: 'thing' })
+              }
+            ]
           }
         ]
       },
       {
-        path: 'model',
+        path: 'model/',
         beforeEnter: [enforceAdminForRoute],
         async: loadAsync(SemanticModelPage)
       },
@@ -322,19 +437,34 @@ export default [
         async: loadAsync(RulesListPage),
         routes: [
           {
+            path: 'add',
+            beforeEnter: [enforceAdminForRoute],
+            beforeLeave: [checkDirtyBeforeLeave],
+            async: loadAsync(RuleEditPage, { createMode: true })
+          },
+          {
+            path: 'duplicate',
+            beforeEnter: [enforceAdminForRoute],
+            beforeLeave: [checkDirtyBeforeLeave],
+            async: loadAsync(RuleEditPage, { createMode: true })
+          },
+          {
+            path: 'stub',
+            beforeEnter: [enforceAdminForRoute],
+            beforeLeave: [checkDirtyBeforeLeave],
+            async: loadAsync(RuleEditPage, { createMode: false, stubMode: true })
+          },
+          {
             path: ':ruleId',
             beforeEnter: [enforceAdminForRoute],
             beforeLeave: [checkDirtyBeforeLeave],
-            async: loadAsync(RuleEditPage, (routeTo) =>
-              routeTo.params.ruleId === 'add' ? { createMode: true }
-                : routeTo.params.ruleId === 'copy' ? { copyMode: true }
-                  : {}),
+            async: loadAsync(RuleEditPage),
             routes: [
               {
                 path: 'script/:moduleId',
                 beforeEnter: [enforceAdminForRoute],
                 beforeLeave: [checkDirtyBeforeLeave],
-                async: loadAsync(ScriptEditPage, (routeTo) => (routeTo.params.ruleId === 'add') ? { createMode: true } : {})
+                async: loadAsync(ScriptEditPage, ({ to }) => (to.params.ruleId === 'add' ? { createMode: true } : {}))
               }
             ]
           }
@@ -346,10 +476,22 @@ export default [
         async: loadAsync(RulesListPage, { showScenes: true }),
         routes: [
           {
+            path: 'add',
+            beforeEnter: [enforceAdminForRoute],
+            beforeLeave: [checkDirtyBeforeLeave],
+            async: loadAsync(SceneEditPage, { createMode: true })
+          },
+          {
+            path: 'duplicate',
+            beforeEnter: [enforceAdminForRoute],
+            beforeLeave: [checkDirtyBeforeLeave],
+            async: loadAsync(SceneEditPage, { createMode: true })
+          },
+          {
             path: ':ruleId',
             beforeEnter: [enforceAdminForRoute],
             beforeLeave: [checkDirtyBeforeLeave],
-            async: loadAsync(SceneEditPage, (routeTo) => (routeTo.params.ruleId === 'add') ? { createMode: true } : {})
+            async: loadAsync(SceneEditPage)
           }
         ]
       },
@@ -359,10 +501,22 @@ export default [
         async: loadAsync(RulesListPage, { showScripts: true }),
         routes: [
           {
+            path: 'add',
+            beforeEnter: [enforceAdminForRoute],
+            beforeLeave: [checkDirtyBeforeLeave],
+            async: loadAsync(ScriptEditPage, { createMode: true })
+          },
+          {
+            path: 'duplicate',
+            beforeEnter: [enforceAdminForRoute],
+            beforeLeave: [checkDirtyBeforeLeave],
+            async: loadAsync(ScriptEditPage, { createMode: true })
+          },
+          {
             path: ':ruleId',
             beforeEnter: [enforceAdminForRoute],
             beforeLeave: [checkDirtyBeforeLeave],
-            async: loadAsync(ScriptEditPage, (routeTo) => (routeTo.params.ruleId === 'add') ? { createMode: true } : {})
+            async: loadAsync(ScriptEditPage)
           }
         ]
       },
@@ -380,7 +534,7 @@ export default [
         ]
       },
       {
-        path: 'addons',
+        path: 'addons/',
         routes: [
           {
             path: ':addonId',
@@ -407,12 +561,14 @@ export default [
         path: '/',
         id: 'main'
       }
-    ].concat(Object.keys(AddonTitles).map((section) => {
-      return {
-        path: section,
-        id: section
-      }
-    })),
+    ].concat(
+      Object.keys(AddonTitles).map((section) => {
+        return {
+          path: section,
+          id: section
+        }
+      })
+    ),
     routes: [
       {
         path: ':section/:addonId',
@@ -435,7 +591,10 @@ export default [
             path: ':uid',
             beforeEnter: [enforceAdminForRoute],
             beforeLeave: [checkDirtyBeforeLeave],
-            async: loadAsync(WidgetEditPage, (routeTo) => (routeTo.params.uid === 'add') ? { createMode: true } : {})
+            async: loadAsync(WidgetEditPage, ({ to }) => (to.params.uid === 'add' ? { createMode: true } : {})),
+            options: {
+              animate: false
+            }
           }
         ]
       },
@@ -448,19 +607,33 @@ export default [
             path: ':uid',
             beforeEnter: [enforceAdminForRoute],
             beforeLeave: [checkDirtyBeforeLeave],
-            async: loadAsync(BlocksEditPage, (routeTo) => (routeTo.params.uid === 'add') ? { createMode: true } : {})
+            async: loadAsync(BlocksEditPage, ({ to }) => (to.params.uid === 'add' ? { createMode: true } : {}))
           }
         ]
       },
       {
-        path: 'add-items-dsl',
+        path: 'semantics/',
+        beforeEnter: [enforceAdminForRoute],
+        beforeLeave: [checkDirtyBeforeLeave],
+        async: loadAsync(SemanticsEditPage)
+      },
+      {
+        path: 'add-items-dsl/',
         beforeEnter: [enforceAdminForRoute],
         async: loadAsync(ItemsAddFromTextualDefinition)
       },
       {
-        path: 'api-explorer',
+        path: 'api-explorer/',
         beforeEnter: [enforceAdminForRoute],
         async: loadAsync(ApiExplorerPage)
+      },
+      {
+        path: 'log-viewer/',
+        beforeEnter: [enforceAdminForRoute],
+        async: loadAsync(LogViewerPage),
+        options: {
+          animate: false
+        }
       }
     ]
   },

@@ -4,30 +4,36 @@
       <!-- normal menu -->
       <f7-block v-if="!fullscreen">
         <f7-menu class="configure-layout-menu">
-          <f7-menu-item @click="addItem" icon-f7="plus" text="Add Widget" />
+          <f7-menu-item v-if="context.editmode.isEditable" @click="addItem" icon-f7="plus" text="Add Widget" />
           <f7-menu-item style="margin-left: auto" icon-f7="grid" dropdown>
             <f7-menu-dropdown right>
-              <f7-menu-dropdown-item @click="context.editmode.configureWidget(context.component, context.parent, 'oh-grid-layout')" href="#" text="Configure Grid Layout" />
+              <f7-menu-dropdown-item
+                @click="context.editmode.configureWidget(context.component, context.parent, 'oh-grid-layout')"
+                href="#"
+                text="Grid Layout Settings" />
             </f7-menu-dropdown>
           </f7-menu-item>
         </f7-menu>
-        <hr>
+        <hr />
       </f7-block>
 
       <!-- fullscreen fab menu -->
       <template v-if="fullscreen">
         <f7-fab-backdrop />
-        <f7-fab v-if="context.editmode" position="right-bottom" color="blue">
+        <f7-fab v-if="context.editmode" position="right-bottom" color="theme-alt">
           <f7-icon f7="menu" />
           <f7-icon ios="f7:xmark" aurora="f7:xmark" md="material:close" />
           <f7-fab-buttons position="top">
             <f7-fab-button label="Exit Fullscreen" fab-close @click="exitFullscreen">
               <f7-icon size="20" f7="rectangle_arrow_up_right_arrow_down_left_slash" />
             </f7-fab-button>
-            <f7-fab-button label="Configure Grid Layout" fab-close @click="context.editmode.configureWidget(context.component, context.parent, 'oh-grid-layout')">
+            <f7-fab-button
+              :label="context.editmode.isEditable ? 'Configure Grid Layout' : 'View Grid Layout'"
+              fab-close
+              @click="context.editmode.configureWidget(context.component, context.parent, 'oh-grid-layout')">
               <f7-icon size="20" f7="square_pencil" />
             </f7-fab-button>
-            <f7-fab-button label="Add Widget" fab-close @click="addItem">
+            <f7-fab-button v-if="context.editmode.isEditable" label="Add Widget" fab-close @click="addItem">
               <f7-icon size="20" f7="plus" />
             </f7-fab-button>
           </f7-fab-buttons>
@@ -37,9 +43,9 @@
 
     <grid-layout
       ref="vueGridLayout"
-      :is-draggable="!!context.editmode"
-      :is-resizable="!!context.editmode"
-      :layout.sync="layout"
+      :is-draggable="context.editmode?.isEditable ?? false"
+      :is-resizable="context.editmode?.isEditable ?? false"
+      v-model:layout="layout"
       :auto-size="config.layoutType !== 'fixed'"
       :col-num="colNum"
       :row-height="rowHeight"
@@ -55,9 +61,13 @@
         textAlign: 'center'
       }"
       :use-css-transforms="false">
-      <div v-if="context.editmode" style="opacity: 0.3; padding: 4px; user-select: none;">
+      <div v-if="context.editmode" style="opacity: 0.3; padding: 4px; user-select: none">
         {{ getCurrentScreenResolution() }}
-        <span v-if="isRetina()"><f7-icon tooltip="Screen resolution shown is the fullscreen resolution for websites. Real screen resolution is bigger." f7="info_circle" /></span>
+        <span v-if="isRetina()"
+          ><f7-icon
+            tooltip="Screen resolution shown is the fullscreen resolution for websites. Real screen resolution is bigger."
+            f7="info_circle"
+        /></span>
       </div>
       <oh-grid-item
         v-for="item in layout"
@@ -87,18 +97,27 @@
 </style>
 
 <script>
-import mixin from '../widget-mixin'
-import OhGridItem from './oh-grid-item'
+import { nextTick, defineAsyncComponent, computed } from 'vue'
+import { f7 } from 'framework7-vue'
+
+import { useWidgetContext } from '@/components/widgets/useWidgetContext'
+import OhGridItem from './oh-grid-item.vue'
 import { OhGridLayoutDefinition } from '@/assets/definitions/widgets/layout'
 
 export default {
-  mixins: [mixin],
+  props: {
+    context: Object
+  },
   widget: OhGridLayoutDefinition,
   components: {
-    'grid-layout': () => import('vue-grid-layout').then((mod) => mod.GridLayout),
+    'grid-layout': defineAsyncComponent(() => import('grid-layout-plus').then((mod) => mod.GridLayout)),
     OhGridItem
   },
-  data () {
+  setup(props) {
+    const { config, childContext } = useWidgetContext(computed(() => props.context))
+    return { config, childContext }
+  },
+  data() {
     return {
       layout: [],
       rowHeight: 64,
@@ -107,15 +126,17 @@ export default {
       colNum: Number,
       screenWidth: Number,
       screenHeight: Number,
-      fullscreen: this.$fullscreen.getState(),
+      fullscreen: this.$fullscreen.isFullscreen,
       navbarHidden: false,
       style: {
         width: Number,
         height: Number
-      }
+      },
+      windowWidth: Number,
+      windowHeight: Number
     }
   },
-  created () {
+  created() {
     this.colNum = this.config.colNum || 16
     this.margin = this.config.margin >= 0 ? this.config.margin : 10
 
@@ -135,8 +156,8 @@ export default {
 
     this.computeLayout()
   },
-  mounted () {
-    this.$nextTick(() => {
+  mounted() {
+    nextTick(() => {
       this.setDimensions() // call at nexttick for clientWidth to be available
     })
 
@@ -144,19 +165,27 @@ export default {
     this.windowWidth = window.screen.width
     this.windowHeight = window.screen.height
   },
-  beforeDestroy () {
-    if (!this.context.editmode) {
-      window.removeEventListener('resize', this.setDimensions)
-    }
+  beforeUnmount() {
+    window.removeEventListener('resize', this.setDimensions)
   },
   methods: {
-    isRetina () {
+    isRetina() {
       return window.devicePixelRatio > 1
     },
-    getCurrentScreenResolution () {
-      return 'Layout Size: ' + this.screenWidth + ' x ' + this.screenHeight + ' (Current Screen: ' + this.windowWidth + ' x ' + this.windowHeight + ')'
+    getCurrentScreenResolution() {
+      return (
+        'Layout Size: ' +
+        this.screenWidth +
+        ' x ' +
+        this.screenHeight +
+        ' (Current Screen: ' +
+        this.windowWidth +
+        ' x ' +
+        this.windowHeight +
+        ')'
+      )
     },
-    createItem (size) {
+    createItem(size) {
       // find a free spot for a new square widget of "size" on a side
       for (let y = 0; y <= this.maxRows - size; y++) {
         for (let x = 0; x <= this.colNum - size; x++) {
@@ -173,13 +202,16 @@ export default {
         }
       }
     },
-    addItem () {
+    addItem() {
+      if (!this.context.editmode.isEditable) {
+        return
+      }
       // try adding a 2x2 widget, or a 1x1 widget if there's no room left
       if (!this.createItem(2) && !this.createItem(1)) {
-        this.$f7.dialog.alert('No more space available', 'Unable to add widget')
+        f7.dialog.alert('No more space available', 'Unable to add widget')
       }
     },
-    setDimensions () {
+    setDimensions() {
       if (this.config.layoutType === 'fixed') {
         if (this.config.scale && !this.context.editmode) {
           this.style.width = this.$el.clientWidth
@@ -190,7 +222,7 @@ export default {
         this.rowHeight = (this.$refs.vueGridLayout.$el.clientWidth - this.margin * this.colNum + 1) / this.colNum
       }
     },
-    computeLayout () {
+    computeLayout() {
       let layout = []
       if (this.context.component.slots && this.context.component.slots.grid) {
         this.context.component.slots.grid.forEach((item, index) => {
@@ -205,7 +237,7 @@ export default {
       }
       this.layout = layout
     },
-    exitFullscreen () {
+    exitFullscreen() {
       this.$fullscreen.exit()
     }
   }

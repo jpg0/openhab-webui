@@ -1,5 +1,10 @@
 <template>
-  <f7-popup ref="sceneItemPopup" class="sceneitemconfig-popup" close-on-escape @popup:open="itemConfigOpened" @popup:closed="itemConfigClosed">
+  <f7-popup
+    ref="sceneItemPopup"
+    class="sceneitemconfig-popup"
+    close-on-escape
+    @popup:open="itemConfigOpened"
+    @popup:closed="itemConfigClosed">
     <f7-page>
       <f7-navbar>
         <f7-nav-left>
@@ -10,31 +15,25 @@
           {{ itemName }}
         </f7-nav-title>
         <f7-nav-right>
-          <f7-link @click="updateItemConfig" popup-close>
-            Done
-          </f7-link>
+          <f7-link @click="updateItemConfig" popup-close> Done </f7-link>
         </f7-nav-right>
       </f7-navbar>
       <f7-toolbar bottom>
-        <f7-link class="left" icon-f7="arrow_uturn_left_circle" @click="updateCommandFromCurrentState">
-          Set to current state
-        </f7-link>
-        <f7-link class="right" icon-f7="arrowtriangle_right_circle" @click="testCommand">
-          Test command
-        </f7-link>
+        <f7-link class="left" icon-f7="arrow_uturn_left_circle" @click="updateCommandFromCurrentState"> Set to current state </f7-link>
+        <f7-link class="right" icon-f7="arrowtriangle_right_circle" @click="testCommand"> Test command </f7-link>
       </f7-toolbar>
       <f7-block class="no-padding">
         <f7-col v-if="ready">
           <f7-list no-hairlines-md>
-            <f7-list-input
-              label="Command"
-              floating-label
-              :value="command"
-              @input="command = $event.target.value"
-              type="text" />
+            <f7-list-input label="Command" floating-label :value="command" @input="command = $event.target.value" type="text" />
             <ul v-if="commandSuggestions.length">
-              <f7-list-item radio :checked="command === suggestion.command" v-for="suggestion in commandSuggestions" :key="suggestion.command"
-                            :title="suggestion.label" @click="command = suggestion.command" />
+              <f7-list-item
+                v-for="suggestion in commandSuggestions"
+                radio
+                :checked="command === suggestion.command ? true : null"
+                :key="suggestion.command"
+                :title="suggestion.label"
+                @click="command = suggestion.command" />
             </ul>
           </f7-list>
         </f7-col>
@@ -43,7 +42,7 @@
         <f7-col>
           <div v-show="control === 'colorpicker'" class="scene-item-control-colorpicker" ref="colorpicker" />
           <div v-if="control === 'toggle'" class="scene-item-control-toggle">
-            <f7-toggle :checked="command === 'ON'" @toggle:change="(value) => command = (value) ? 'ON' : 'OFF'" />
+            <f7-toggle :checked="command === 'ON' ? true : null" @toggle:change="(value) => (command = value ? 'ON' : 'OFF')" />
           </div>
           <div v-else-if="control === 'slider'" class="scene-item-control-slider">
             <f7-range v-bind="sliderConfig" :value="command" @range:change="command = $event.toString()" />
@@ -92,15 +91,21 @@
       width 150px
       transform rotate(90deg)
       transform-origin center
-
 </style>
 
 <script>
+import { nextTick } from 'vue'
+import { f7 } from 'framework7-vue'
+import { showToast } from '@/js/dialog-promises'
+
 export default {
-  components: {
+  components: {},
+  props: {
+    rule: Object,
+    module: Object
   },
-  props: ['rule', 'module'],
-  data () {
+  emits: ['closed', 'update', 'sceneItemConfigUpdate'],
+  data() {
     return {
       ready: false,
       itemName: null,
@@ -111,7 +116,7 @@ export default {
     }
   },
   methods: {
-    itemConfigOpened () {
+    itemConfigOpened() {
       this.itemName = this.module.configuration.itemName
       this.command = this.module.configuration.command
       this.$oh.api.get('/rest/items/' + this.itemName).then((item) => {
@@ -120,57 +125,51 @@ export default {
         this.ready = true
       })
     },
-    itemConfigClosed () {
+    itemConfigClosed() {
       if (this.colorpicker) this.colorpicker.destroy()
-      this.$f7.emit('sceneItemConfigClosed')
+      f7.emit('sceneItemConfigClosed')
       this.$emit('closed')
     },
-    updateItemConfig () {
+    updateItemConfig() {
       if (this.colorpicker) this.colorpicker.destroy()
-      this.$f7.emit('sceneItemConfigUpdate', [this.itemName, this.command])
+      f7.emit('sceneItemConfigUpdate', [this.itemName, this.command])
       this.$emit('update', [this.itemName, this.command])
       this.itemConfigClosed()
     },
-    updateCommandFromCurrentState () {
-      this.$oh.api.getPlain('/rest/items/' + this.itemName + '/state?metadata=semantics,widget').then((state) => {
-        this.$set(this, 'command', state)
-        this.$f7.toast.create({
-          text: `Updated desired state of ${this.itemName} to ${state}`,
-          destroyOnClose: true,
-          closeTimeout: 2000
-        }).open()
+    updateCommandFromCurrentState() {
+      this.$oh.api.getPlain('/rest/items/' + this.itemName + '/state').then((state) => {
+        this.command = state
+        showToast(`Updated desired state of ${this.itemName} to ${state}`)
       })
     },
-    testCommand () {
+    testCommand() {
       this.$oh.api.postPlain('/rest/items/' + this.itemName, this.command, 'text/plain', 'text/plain').then((state) => {
-        this.$f7.toast.create({
-          text: `Sent comment ${this.command} to ${this.itemName}`,
-          destroyOnClose: true,
-          closeTimeout: 2000
-        }).open()
+        showToast(`Sent command ${this.command} to ${this.itemName}`)
       })
     },
-    initializeControl () {
+    initializeControl() {
       if (this.item.commandDescription && this.item.commandDescription.commandOptions) return // no control if command options
       if (this.item.type === 'Color' || this.item.groupType === 'Color') {
         this.control = 'colorpicker'
         const vm = this
-        this.$nextTick(() => {
-          this.colorpicker = this.$f7.colorPicker.create(Object.assign({}, this.config, {
-            containerEl: this.$refs.colorpicker,
-            modules: ['wheel'],
-            value: (this.command.split(',').length === 3) ? { hsb: this.color } : null,
-            on: {
-              change (colorpicker, value) {
-                let command = [...value.hsb]
-                command[0] = Math.round(command[0]) % 360
-                command[1] = Math.round(command[1] * 100)
-                command[2] = Math.round(command[2] * 100)
-                command = command.join(',')
-                vm.command = command
+        nextTick(() => {
+          this.colorpicker = f7.colorPicker.create(
+            Object.assign({}, this.config, {
+              containerEl: this.$refs.colorpicker,
+              modules: ['wheel'],
+              value: this.command.split(',').length === 3 ? { hsb: this.color } : null,
+              on: {
+                change(colorpicker, value) {
+                  let command = [...value.hsb]
+                  command[0] = Math.round(command[0]) % 360
+                  command[1] = Math.round(command[1] * 100)
+                  command[2] = Math.round(command[2] * 100)
+                  command = command.join(',')
+                  vm.command = command
+                }
               }
-            }
-          }))
+            })
+          )
         })
       } else if (this.item.type === 'Switch' || this.item.groupType === 'Switch') {
         this.control = 'toggle'
@@ -179,43 +178,44 @@ export default {
       } else if (this.item.type === 'Rollershutter' || this.item.groupType === 'Rollershutter') {
         this.control = 'rollershutter'
       } else if (this.item.type === 'Number' || this.item.groupType === 'Number') {
-        if (this.item.tags.find((t) => [
-          'ColorTemperature',
-          'Temperature',
-          'Brightness',
-          'Level',
-          'SoundVolume',
-          'Setpoint'
-        ].includes(t))) {
+        if (this.item.tags.find((t) => ['ColorTemperature', 'Temperature', 'Brightness', 'Level', 'SoundVolume', 'Setpoint'].includes(t))) {
           this.control = 'slider'
         }
       }
     }
   },
   computed: {
-    commandSuggestions () {
+    commandSuggestions() {
       if (!this.item) return []
-      let type = (this.item.type === 'Group' && this.item.groupType) ? this.item.groupType : this.item.type
+      let type = this.item.type === 'Group' && this.item.groupType ? this.item.groupType : this.item.type
 
       if (this.item.commandDescription && this.item.commandDescription.commandOptions) {
         return this.item.commandDescription.commandOptions
       }
       if (type === 'Switch') {
-        return ['ON', 'OFF'].map((c) => { return { command: c, label: c } })
+        return ['ON', 'OFF'].map((c) => {
+          return { command: c, label: c }
+        })
       }
       if (type === 'Rollershutter') {
-        return ['UP', 'DOWN', 'STOP'].map((c) => { return { command: c, label: c } })
+        return ['UP', 'DOWN', 'STOP'].map((c) => {
+          return { command: c, label: c }
+        })
       }
       if (type === 'Contact') {
-        return ['UP', 'DOWN', 'STOP'].map((c) => { return { command: c, label: c } })
+        return ['UP', 'DOWN', 'STOP'].map((c) => {
+          return { command: c, label: c }
+        })
       }
       if (type === 'Color') {
-        return ['ON', 'OFF'].map((c) => { return { command: c, label: c } })
+        return ['ON', 'OFF'].map((c) => {
+          return { command: c, label: c }
+        })
       }
 
       return []
     },
-    color () {
+    color() {
       if (this.item.type === 'Color' && this.command && this.command.split(',').length === 3) {
         let color = this.command.split(',')
         color[0] = parseInt(color[0])
@@ -225,7 +225,7 @@ export default {
       }
       return null
     },
-    sliderConfig () {
+    sliderConfig() {
       if (!this.item) return {}
       const sd = this.item.stateDescription || { minimum: 0, maximum: 100, step: 1 }
       return {

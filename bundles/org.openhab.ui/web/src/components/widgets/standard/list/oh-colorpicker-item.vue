@@ -1,14 +1,17 @@
 <template>
   <oh-list-item :context="context">
-    <div slot="after" class="display-flex">
-      <generic-widget-component :context="childContext(colorPickerComponent)" v-on="$listeners" />
-      <generic-widget-component class="margin-left" :context="childContext(switchComponent)" v-on="$listeners" />
-    </div>
+    <template #after>
+      <div style="display: flex; gap: 0.5rem">
+        <generic-widget-component :context="childContext(colorPickerComponent)" />
+        <generic-widget-component :context="childContext(switchComponent)" />
+      </div>
+    </template>
   </oh-list-item>
 </template>
 
 <script>
-import mixin from '../../widget-mixin'
+import { computed } from 'vue'
+import { useWidgetContext } from '@/components/widgets/useWidgetContext'
 import OhListItem from './oh-list-item.vue'
 import { OhColorpickerItemDefinition } from '@/assets/definitions/widgets/standard/listitems'
 
@@ -16,10 +19,16 @@ export default {
   components: {
     OhListItem
   },
-  mixins: [mixin],
+  props: {
+    context: Object
+  },
   widget: OhColorpickerItemDefinition,
+  setup(props) {
+    const { config, childContext } = useWidgetContext(computed(() => props.context))
+    return { config, childContext }
+  },
   computed: {
-    colorPickerComponent () {
+    colorPickerComponent() {
       return {
         component: 'oh-colorpicker',
         config: Object.assign({}, this.config, {
@@ -27,7 +36,7 @@ export default {
         })
       }
     },
-    switchComponent () {
+    switchComponent() {
       return {
         component: 'oh-toggle',
         config: this.config

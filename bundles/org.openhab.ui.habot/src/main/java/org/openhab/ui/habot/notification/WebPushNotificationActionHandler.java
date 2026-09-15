@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2024 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2026 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -62,7 +62,7 @@ public class WebPushNotificationActionHandler extends BaseModuleHandler<Action> 
     }
 
     @Override
-    public @Nullable Map<String, Object> execute(Map<String, Object> context) {
+    public @Nullable Map<String, @Nullable Object> execute(Map<String, Object> context) {
         String title = (String) module.getConfiguration().get(PARAM_TITLE);
         String body = (String) module.getConfiguration().get(PARAM_BODY);
         String cardUID = (String) module.getConfiguration().get(PARAM_CARD_UID);

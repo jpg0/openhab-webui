@@ -2,10 +2,11 @@
  * supports jsscripting
  */
 
-import Blockly from 'blockly'
-import { javascriptGenerator } from 'blockly/javascript.js'
+import * as Blockly from 'blockly'
+import { javascriptGenerator } from 'blockly/javascript'
+import { blockGetCheckedInputType, statementToCode, valueToCode } from '@/assets/definitions/blockly/utils.js'
 
-export default function (f7, isGraalJs) {
+export default function (f7) {
   Blockly.Blocks['dicts_create_with'] = {
     /**
      * Block for creating a list with any number of elements of any type.
@@ -17,7 +18,9 @@ export default function (f7, isGraalJs) {
       this.updateShape_()
       this.setOutput(true, 'Dictionary')
       this.setMutator(new Blockly.icons.MutatorIcon(['dicts_create_with_item'], this))
-      this.setHelpUrl('https://www.openhab.org/docs/configuration/blockly/rules-blockly-standard-ext.html#dictionary-for-managing-key-value-pairs')
+      this.setHelpUrl(
+        'https://www.openhab.org/docs/configuration/blockly/rules-blockly-standard-ext.html#dictionary-for-managing-key-value-pairs'
+      )
       this.setTooltip('Create a key/value dictionary')
     },
     /**
@@ -68,8 +71,7 @@ export default function (f7, isGraalJs) {
       let connections = []
       while (itemBlock && !itemBlock.isInsertionMarker()) {
         connections.push(itemBlock.valueConnection_)
-        itemBlock = itemBlock.nextConnection &&
-            itemBlock.nextConnection.targetBlock()
+        itemBlock = itemBlock.nextConnection && itemBlock.nextConnection.targetBlock()
       }
       // Disconnect any children that don't belong.
       for (let i = 0; i < this.itemCount_; i++) {
@@ -99,8 +101,7 @@ export default function (f7, isGraalJs) {
         let input = this.getInput('ADD' + i)
         itemBlock.valueConnection_ = input && input.connection.targetConnection
         i++
-        itemBlock = itemBlock.nextConnection &&
-            itemBlock.nextConnection.targetBlock()
+        itemBlock = itemBlock.nextConnection && itemBlock.nextConnection.targetBlock()
       }
     },
     /**
@@ -112,15 +113,13 @@ export default function (f7, isGraalJs) {
       if (this.itemCount_ && this.getInput('EMPTY')) {
         this.removeInput('EMPTY')
       } else if (!this.itemCount_ && !this.getInput('EMPTY')) {
-        this.appendDummyInput('EMPTY')
-          .appendField('create empty dictionary')
+        this.appendDummyInput('EMPTY').appendField('create empty dictionary')
       }
       // Add new inputs.
       let i
       for (i = 0; i < this.itemCount_; i++) {
         if (!this.getInput('ADD' + i)) {
-          let input = this.appendValueInput('ADD' + i)
-            .setAlign(Blockly.ALIGN_RIGHT)
+          let input = this.appendValueInput('ADD' + i).setAlign(Blockly.inputs.Align.RIGHT)
           if (i === 0) {
             input.appendField('dictionary of')
           }
@@ -142,8 +141,7 @@ export default function (f7, isGraalJs) {
      */
     init: function () {
       this.setStyle('list_blocks')
-      this.appendDummyInput()
-        .appendField('key/values')
+      this.appendDummyInput().appendField('key/values')
       this.appendStatementInput('STACK')
       this.setTooltip('Initialize a Dictionary')
       this.contextMenu = false
@@ -157,8 +155,7 @@ export default function (f7, isGraalJs) {
      */
     init: function () {
       this.setStyle('list_blocks')
-      this.appendDummyInput()
-        .appendField('key')
+      this.appendDummyInput().appendField('key')
       this.setPreviousStatement(true)
       this.setNextStatement(true)
       this.setTooltip('add a key/value to the dictionary')
@@ -170,27 +167,22 @@ export default function (f7, isGraalJs) {
     // Create an object with any number of elements of any type.
     let elements = new Array(block.itemCount_)
     for (let i = 0; i < block.itemCount_; i++) {
-      elements[i] = '\'' + block.getFieldValue('KEY' + i) + '\': '
-      elements[i] += javascriptGenerator.valueToCode(block, 'ADD' + i,
-        javascriptGenerator.ORDER_NONE) || 'null'
+      elements[i] = "'" + block.getFieldValue('KEY' + i) + "': "
+      elements[i] += valueToCode(block, 'ADD' + i, javascriptGenerator.ORDER_NONE) || 'null'
     }
     let code = '{' + elements.join(', ') + '}'
     return [code, javascriptGenerator.ORDER_ATOMIC]
   }
 
   /*
-  * Allows retrieving parameters provided by a rule
-  * Blockly part
-  */
+   * Allows retrieving parameters provided by a rule
+   * Blockly part
+   */
   Blockly.Blocks['dicts_get'] = {
     init: function () {
       this.setStyle('list_blocks')
-      this.appendValueInput('key')
-        .appendField('get')
-        .setCheck('String')
-      this.appendValueInput('varName')
-        .appendField('from dictionary')
-        .setCheck('String')
+      this.appendValueInput('key').appendField('get').setCheck('String')
+      this.appendValueInput('varName').appendField('from dictionary').setCheck(['Dictionary', 'String'])
       this.setInputsInline(true)
       this.setOutput(true, 'String')
       this.setHelpUrl('https://www.openhab.org/docs/configuration/blockly/rules-blockly-standard-ext.html#get-value-of-key-from-dictionary')
@@ -199,56 +191,88 @@ export default function (f7, isGraalJs) {
   }
 
   /*
-  * Allows retrieving parameters provided by a rule
-  * Either a map can be directly used and an intermediate variable is created or a variable is directly provided
-  * Code part
-  */
+   * Allows retrieving parameters provided by a rule
+   * Either a map can be directly used and an intermediate variable is created or a variable is directly provided
+   * Code part
+   */
   javascriptGenerator.forBlock['dicts_get'] = function (block) {
-    const key = javascriptGenerator.valueToCode(block, 'key', javascriptGenerator.ORDER_ATOMIC)
-    const varName = javascriptGenerator.valueToCode(block, 'varName', javascriptGenerator.ORDER_ATOMIC).replace(/'/g, '')
+    const key = valueToCode(block, 'key', javascriptGenerator.ORDER_ATOMIC)
+    // note: even though the dict can be directly used without a variable, we need to keep the variable name as "varName" for backwards compatibility
+    let varName = valueToCode(block, 'varName', javascriptGenerator.ORDER_ATOMIC)
+    const varNameType = blockGetCheckedInputType(block, 'varName')
+    if (varNameType !== 'Dictionary') {
+      varName = varName.replace(/'/g, '')
+    }
     let code = `${varName}[${key}]`
     return [code, 0]
   }
 
+  Blockly.Blocks['dicts_set'] = {
+    init: function () {
+      this.appendDummyInput().appendField('set')
+      this.appendValueInput('key').setCheck(['String'])
+      this.appendValueInput('value').appendField('to value')
+      this.appendValueInput('dictionary').appendField('with dictionary').setCheck('String')
+
+      this.setColour('%{BKY_LISTS_HUE}')
+      this.setInputsInline(true)
+      this.setPreviousStatement(true, null)
+      this.setNextStatement(true, null)
+      this.setTooltip("updates the key's value in the dictionary provided via the named variable.")
+      this.setHelpUrl(
+        'https://www.openhab.org/docs/configuration/blockly/https://www.openhab.org/docs/configuration/blockly/rules-blockly-standard-ext.html#set-value-of-key-of-dictionary'
+      )
+    }
+  }
+
+  javascriptGenerator.forBlock['dicts_set'] = function (block) {
+    const dict = valueToCode(block, 'dictionary', javascriptGenerator.ORDER_ATOMIC).replace(/'/g, '')
+    const key = valueToCode(block, 'key', javascriptGenerator.ORDER_ATOMIC)
+    if (dict === '' || key === "''") {
+      throw new Error('dictionary and key name need to be provided')
+    }
+    const value = valueToCode(block, 'value', javascriptGenerator.ORDER_ATOMIC).replace(/'/g, '')
+    let code = `${dict}[${key}] = '${value}';\n`
+    return code
+  }
+
   /*
-    * creates a loop for dictionaries
-    *
-    * Block type definition
-    */
+   * creates a loop for dictionaries
+   *
+   * Block type definition
+   */
   Blockly.Blocks['dicts_for'] = {
     init: function () {
-      this.appendDummyInput()
-        .appendField('foreach')
-      this.appendDummyInput()
-        .appendField(new Blockly.FieldVariable('dictValue'), 'loopVar')
-        .appendField('in map')
+      this.appendDummyInput().appendField('foreach')
+      this.appendDummyInput().appendField(new Blockly.FieldVariable('dictValue'), 'loopVar').appendField('in map')
       this.appendValueInput('dict')
-      // allow Dictionary or Variable (type=null)
-      // in case of a variable we need to trust that it is a Dictionary
+        // allow Dictionary or Variable (type=null)
+        // in case of a variable we need to trust that it is a Dictionary
         .setCheck(['Dictionary', null])
 
       this.setInputsInline(true)
       this.setColour('%{BKY_LOOPS_HUE}')
-      this.appendStatementInput('dictForCode')
-        .setCheck(null)
+      this.appendStatementInput('dictForCode').setCheck(null)
       this.setPreviousStatement(true, null)
       this.setNextStatement(true, null)
       this.setTooltip('Create a named timer')
-      this.setHelpUrl('https://www.openhab.org/docs/configuration/blockly/rules-blockly-timers-and-delays.html#after-period-of-time-do-with-timer')
+      this.setHelpUrl(
+        'https://www.openhab.org/docs/configuration/blockly/rules-blockly-timers-and-delays.html#after-period-of-time-do-with-timer'
+      )
     }
   }
 
   /*
-    * creates a loop for dictionaries
-    * Code part
-    */
+   * creates a loop for dictionaries
+   * Code part
+   */
   javascriptGenerator.forBlock['dicts_for'] = function (block) {
     const loopVar = block.getField('loopVar').getVariable().name
-    const dict = javascriptGenerator.valueToCode(block, 'dict', javascriptGenerator.ORDER_ATOMIC)
-    const dictForCode = javascriptGenerator.statementToCode(block, 'dictForCode')
+    const dict = valueToCode(block, 'dict', javascriptGenerator.ORDER_ATOMIC)
+    const dictForCode = statementToCode(block, 'dictForCode')
 
     const dictCheck = block.getInput('dict').connection.targetBlock().outputConnection.getCheck()
-    const dictType = (dictCheck) ? block.getInput('dict').connection.targetBlock().outputConnection.getCheck()[0] : ''
+    const dictType = dictCheck ? block.getInput('dict').connection.targetBlock().outputConnection.getCheck()[0] : ''
 
     let code = ''
     let dictVar
@@ -269,8 +293,6 @@ export default function (f7, isGraalJs) {
   }
 }
 
-function addDict () {
-  return javascriptGenerator.provideFunction_(
-    'dictionary',
-    ['var ' + javascriptGenerator.FUNCTION_NAME_PLACEHOLDER_ + ';'])
+function addDict() {
+  return javascriptGenerator.provideFunction_('dictionary', ['var ' + javascriptGenerator.FUNCTION_NAME_PLACEHOLDER_ + ';'])
 }

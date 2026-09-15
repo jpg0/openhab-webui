@@ -1,50 +1,57 @@
 <template>
-  <f7-link v-if="addon" class="addon-card padding-right-half" :href="`/addons/${addon.type}/${addon.uid}`">
+  <f7-link v-if="addon" class="addon-card" :href="`/addons/${addon.type}/${addon.uid}`">
     <div class="addon-card-inner card">
       <div class="addon-card-headline">
-        <div>{{ headline || autoHeadline || "&nbsp;" }}</div>
+        <div>{{ headline || autoHeadline || '&nbsp;' }}</div>
       </div>
       <div class="addon-card-title">
         <div v-if="showInstallActions" class="addon-card-title-after">
-          <f7-preloader v-if="addon.pending" color="blue" />
-          <f7-button v-else-if="addon.installed" class="install-button prevent-active-state-propagation" text="Remove"
-                     color="red" round small @click="buttonClicked" />
-          <f7-button v-else class="install-button prevent-active-state-propagation"
-                     :text="installActionText || 'Install'" color="blue" round small @click="buttonClicked" />
+          <f7-preloader v-if="'pending' in addon && addon.pending" color="theme-alt" />
+          <f7-button
+            v-else
+            class="install-button prevent-active-state-propagation"
+            :text="addon.installed ? 'Remove' : installActionText || 'Install'"
+            :color="addon.installed ? 'red' : 'theme-alt'"
+            round
+            small
+            @click="buttonClicked" />
         </div>
-        <div class="addon-card-label">
+        <div class="addon-card-label" :title="addon.label">
           {{ addon.label }}
         </div>
         <div v-if="addon.verifiedAuthor" class="addon-card-subtitle">
           {{ addon.author }}
-          <f7-icon v-if="addon.verifiedAuthor" size="15"
-                   :color="$f7.data.themeOptions.dark === 'dark' ? 'white' : 'blue'" f7="checkmark_seal_fill"
-                   style="margin-top: -3px;" />
+          <f7-icon
+            v-if="addon.verifiedAuthor"
+            size="15"
+            :color="uiOptionsStore.darkMode === 'dark' ? 'white' : 'theme-alt'"
+            f7="checkmark_seal_fill"
+            style="margin-top: -3px" />
         </div>
         <div v-else-if="addon.properties && addon.properties.views" class="addon-card-subtitle">
           <addon-stats-line :addon="addon" :iconSize="15" />
         </div>
       </div>
-      <addon-logo class="logo-square" :lazy="true" :addon="addon" :size="150" />
+      <addon-logo class="logo-square" :lazy="lazyLogo !== undefined ? lazyLogo : true" :addon="addon" :size="150" />
     </div>
   </f7-link>
 </template>
 
 <style lang="stylus">
 .addon-card
-  padding 5px
-  width: 100%
+  width 100%
   position relative
 
   .addon-card-inner
     width 100%
     height 100%
-    margin: 0px
+    margin 0
     display flex
     flex-direction column
     scroll-snap-align center center
     padding 10px
     border-radius 5px
+    box-sizing border-box
 
     &:hover
       background var(--f7-list-link-hover-bg-color)
@@ -65,10 +72,9 @@
     .addon-card-label
       text-overflow ellipsis
       overflow clip
-      white-space nowrap
-      // width calc(100% - 5rem)
-      width 210px
       color var(--f7-text-color)
+      max-height 3.4rem
+      line-height 1.1
     .addon-card-title-after
       .preloader-inner .preloader-inner-left, .preloader-inner .preloader-inner-right, .preloader-inner .preloader-inner-line
         margin-left inherit !important
@@ -108,32 +114,38 @@
       object-fit contain
 </style>
 
-<script>
+<script setup lang="ts">
+import { computed } from 'vue'
+import * as api from '@/api'
 import AddonStatsLine from './addon-stats-line.vue'
 import AddonLogo from '@/components/addons/addon-logo.vue'
+import { useUIOptionsStore } from '@/js/stores/useUIOptionsStore.ts'
 
-export default {
-  props: ['addon', 'headline', 'installActionText'],
-  components: {
-    AddonLogo,
-    AddonStatsLine
-  },
-  computed: {
-    autoHeadline () {
-      if (this.addon.properties && this.addon.properties.like_count && this.addon.properties.like_count >= 20) return 'Top'
-      if (this.addon.properties && this.addon.properties.views && this.addon.properties.views >= 1000) return 'Popular'
-      if (this.addon.properties && this.addon.properties.posts_count && this.addon.properties.posts_count >= 15) return 'Hot'
-      return ''
-    },
-    showInstallActions () {
-      let splitted = this.addon.uid.split(':')
-      return splitted.length < 2 || splitted[0] !== 'eclipse'
-    }
-  },
-  methods: {
-    buttonClicked () {
-      this.$emit('addonButtonClick', this.addon)
-    }
-  }
-}
+const uiOptionsStore = useUIOptionsStore()
+
+// props
+const props = defineProps<{ addon: api.Addon; headline?: string; installActionText?: string; lazyLogo?: boolean }>()
+
+// emits
+const emit = defineEmits<{
+  'addon-button-click': [addon: api.Addon]
+}>()
+
+// computed
+const autoHeadline = computed<string>(() => {
+  const likeCount = props.addon?.properties?.like_count as unknown as number | undefined
+  if (likeCount && likeCount >= 20) return 'Top'
+  const views = props.addon?.properties?.views as unknown as number | undefined
+  if (views && views >= 1000) return 'Popular'
+  const postsCount = props.addon?.properties?.posts_count as unknown as number | undefined
+  if (postsCount && postsCount >= 15) return 'Hot'
+  return ''
+})
+const showInstallActions = computed<boolean>(() => {
+  let splitted = props.addon.uid.split(':')
+  return splitted.length < 2 || splitted[0] !== 'eclipse'
+})
+
+// methods
+const buttonClicked = () => emit('addon-button-click', props.addon)
 </script>

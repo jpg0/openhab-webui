@@ -1,77 +1,125 @@
 <template>
-  <f7-input v-if="!config.item || !config.sendButton" class="input-field" ref="input" v-bind="config" :style="config.style"
-            :value="((config.type && config.type.indexOf('date') === 0) || config.type === 'time') ? valueForDatepicker : value"
-            :calendar-params="calendarParams" :step="config.step ? config.step : 'any'"
-            @input="$evt => updated($evt.target.value)" :change="updated" @calendar:change="updated" @texteditor:change="updated" @colorpicker:change="updated">
-    <template v-if="context.component.slots && context.component.slots.default">
-      <generic-widget-component :context="childContext(slotComponent)" v-for="(slotComponent, idx) in context.component.slots.default" :key="'default-' + idx" />
-    </template>
-  </f7-input>
-  <f7-row no-gap v-else class="oh-input-with-send-button" :style="config.style">
-    <f7-input class="input-field col-90" ref="input" v-bind="config"
-              :value="((config.type && config.type.indexOf('date') === 0) || config.type === 'time') ? valueForDatepicker : value"
-              :calendar-params="calendarParams" :step="config.step ? config.step : 'any'"
-              @input="$evt => updated($evt.target.value)" :change="updated" @calendar:change="updated" @texteditor:change="updated" @colorpicker:change="updated">
-      <template v-if="context.component.slots && context.component.slots.default">
-        <generic-widget-component :context="childContext(slotComponent)" v-for="(slotComponent, idx) in context.component.slots.default" :key="'default-' + idx" />
+  <f7-row no-gap class="oh-input" :style="config.style">
+    <f7-input
+      class="input-field"
+      ref="input"
+      :type="type"
+      v-bind="config"
+      :style="{ width: '100%', ...config.style }"
+      :value="(type && type.indexOf('date') === 0) || type === 'time' ? valueForDatepicker : value"
+      :calendar-params="calendarParams"
+      :step="config.step ? config.step : 'any'"
+      @focus="listenForEnterKey"
+      @blur="stopListeningForEnterKey"
+      @input="($evt) => updated($evt.target.value)"
+      @calendar:change="updated"
+      @texteditor:change="updated"
+      @colorpicker:change="updated">
+      <template v-if="defaultSlots.length > 0" #default>
+        <generic-widget-component
+          v-for="(slotComponent, idx) in defaultSlots"
+          :context="childContext(slotComponent)"
+          :key="'default-' + idx" />
       </template>
     </f7-input>
-    <f7-button class="send-button col-10" v-if="this.config.sendButton" @click.stop="sendButtonClicked" v-bind="config.sendButtonConfig || { iconMaterial: 'done', iconColor: 'gray' }" />
+
+    <span v-if="unit" class="unit">{{ unit }}</span>
+
+    <f7-button
+      v-if="config.sendButton && config.item"
+      class="send-button col-10"
+      @click.stop="sendButtonClicked"
+      v-bind="config.sendButtonConfig || { iconMaterial: 'done', iconColor: 'gray' }" />
   </f7-row>
 </template>
 
 <style lang="stylus">
-.oh-input-with-send-button
+.oh-input
+  flex-wrap nowrap !important
+  align-items center !important
+  input[type=number]
+    text-align right
+  .unit
+    margin-left 4px
   .input-field
     padding-left 8px
     padding-right 8px
-    --f7-input-font-size 1rem
   .send-button
-    --f7-button-padding-horizontal 0px
+    --f7-button-padding-horizontal 0
 </style>
 
 <script>
 import dayjs from 'dayjs'
 
-import mixin from '../widget-mixin'
-import variableMixin from '../variable-mixin'
+import { computed } from 'vue'
+import { useWidgetContext } from '@/components/widgets/useWidgetContext'
 import { OhInputDefinition } from '@/assets/definitions/widgets/system'
+import { getDefaultInputType } from '@/assets/definitions/widgets/system/input.js'
+import { getLastVariableKeyValue, getVariableScope, setVariableKeyValues } from '@/components/widgets/variable'
+
+import { useStatesStore } from '@/js/stores/useStatesStore'
 
 export default {
-  mixins: [mixin, variableMixin],
+  props: {
+    context: Object
+  },
   widget: OhInputDefinition,
-  data () {
+  setup(props) {
+    const { config, childContext, defaultSlots } = useWidgetContext(computed(() => props.context))
+    return { config, childContext, defaultSlots }
+  },
+  data() {
     return {
+      item: null,
       pendingUpdate: null
     }
   },
   computed: {
-    value () {
+    value() {
       let variableLocation = this.context.vars
       if (this.config.variable) {
-        const variableScope = this.getVariableScope(this.context.ctxVars, this.context.varScope, this.config.variable)
+        const variableScope = getVariableScope(this.context.ctxVars, this.context.varScope, this.config.variable)
         if (variableScope) variableLocation = this.context.ctxVars[variableScope]
       }
       if (this.config.variable && this.config.variableKey) {
-        const keyValue = this.getLastVariableKeyValue(variableLocation[this.config.variable], this.config.variableKey)
+        const keyValue = getLastVariableKeyValue(variableLocation[this.config.variable], this.config.variableKey)
         if (keyValue) {
           return keyValue
         }
       } else if (this.config.variable && variableLocation[this.config.variable] !== undefined) {
         return variableLocation[this.config.variable]
-      } else if (this.config.sendButton && this.pendingUpdate !== null) {
+      } else if (this.pendingUpdate !== null) {
         return this.pendingUpdate
-      } else if (this.config.item && this.context.store[this.config.item].state !== 'NULL' && this.context.store[this.config.item].state !== 'UNDEF' && this.context.store[this.config.item].state !== 'Invalid Date') {
-        if (this.config.useDisplayState) {
-          return this.context.store[this.config.item].displayState || this.context.store[this.config.item].state
-        } else {
-          return this.context.store[this.config.item].state
+      } else if (this.config.item) {
+        const item = this.context.store[this.config.item]
+        if (item.state !== 'NULL' && item.state !== 'UNDEF' && item.state !== 'Invalid Date') {
+          const value = (this.config.useDisplayState && item.displayState) || item.state
+          return this.type === 'number' ? parseFloat(this.extractValue(value)) : value
         }
       }
       return this.config.defaultValue
     },
-    calendarParams () {
-      if (this.config.type !== 'datepicker') return null
+    type() {
+      return this.config.type || getDefaultInputType(this.item?.type) || 'text'
+    },
+    /**
+     * The unit from the stateDescription pattern (if `useDisplayState` is enabled) or the item's unit symbol.
+     * @return {string|null}
+     */
+    unit() {
+      if (this.type !== 'number') return null
+      if (!this.item?.unitSymbol) return null
+
+      if (this.config.useDisplayState) {
+        const pattern = this.item.stateDescription?.pattern
+        const unit = this.extractUnit(pattern)
+        if (unit === '%unit%') return this.item.unitSymbol
+        return unit ?? this.item.unitSymbol
+      }
+      return this.item.unitSymbol
+    },
+    calendarParams() {
+      if (this.type !== 'datepicker') return null
       let params = { dateFormat: { year: 'numeric', month: 'numeric', day: 'numeric' } }
       if (this.config.showTime) {
         params.timePicker = true
@@ -83,7 +131,7 @@ export default {
         ...this.config.calendarParams
       }
     },
-    valueForDatepicker () {
+    valueForDatepicker() {
       const value = Array.isArray[this.value] ? this.value[0] : this.value
       const datetime = new Date(value)
       if (isNaN(datetime)) return null
@@ -101,48 +149,95 @@ export default {
       }
     }
   },
+  mounted() {
+    if (this.config.item) {
+      this.$oh.api.get(`/rest/items/${this.config.item}?recursive=false`).then((item) => {
+        this.item = item
+        if (this.config.useDisplayState) {
+          this.config.min ||= item.stateDescription?.minimum
+          this.config.max ||= item.stateDescription?.maximum
+          this.config.step ||= item.stateDescription?.step
+        }
+      })
+    }
+  },
   methods: {
-    updated (value) {
-      if (this.config.type === 'texteditor') {
+    updated(value) {
+      if (this.type === 'texteditor') {
         value = this.$$(this.$refs.input.$el).find('.text-editor-content')[0].innerHTML
         if (value === this.value) return
-      } else if (this.config.type === 'time') {
+      } else if (this.type === 'time') {
         const oldDate = dayjs(Array.isArray[this.value] ? this.value[0] : this.value).set('millisecond', 0)
         let time = value.match(/(?<hour>[0-9]{2}):(?<minute>[0-9]{2})(:(?<second>[0-9]{2}))?/)
         if (!time) return // avoid error being thrown because there is no match
         time = time.groups
         if (isNaN(time.hour) || isNaN(time.minute)) return
-        value = dayjs(oldDate).set('hour', time.hour).set('minute', time.minute).set('second', isNaN(time.second) ? 0 : time.second).set('millisecond', 0).format()
-        if ((new Date(oldDate)).getTime() === (new Date(value)).getTime()) return
-      } else if (this.config.type === 'date') {
+        value = dayjs(oldDate)
+          .set('hour', time.hour)
+          .set('minute', time.minute)
+          .set('second', isNaN(time.second) ? 0 : time.second)
+          .set('millisecond', 0)
+          .format()
+        if (new Date(oldDate).getTime() === new Date(value).getTime()) return
+      } else if (this.type === 'date') {
         const oldDate = dayjs(Array.isArray[this.value] ? this.value[0] : this.value).set('millisecond', 0)
-        value = dayjs(value).set('hour', oldDate.get('hour')).set('minute', oldDate.get('minute')).set('second', oldDate.get('second')).set('millisecond', 0).format()
-        if ((new Date(oldDate)).getTime() === (new Date(value)).getTime()) return
-      } else if (this.config.type === 'datepicker' && Array.isArray(value) && this.valueForDatepicker[0].getTime() === value[0].getTime()) {
+        value = dayjs(value)
+          .set('hour', oldDate.get('hour'))
+          .set('minute', oldDate.get('minute'))
+          .set('second', oldDate.get('second'))
+          .set('millisecond', 0)
+          .format()
+        if (new Date(oldDate).getTime() === new Date(value).getTime()) return
+      } else if (this.type === 'datepicker' && Array.isArray(value) && this.valueForDatepicker[0].getTime() === value[0].getTime()) {
         return
       }
-      if (this.config.sendButton) {
-        this.$set(this, 'pendingUpdate', value)
-      }
+      this.pendingUpdate = value
       if (this.config.variable) {
-        const variableScope = this.getVariableScope(this.context.ctxVars, this.context.varScope, this.config.variable)
-        const variableLocation = (variableScope) ? this.context.ctxVars[variableScope] : this.context.vars
+        const variableScope = getVariableScope(this.context.ctxVars, this.context.varScope, this.config.variable)
+        const variableLocation = variableScope ? this.context.ctxVars[variableScope] : this.context.vars
         if (this.config.variableKey) {
-          value = this.setVariableKeyValues(variableLocation[this.config.variable], this.config.variableKey, value)
+          value = setVariableKeyValues(variableLocation[this.config.variable], this.config.variableKey, value)
         }
-        this.$set(variableLocation, this.config.variable, value)
+        variableLocation[this.config.variable] = value
       }
     },
-    sendButtonClicked () {
+    listenForEnterKey(evt) {
+      evt.target.addEventListener('keyup', this.keyUp)
+    },
+    stopListeningForEnterKey(evt) {
+      evt.target.removeEventListener('keyup', this.keyUp)
+    },
+    keyUp(evt) {
+      if (evt.key === 'Enter') {
+        this.sendButtonClicked()
+      }
+    },
+    sendButtonClicked() {
       if (this.config.item && this.pendingUpdate) {
         let cmd = this.pendingUpdate
-        if (this.config.type === 'datepicker' && Array.isArray(cmd)) {
+        if (this.unit) {
+          cmd += ' ' + this.unit
+        } else if (this.type === 'datepicker' && Array.isArray(cmd)) {
           cmd = dayjs(cmd[0]).format()
+          if (cmd === 'Invalid Date') return
         }
-        if (cmd === 'Invalid Date') return
-        this.$store.dispatch('sendCommand', { itemName: this.config.item, cmd })
-        this.$set(this, 'pendingUpdate', null)
+        useStatesStore().sendCommand(this.config.item, cmd)
+        this.pendingUpdate = null
       }
+    },
+    extractUnit(pattern) {
+      if (!pattern) return null
+      const parts = pattern.trim().split(/\s+/)
+      // Ignore %unit% and %% placeholders while detecting actual value tokens.
+      const valueIndex = parts.findLastIndex((part) => part.startsWith('%') && part !== '%unit%' && part !== '%%')
+
+      if (valueIndex === -1 || valueIndex === parts.length - 1) return null
+      return parts[valueIndex + 1] ?? null
+    },
+    extractValue(pattern) {
+      const endIndex = pattern.lastIndexOf(this.unit)
+      if (endIndex < 0) return pattern
+      return pattern.substring(0, endIndex).trim()
     }
   }
 }

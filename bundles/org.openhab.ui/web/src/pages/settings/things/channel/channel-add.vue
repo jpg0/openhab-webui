@@ -1,12 +1,7 @@
 <template>
   <f7-page @page:afterin="onPageAfterIn" name="channel-add">
-    <f7-navbar title="Add Channel" :subtitle="thing.label" back-link="Cancel">
-      <f7-nav-right class="if-not-aurora">
-        <f7-link @click="save()" v-if="$theme.md" icon-md="material:save" icon-only />
-        <f7-link @click="save()" v-if="!$theme.md">
-          Done
-        </f7-link>
-      </f7-nav-right>
+    <f7-navbar>
+      <oh-nav-content title="Add Channel" :subtitle="thing.label" back-link="Cancel" save-link="Done" @save="save()" :f7router />
     </f7-navbar>
     <f7-block class="block-narrow">
       <f7-col>
@@ -20,10 +15,15 @@
           <div>Loading...</div>
         </f7-block>
         <f7-list v-else>
-          <f7-list-item radio v-for="channelType in channelTypes"
-                        :value="channelType.UID"
-                        @change="currentChannelType = channelTypes.find((m) => m.UID === $event.target.value)"
-                        :key="channelType.UID" :title="channelType.label" :footer="channelType.description" name="channel-type" />
+          <f7-list-item
+            v-for="channelType in channelTypes"
+            radio
+            :value="channelType.UID"
+            @change="currentChannelType = channelTypes.find((m) => m.UID === $event.target.value)"
+            :key="channelType.UID"
+            :title="channelType.label"
+            :footer="channelType.description"
+            name="channel-type" />
         </f7-list>
       </f7-col>
       <f7-col v-if="currentChannelType != null">
@@ -37,7 +37,7 @@
 
     <div v-if="ready && currentChannelType" class="if-aurora display-flex justify-content-center margin padding">
       <div class="flex-shrink-0">
-        <f7-button class="padding-left padding-right" style="width: 150px" color="blue" large raised fill @click="save">
+        <f7-button class="padding-left padding-right" style="width: 150px" color="theme-alt" large raised fill @click="save">
           Create
         </f7-button>
       </div>
@@ -48,14 +48,23 @@
 <script>
 import ConfigSheet from '@/components/config/config-sheet.vue'
 import ChannelGeneralSettings from '@/pages/settings/things/channel/channel-general-settings.vue'
+import { f7, theme } from 'framework7-vue'
 
 export default {
   components: {
     ChannelGeneralSettings,
     ConfigSheet
   },
-  props: ['thing', 'thingType'],
-  data () {
+  props: {
+    thing: Object,
+    thingType: Object,
+    f7router: Object,
+    f7route: Object
+  },
+  setup() {
+    return { theme }
+  },
+  data() {
     return {
       ready: false,
       channel: {
@@ -68,26 +77,32 @@ export default {
     }
   },
   methods: {
-    onPageAfterIn (event) {
+    onPageAfterIn(event) {
       const bindingId = this.thingType.UID.split(':')[0]
       const promises = this.thingType.extensibleChannelTypeIds.map((ctid) => this.$oh.api.get(`/rest/channel-types/${bindingId}:${ctid}`))
-      Promise.all(promises).then((ct) => {
-        this.channelTypes = ct
-        this.ready = true
-      })
+      Promise.all(promises)
+        .then((ct) => {
+          this.channelTypes = ct
+          this.ready = true
+        })
+        .catch((err) => {
+          console.error('Error loading channel types', err)
+          f7.dialog.alert('Error loading channel type: ' + err)
+          this.f7router.back()
+        })
     },
-    save () {
+    save() {
       if (!this.channel.id) {
-        this.$f7.dialog.alert('Please give a unique identifier')
+        f7.dialog.alert('Please give a unique identifier')
         return
       }
       if (!this.channel.id.match(/^[a-zA-Z0-9_-]*$/)) {
-        this.$f7.dialog.alert('The identifier should only contain alphanumeric characters')
+        f7.dialog.alert('The identifier should only contain alphanumeric characters')
         return
       }
       if (!this.channel.label && this.currentChannelType.label) this.channel.label = this.currentChannelType.label
       if (!this.channel.label) {
-        this.$f7.dialog.alert('Please give a label')
+        f7.dialog.alert('Please give a label')
         return
       }
       let finalChannel = Object.assign({}, this.channel, {
@@ -100,9 +115,9 @@ export default {
         defaultTags: [],
         configuration: this.config
       })
-      this.$f7route.route.context.finalChannel = finalChannel
-      // this.$f7router.emit('complete', finalChannel)
-      this.$f7router.back()
+      this.f7route.route.context.finalChannel = finalChannel
+      // this.f7router.emit('complete', finalChannel)
+      this.f7router.back()
     }
   }
 }

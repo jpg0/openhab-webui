@@ -2,18 +2,204 @@
 html
   overscroll-behavior-y contain
 
-/* Fixes for desktops */
-.device-desktop
+/* Fixes & adjustments for Aurora theme */
+.aurora
+  --f7-label-line-height 1.3
+  --f7-searchbar-input-font-size 13px
+  --f7-searchbar-height var(--f7-subnavbar-height)
+  --f7-button-font-size 14px
+  --f7-chip-height 24px
+  --f7-chip-font-size 13px
+  --f7-menu-font-size 13px
+  --f7-block-margin-vertical 16px
+  --f7-inline-label-font-size 14px
+  --f7-input-font-size 14px
+  --f7-button-height 28px
+  --f7-input-height 34px
+  // list
+  --f7-list-item-header-line-height 1.3
+  --f7-list-item-after-line-height 1.3
+  --f7-list-media-item-padding-vertical 5px
+  --f7-list-font-size 14px
+  --f7-list-margin-vertical 16px
+  --f7-list-item-min-height 32px
+  --f7-list-group-title-height 19px
+  .media-list, li.media-item
+  .list .item-inner
+    --f7-list-item-padding-vertical 5px
+    --f7-typography-margin 0
+    .toggle
+       margin-top 0 !important
+       margin-bottom 0 !important
+  // navbar
   --f7-navbar-title-line-height 1.3
   --f7-navbar-subtitle-line-height 1.3
   --f7-subnavbar-title-line-height 1.3
-  --f7-list-item-header-line-height 1.3
-  --f7-label-line-height 1.3
-  --f7-list-item-after-line-height 1.3
+  --f7-navbar-font-size 15px
+  --f7-navbar-large-title-font-size 26px
+  --f7-navbar-height 38px
+  // tabbar
+  --f7-tabbar-labels-height 44px
+  --f7-tabbar-icon-size 20px
+  --f7-tabbar-label-font-size 12px
+  // toolbar
+  --f7-toolbar-font-size 14px
+  --f7-toolbar-height 44px
+  // icons
+  .f7-icons
+     font-size 20px
+  // action modal
+  --f7-actions-button-height 30px
+  --f7-actions-button-height-landscape 34px
+  // dropdown menu
+  --f7-menu-item-height 36px
+  --f7-menu-dropdown-item-height 24px
+  // cards
+  --f7-card-header-min-height 38px
+  --f7-card-footer-min-height 38px
+  --f7-card-header-font-size 14px
+  --f7-card-header-padding-vertical 10px
+  // table
+  --f7-table-card-header-height 48px
+  --f7-table-head-cell-height 48px
+  --f7-table-body-cell-height 40px
+  // toast
+  --f7-toast-font-size 16px
 
+/* Fixes for desktop devices */
+.device-desktop
   // disable all searchbar backdrops on desktop devices
   .searchbar-backdrop
     display none
+
+/* Fixes for dropdown menus */
+.menu-dropdown
+  cursor pointer
+  z-index 7000 !important
+
+/* Fixes and adjustments for list input */
+.list
+  textarea
+    padding-top 0
+    padding-bottom 0
+
+/*
+  Add an outline around focused input fields
+  But not on Android because it already adds an underscore
+*/
+.aurora, .ios
+  input:focus, .input-with-value:focus
+    outline none !important
+    box-shadow inset 0 0 0 1px
+
+.item-input, .item-input-wrap, .input, .input-with-value
+  // Space label from input
+  .item-title, .item-label
+    margin-bottom 4px
+
+  // Rounded corners and background tint
+  input, .input-with-value
+    border-radius 6px !important
+    background-color rgba(0,0,0,0.08) !important // light mode
+    .dark &
+      background-color rgba(255,255,255,0.16) !important // dark mode
+
+  .input-clear-button
+    // Offset clear button for custom input background
+    margin-right 6px
+
+/* Fixes for smart select popups with searchbar */
+.popup.smart-select-popup.modal-in
+  .page-content
+    /* Fix scrollbar hidden behind searchbar */
+    padding-top 0
+    margin-top calc(var(--f7-page-navbar-offset, 0px) + var(--f7-page-toolbar-top-offset, 0px) + var(--f7-page-subnavbar-offset, 0px) + var(--f7-page-searchbar-offset, 0px) + var(--f7-page-content-extra-padding-top, 0px))
+    height calc(100% - var(--f7-page-navbar-offset, 0px) - var(--f7-page-toolbar-top-offset, 0px) - var(--f7-page-subnavbar-offset, 0px) - var(--f7-page-searchbar-offset, 0px) - var(--f7-page-content-extra-padding-top, 0px))
+
+/* Fixes for oh-cell opened cards behind other oh-cells */
+.oh-cell.card-opened
+  z-index 5000 !important
+
+/* General adjustments */
+:root
+  --f7-button-text-transform none
+  --f7-button-large-text-transform none
+  --f7-button-small-text-transform none
+  --f7-input-padding-left 8px
+  --f7-input-padding-right 24px
+
+/* Custom Dialog Sizes */
+.dialog.dialog-medium
+  --f7-dialog-width: 360px
+
+  @media (max-width: 599px) {
+    --f7-dialog-width: 75vw
+  }
+
+  @media (min-width: 768px) {
+    --f7-dialog-width: 500px
+  }
+
+.dialog.dialog-wide
+  --f7-dialog-width: 560px
+
+  @media (max-width: 599px) {
+    --f7-dialog-width: 95vw
+  }
+
+  @media (min-width: 768px) {
+    --f7-dialog-width: 700px
+  }
+
+/* Adjustments for iOS & Material Design themes */
+.ios
+.md
+  // list
+  --f7-list-margin-vertical 20px
+  li.media-item
+    --f7-typography-margin 0
+    --f7-list-item-padding-vertical 10px
+  // actions modal
+  --f7-actions-button-height 44px
+  --f7-actions-button-height-landscape 48px
+  .actions-modal > .actions-group
+    margin-left 28px
+    margin-right 28px
+  // dropdown menu
+  --f7-menu-dropdown-item-height 28px
+
+/* Adjustments for cards */
+:root
+  --f7-card-margin-vertical 10px
+  --f7-card-margin-horizontal 10px
+
+/* Fixes for navbar title positioning (force title to center) */
+.navbar-inner.navbar-inner-centered-title
+.ios & .navbar-inner.sliding
+  display flex
+  justify-content center !important
+  .left
+    position absolute
+    left calc(var(--f7-navbar-inner-padding-left) + var(--f7-safe-area-left))
+  .title
+    left 0 !important
+    right 0 !important
+    max-width calc(100% - var(--f7-navbar-inner-padding-left) - var(--f7-safe-area-left) - 140px - var(--f7-navbar-inner-padding-right) - var(--f7-safe-area-right))
+  .right
+    position absolute
+    right calc(var(--f7-navbar-inner-padding-right) + var(--f7-safe-area-right))
+
+/* Semantic Model related searchbar and expand treeview button */
+.model-searchbar
+  .searchbar-inner
+    padding-right var(--f7-searchbar-inner-padding-right)
+.model-expand-button
+  height unset
+  margin-right calc(8px + var(--f7-safe-area-right))
+  text-overflow unset
+  align-self center
+  .icon
+    margin-bottom 2.75px !important
 
 .no-page-transitions
   .smart-select-popup.popup.modal-in, .smart-select-popup.popup.modal-out
@@ -21,10 +207,54 @@ html
 
 /* Custom color theme properties */
 :root
-  --f7-theme-color #e64a19
-  --f7-theme-color-rgb 230, 74, 25
-  --f7-theme-color-shade #c13e15
-  --f7-theme-color-tint #ea673e
+  --oh-branding-color #e64a19 // do not change
+
+  --oh-theme-color var(--oh-branding-color)
+  --oh-theme-color-rgb 230, 74, 25
+  --oh-theme-color-shade #c13e15
+  --oh-theme-color-tint #ea673e
+
+  --oh-theme-alt-color #2196F3
+  --oh-theme-alt-color-rgb 33, 150, 243
+  --oh-theme-alt-color-shade #1b7fd0
+  --oh-theme-alt-color-tint #40a4f4
+
+  --f7-theme-color var(--oh-theme-color)
+  --f7-theme-color-rgb var(--oh-theme-color-rgb)
+  --f7-theme-color-shade var(--oh-theme-color-shade)
+  --f7-theme-color-tint var(--oh-theme-color-tint)
+
+// classes for theme and theme-alt so that colors can be used as the color property for f7 components
+.color-theme
+  --f7-theme-color var(--oh-theme-color)
+  --f7-theme-color-rgb var(--oh-theme-color-rgb)
+  --f7-theme-color-shade var(--oh-theme-color-shade)
+  --f7-theme-color-tint var(--oh-theme-color-tint)
+
+.text-color-theme
+  --f7-theme-color-text-color var(--oh-theme-color)
+  
+.bg-color-theme
+  --f7-theme-color-bg-color var(--oh-theme-color)
+
+.border-color-theme
+  --f7-theme-color-border-color var(--oh-theme-color)
+
+.color-theme-alt
+  --f7-theme-color var(--oh-theme-alt-color)
+  --f7-theme-color-rgb var(--oh-theme-alt-color-rgb)
+  --f7-theme-color-shade var(--oh-theme-alt-color-shade)
+  --f7-theme-color-tint var(--oh-theme-alt-color-tint)
+
+.text-color-theme-alt
+  --f7-theme-color-text-color var(--oh-theme-alt-color)
+  
+.bg-color-theme-alt
+  --f7-theme-color-bg-color var(--oh-theme-alt-color)
+
+.border-color-theme-alt
+  --f7-theme-color-border-color var(--oh-theme-alt-color)
+
 
 :root.theme-filled,
 :root .theme-filled
@@ -57,7 +287,8 @@ html
     --f7-tabbar-link-inactive-color rgba(255,255,255,0.54)
     --f7-tabbar-link-active-border-color #fff
 
-  .navbar
+  .navbar,
+  .dock-header
     --f7-bars-bg-color var(--f7-theme-color)
     --f7-bars-bg-color-rgb var(--f7-theme-color-rgb)
     --f7-bars-text-color #fff
@@ -65,6 +296,8 @@ html
     --f7-bars-link-color #fff
     --f7-navbar-large-title-text-color #fff
     --f7-bars-border-color transparent
+
+  .navbar
 
     &.navbar-large-transparent .title-large-text
       --f7-navbar-large-title-text-color #000
@@ -75,7 +308,7 @@ html
   --f7-navbar-subtitle-text-color rgba(255,255,255,0.85)
   --f7-navbar-border-color transparent
   --f7-sheet-border-color transparent
-  .searchbar
+  .searchbar & :not(.dark)
     --f7-searchbar-input-bg-color #fff
     input
       --f7-searchbar-input-text-color #000
@@ -99,23 +332,27 @@ html
   .list-card
     box-shadow var(--f7-elevation-1)
 
-.home-tabs
-  --f7-theme-color #2196f3
-
 .navbar-large-hidden
   --f7-navbar-large-collapse-progress 1
   opacity 0
 
-.navbar-large-hidden:not(.navbar-large-collapsed) .navbar-bg
-  opacity 0
+  .navbar-bg
+    opacity 0
 
-.toolbar.toolbar-bottom, .tabbar.tabbar-bottom
-  --f7-theme-color #2196f3
-  --f7-theme-color-rgb var(--f7-color-blue-rgb)
-  --f7-theme-color-tint var(--f7-color-blue-tint)
+.navbar-hidden
+  .navbar-bg
+    opacity 0
+
+.navbar-bg
+  transition opacity 0.3s ease
+
+.toolbar.toolbar-bottom, .tabbar.tabbar-bottom, .dock-toolbar
+  --f7-theme-color var(--oh-theme-alt-color)
+  --f7-theme-color-rgb var(--oh-theme-alt-color-rgb)
+  --f7-theme-color-tint var(--oh-theme-alt-color-tint)
 
 .home-tabs
-  --f7-theme-color #2196f3
+  --f7-theme-color var(--oh-theme-alt-color)
   --f7-bars-bg-color rgb(247, 247, 248)
   --f7-bars-text-color #000
   --f7-tabbar-link-inactive-color rgba(0, 0, 0, 0.54)
@@ -125,15 +362,21 @@ html
 .md .title-large-text
   font-weight bold !important
 
-:root .theme-dark
+.dark
   color-scheme dark
 
-.theme-dark .home-tabs
+.dark .home-tabs
   --f7-bars-bg-color rgb(32, 32, 33)
   --f7-bars-text-color #fff
   --f7-bars-link-color #fff
   --f7-tabbar-link-inactive-color rgba(255,255,255,0.54)
 
+// Color to autoselect - use as color="auto-dark" on elements where the color should be auto switched between black and white based on dark mode
+.color-auto-dark
+  --f7-theme-color #000
+
+.dark .color-auto-dark
+  --f7-theme-color #fff
 
 .ios .contextual-toolbar
    .delete
@@ -187,7 +430,7 @@ html
 
 .block-narrow
   z-index auto
-  overflow-x hidden !important
+  overflow hidden !important
 
 @media (min-width 1024px)
     .block-narrow
@@ -211,8 +454,9 @@ html
 
 @media (max-width 1023px)
   .block-narrow
-    padding-left var(--f7-safe-area-left)
-    padding-right var(--f7-safe-area-right)
+    // use insets from env because f7-safe-area CSS vars are not available due the fix in nomini.css
+    padding-left env(safe-area-inset-left)
+    padding-right env(safe-area-inset-right)
 
 .md .panel-in-breakpoint
   box-shadow 0 1px 10px 0 rgba(0, 0, 0, 0.3)
@@ -247,6 +491,8 @@ html
   .item-inner:after
     display none !important
   .menu-sublinks
+    color var(--f7-list-item-footer-text-color)
+    margin-bottom var(--f7-list-margin-vertical)
     .item-content
       padding-left calc(2*var(--f7-list-item-padding-horizontal) + var(--f7-safe-area-left))
 
@@ -258,13 +504,6 @@ html
   width 32px
   text-align center
   line-height 32px
-
-#framework7-root:not(.theme-dark) .page-home:not(.standard-background),
-#framework7-root:not(.theme-dark) .page-about:not(.standard-background),
-#framework7-root:not(.theme-dark) .page-addon-store:not(.standard-background),
-#framework7-root:not(.theme-dark) .page-addon-details:not(.standard-background),
-//#framework7-root:not(.theme-dark) .page-settings
-  --f7-page-bg-color #fff
 
 // disable blur on card backdrop (poor performance - update: seems fixed)
 // .card-backdrop
@@ -309,3 +548,36 @@ html
       padding 0
       margin-left 8px
       color var(--f7-input-text-color)
+
+// Fix safe area issues inside f7-card components, where safe areas are already respected by the f7-card itself
+.card
+  .block
+    padding-left var(--f7-block-padding-horizontal)
+    padding-right var(--f7-block-padding-horizontal)
+  .media-item
+    .item-content
+      padding-left var(--f7-list-item-padding-horizontal)
+      .item-inner
+        padding-right var(--f7-list-item-padding-horizontal)
+
+// Additional safe area fixes are in nomini.css due to CssMinimizerPlugin minimizing app.styl and removing the unit px from 0px,
+// which breaks calculcations using the overwritten CSS variables.
+
+// Fix for grouped list indentation, e.g. Pages list
+.list:not(.accordion-list) ul .list-group ul
+  padding-left 0
+
+.advanced-label
+  font-size var(--f7-toolbar-font-size)
+
+.advanced-label .checkbox
+  padding-left 5px
+  padding-right 5px
+  cursor pointer
+
+.advanced-label + .advanced-label
+  margin-left 5px
+
+.toast .toast-content
+  justify-content:  center
+

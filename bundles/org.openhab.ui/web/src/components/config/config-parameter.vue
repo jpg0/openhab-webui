@@ -1,17 +1,40 @@
 <template>
-  <f7-list ref="parameter" class="config-parameter" :no-hairlines-md="configDescription.type !== 'BOOLEAN' && (!configDescription.options || !configDescription.options.length) && ['item'].indexOf(configDescription.context) < 0"
-           v-show="(configDescription.visible) ? configDescription.visible(value, configuration, configDescription, parameters) : true">
-    <component v-if="!readOnly && !configDescription.readOnly" :is="control" :config-description="configDescription" :value="value" :parameters="parameters" :configuration="configuration" :title="configDescription.title" @input="updateValue" />
-    <f7-list-item v-else-if="readOnly && (configDescription.context === 'password')" :is="passwords" :config-description="configDescription" :value="value" :parameters="parameters" :configuration="configuration" :title="configDescription.title" />
-    <f7-list-item v-else :title="configDescription.label" :after="(value !== undefined && value !== null) ? value.toString() : 'N/A'" />
-    <f7-block-footer slot="after-list" class="param-description">
-      <div v-if="status" class="param-status-info">
-        <f7-chip v-if="status.type !== 'INFORMATION'" :color="status.type === 'WARNING' ? 'orange' : (status.type === 'ERROR') ? 'red' : 'gray'" style="float: right" :text="status.type" />
-        <span v-if="status.statusCode">Status Code: &nbsp;{{ status.statusCode }}&nbsp;&nbsp;</span>
-        <span v-if="status.message">{{ status.message }}</span>
-      </div>
-      <small v-html="`${configDescription.required ? '<strong>Required</strong>&nbsp;' : ''}${configDescription.description || ''}`" />
-    </f7-block-footer>
+  <f7-list
+    v-show="configDescription.visible ? configDescription.visible(value, configuration, configDescription, parameters) : true"
+    ref="parameter"
+    :class="['config-parameter', { 'advanced-param': configDescription.advanced }]"
+    :no-hairlines-md="
+      configDescription.type !== 'BOOLEAN' &&
+      (!configDescription.options || !configDescription.options.length) &&
+      ['item'].indexOf(configDescription.context) < 0
+    ">
+    <f7-list-group v-if="(!readOnly && !configDescription.readOnly) || configDescription.context === 'password'">
+      <component
+        :is="control"
+        :read-only="readOnly"
+        :config-description="normalizedConfig"
+        :value="value"
+        :parameters="parameters"
+        :configuration="configuration"
+        :title="normalizedConfig.title"
+        :f7router="f7router"
+        @input="updateValue" />
+    </f7-list-group>
+    <f7-list-item v-else :title="configDescription.label" :after="value != null ? value.toString() : 'N/A'" />
+    <template #after-list>
+      <f7-block-footer class="param-description">
+        <div v-if="status" class="param-status-info">
+          <f7-chip
+            v-if="status.type !== 'INFORMATION'"
+            :color="status.type === 'WARNING' ? 'orange' : status.type === 'ERROR' ? 'red' : 'gray'"
+            style="float: right"
+            :text="status.type" />
+          <span v-if="status.statusCode">Status Code: &nbsp;{{ status.statusCode }}&nbsp;&nbsp;</span>
+          <span v-if="status.message">{{ status.message }}</span>
+        </div>
+        <small v-html="`${configDescription.required ? '<strong>Required</strong>&nbsp;' : ''}${description || ''}`" />
+      </f7-block-footer>
+    </template>
   </f7-list>
 </template>
 
@@ -27,6 +50,8 @@ import ParameterLocation from './controls/parameter-location.vue'
 import ParameterCronExpression from './controls/parameter-cronexpression.vue'
 import ParameterDayOfWeek from './controls/parameter-dayofweek.vue'
 import ParameterTime from './controls/parameter-time.vue'
+import ParameterDate from '@/components/config/controls/parameter-date.vue'
+import ParameterDatetime from '@/components/config/controls/parameter-datetime.vue'
 import ParameterPageWidget from './controls/parameter-pagewidget.vue'
 import ParameterRule from './controls/parameter-rule.vue'
 import ParameterPersistenceService from './controls/parameter-persistenceservice.vue'
@@ -34,31 +59,36 @@ import ParameterProps from './controls/parameter-props.vue'
 import ParameterTriggerChannel from './controls/parameter-triggerchannel.vue'
 import ParameterText from './controls/parameter-text.vue'
 import ParameterQrcode from './controls/parameter-qrcode.vue'
+import ParameterMonth from '@/components/config/controls/parameter-month.vue'
 
 export default {
-  components: {
+  props: {
+    configDescription: Object,
+    value: [String, Number, Boolean, Array, Object],
+    parameters: { type: Array, required: true },
+    configuration: { type: Object, required: true },
+    readOnly: Boolean,
+    status: Array,
+    f7router: Object
   },
-  props: [
-    'configDescription',
-    'value',
-    'parameters',
-    'configuration',
-    'readOnly',
-    'status'
-  ],
-  data () {
-    return {
-    }
-  },
+  emits: ['update'],
   computed: {
-    passwords () {
-      const configDescription = this.configDescription
-      configDescription.readOnly = true
-      return ParameterText
+    normalizedConfig() {
+      const cfg = { ...this.configDescription }
+      if (cfg.type === 'INTEGER' && cfg.context === 'week') {
+        cfg.min = 1
+        cfg.max = 53
+        cfg.step = 1
+      }
+      return cfg
     },
-    control () {
-      const configDescription = this.configDescription
-      if (configDescription.options?.length && configDescription.limitToOptions && (!configDescription.context || configDescription.context === 'network-interface')) {
+    control() {
+      const configDescription = this.normalizedConfig
+      if (
+        configDescription.options?.length &&
+        configDescription.limitToOptions &&
+        (!configDescription.context || configDescription.context === 'network-interface' || configDescription.context === 'serial-port')
+      ) {
         return ParameterOptions
       } else if (configDescription.type === 'INTEGER' || configDescription.type === 'DECIMAL') {
         return ParameterNumber
@@ -70,10 +100,16 @@ export default {
         return ParameterLocation
       } else if (configDescription.type === 'TEXT' && configDescription.context === 'cronexpression') {
         return ParameterCronExpression
+      } else if (configDescription.type === 'TEXT' && configDescription.context === 'month') {
+        return ParameterMonth
       } else if (configDescription.type === 'TEXT' && configDescription.context === 'dayOfWeek') {
         return ParameterDayOfWeek
       } else if (configDescription.type === 'TEXT' && configDescription.context === 'time') {
         return ParameterTime
+      } else if (configDescription.type === 'TEXT' && configDescription.context === 'date') {
+        return ParameterDate
+      } else if (configDescription.type === 'TEXT' && configDescription.context === 'datetime') {
+        return ParameterDatetime
       } else if (configDescription.type === 'TEXT' && configDescription.context && configDescription.context.indexOf('page') >= 0) {
         return ParameterPageWidget
       } else if (configDescription.type === 'TEXT' && configDescription.context && configDescription.context.indexOf('widget') >= 0) {
@@ -88,20 +124,29 @@ export default {
         return ParameterRule
       } else if (configDescription.type === 'TEXT' && configDescription.context === 'channel') {
         return ParameterTriggerChannel
-      } else if (configDescription.type === 'TEXT' && configDescription.context === 'persistenceService') {
+      } else if (configDescription.type === 'TEXT' && configDescription.context && configDescription.context.indexOf('persistence') === 0) {
         return ParameterPersistenceService
       } else if (configDescription.type === 'TEXT' && configDescription.context === 'qrcode') {
         return ParameterQrcode
       }
       return ParameterText
+    },
+    description() {
+      let description = this.configDescription.description || ''
+      description = description.replace(/<a href="http/g, '<a class="external" target="_blank" href="http') // if class/target already declared, will be overwritten in most browsers
+      // TODO: Remove this when proper UoM support is implemented for config parameters
+      // Adds the unit to the description if it is available, UoM support is currently implemented through number parameters
+      // where the user can enter the amount for the default unit
+      if (this.configDescription.unit) return `${description} (${this.configDescription.unit})`
+      return description
     }
   },
-  mounted () {
+  mounted() {
     // Uncomment to perform initial validation on the field
-    // this.$f7.input.validateInputs(this.$refs.parameter.$el)
+    // f7.input.validateInputs(this.$refs.parameter.$el)
   },
   methods: {
-    updateValue (value) {
+    updateValue(value) {
       console.debug(`Update ${this.configDescription.name} to ${value}`)
       this.$emit('update', value)
     }
@@ -113,8 +158,11 @@ export default {
 .parameter-group.block
   margin-top 0
   margin-bottom 0
+  .list ul
+    padding-left 0
 .param-description
   padding-left 16px !important
+  padding-right 10px !important
   &.block-footer
     margin-top 2px
     margin-bottom 1rem
@@ -138,4 +186,6 @@ export default {
       white-space nowrap
       margin-top 0
       margin-bottom 0
+  &.advanced-param
+    border-left 2px solid var(--f7-color-blue)
 </style>

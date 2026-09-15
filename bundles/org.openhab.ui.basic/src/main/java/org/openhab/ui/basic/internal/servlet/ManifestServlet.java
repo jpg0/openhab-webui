@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2024 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2026 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -13,7 +13,6 @@
 package org.openhab.ui.basic.internal.servlet;
 
 import java.io.IOException;
-import java.io.PrintWriter;
 
 import javax.servlet.Servlet;
 import javax.servlet.ServletException;
@@ -66,11 +65,8 @@ public class ManifestServlet extends HttpServlet {
 
     private void generateManifest(ServletResponse res, @Nullable String sitemapName)
             throws IOException, RenderException {
-        PrintWriter resWriter;
-        resWriter = res.getWriter();
-        resWriter.append(renderer.renderManifest(sitemapName));
-
         res.setContentType(MANIFEST_CONTENT_TYPE);
+        res.getWriter().append(renderer.renderManifest(sitemapName));
     }
 
     @Override

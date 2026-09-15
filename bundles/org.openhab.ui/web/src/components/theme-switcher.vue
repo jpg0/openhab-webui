@@ -1,185 +1,179 @@
 <template>
-  <f7-block>
-    <f7-block-title class="padding-left" v-t="'about.theme'" />
-    <f7-row>
-      <f7-col width="25" class="theme-picker auto" @click="switchTheme('auto')">
-        <span class="text-color-gray" v-t="'about.theme.auto'">Auto</span>
-        <f7-checkbox checked disabled v-if="theme === 'auto'" />
-      </f7-col>
-      <f7-col width="25" class="theme-picker" @click="switchTheme('md')">
-        <span><f7-icon f7="logo_android" size="20" color="gray" /></span>
-        <f7-checkbox checked disabled v-if="theme === 'md'" />
-      </f7-col>
-      <f7-col width="25" class="theme-picker" @click="switchTheme('ios')">
-        <span><f7-icon f7="logo_ios" size="25" color="gray" /></span>
-        <f7-checkbox checked disabled v-if="theme === 'ios'" />
-      </f7-col>
-      <f7-col width="25" class="theme-picker" @click="switchTheme('aurora')">
-        <span><f7-icon f7="desktopcomputer" size="20" color="gray" /></span>
-        <f7-checkbox checked disabled v-if="theme === 'aurora'" />
-      </f7-col>
-    </f7-row>
-    <f7-block-title v-t="'about.darkMode'" />
-    <f7-row>
-      <f7-col width="33" class="theme-picker auto" @click="setThemeDark('auto')">
-        <span class="text-color-gray" v-t="'about.darkMode.auto'" />
-        <f7-checkbox checked disabled v-if="darkMode === 'auto'" />
-      </f7-col>
-      <f7-col width="33" class="bg-color-white theme-picker" @click="setThemeDark('light')">
-        <span class="text-color-gray" v-t="'about.darkMode.light'" />
-        <f7-checkbox checked disabled v-if="darkMode === 'light'" />
-      </f7-col>
-      <f7-col width="33" class="bg-color-black theme-picker" @click="setThemeDark('dark')">
-        <span class="text-color-gray" v-t="'about.darkMode.dark'" />
-        <f7-checkbox checked disabled v-if="darkMode === 'dark'" />
-      </f7-col>
-    </f7-row>
-    <f7-block-title v-t="'about.navigationBarsStyle'" />
-    <f7-row>
-      <f7-col width="50" class="nav-bars-picker nav-bars-picker-empty" @click="setBarsStyle('light')">
-        <div class="demo-navbar" />
-        <f7-checkbox checked disabled v-if="barsStyle === 'light'" />
-      </f7-col>
-      <f7-col width="50" class="nav-bars-picker nav-bars-picker-fill" @click="setBarsStyle('filled')">
-        <div class="demo-navbar" />
-        <f7-checkbox checked disabled v-if="barsStyle === 'filled'" />
-      </f7-col>
-    </f7-row>
+  <f7-block class="theme-switcher block-narrow">
+    <group-box :title="t('about.theme')">
+      <f7-row class="padding">
+        <f7-col width="25" :class="['theme-picker', 'auto', { selected: theme === 'auto' }]" @click="switchTheme('auto')">
+          <span class="text-color-gray"> {{ t('about.theme.auto') }}</span>
+        </f7-col>
+        <f7-col width="25" :class="['theme-picker', { selected: theme === 'md' }]" @click="switchTheme('md')">
+          <span><f7-icon f7="logo_android" size="20" color="gray" /></span>
+        </f7-col>
+        <f7-col width="25" :class="['theme-picker', { selected: theme === 'ios' }]" @click="switchTheme('ios')">
+          <span><f7-icon f7="logo_ios" size="25" color="gray" /></span>
+        </f7-col>
+        <f7-col width="25" :class="['theme-picker', { selected: theme === 'aurora' }]" @click="switchTheme('aurora')">
+          <span><f7-icon f7="desktopcomputer" size="20" color="gray" /></span>
+        </f7-col>
+      </f7-row>
+    </group-box>
 
-    <f7-row>
-      <f7-col>
-        <f7-block-title v-t="'about.miscellaneous'" />
-        <f7-list>
-          <f7-list-item>
-            <span v-t="'about.miscellaneous.home.navbar'" />
-            <f7-toggle :checked="homePageNavbarStyle === 'simple'" @toggle:change="setHomePageNavbarStyle" />
-          </f7-list-item>
-          <f7-list-item>
-            <span v-t="'about.miscellaneous.home.background'" />
-            <f7-toggle :checked="homePageBackground === 'standard'" @toggle:change="setHomePageBackground" />
-          </f7-list-item>
-          <f7-list-item v-show="$store.getters.apiEndpoint('habot')">
-            <span v-t="'about.miscellaneous.home.hideChatInput'" />
-            <f7-toggle :checked="hideChatInput === 'true'" @toggle:change="setHideChatInput" />
-          </f7-list-item>
-          <f7-list-item>
-            <span v-t="'about.miscellaneous.home.disableCardExpansionAnimation'" />
-            <f7-toggle :checked="expandableCardsAnimation === 'disabled'" @toggle:change="setExpandableCardAnimation" />
-          </f7-list-item>
-          <f7-list-item>
-            <span v-t="'about.miscellaneous.theme.disablePageTransition'" />
-            <f7-toggle :checked="pageTransitionAnimation === 'disabled'" @toggle:change="setPageTransitionAnimation" />
-          </f7-list-item>
-          <f7-list-item>
-            <span v-t="'about.miscellaneous.webaudio.enable'" />
-            <f7-toggle :checked="webAudio === 'enabled'" @toggle:change="setWebAudio" />
-          </f7-list-item>
-          <item-picker :title="$t('about.miscellaneous.commandItem.title')" :multiple="false" :value="commandItem" @input="setCommandItem" />
-        </f7-list>
-      </f7-col>
-    </f7-row>
+    <group-box :title="t('about.darkMode')">
+      <f7-row class="padding">
+        <f7-col
+          width="33"
+          :class="['theme-picker', 'auto', { selected: uiOptionsStore.storedDarkMode === 'auto' }]"
+          @click="uiOptionsStore.darkMode = 'auto'">
+          <span class="text-color-gray">{{ t('about.darkMode.auto') }}</span>
+        </f7-col>
+        <f7-col
+          width="33"
+          :class="['theme-picker', 'bg-color-white', { selected: uiOptionsStore.storedDarkMode === 'light' }]"
+          @click="uiOptionsStore.darkMode = 'light'">
+          <span class="text-color-gray">{{ t('about.darkMode.light') }}</span>
+        </f7-col>
+        <f7-col
+          width="33"
+          :class="['theme-picker', 'bg-color-black', { selected: uiOptionsStore.storedDarkMode === 'dark' }]"
+          @click="uiOptionsStore.darkMode = 'dark'">
+          <span class="text-color-gray">{{ t('about.darkMode.dark') }}</span>
+        </f7-col>
+      </f7-row>
+    </group-box>
+
+    <group-box :title="t('about.navigationBarsStyle')">
+      <f7-row class="padding">
+        <f7-col
+          width="50"
+          :class="['nav-bars-picker', 'theme-picker', 'nav-bars-picker-empty', { selected: bars === 'light' }]"
+          @click="bars = 'light'">
+          <div class="demo-navbar" />
+          <span class="text-color-gray">Light</span>
+        </f7-col>
+        <f7-col
+          width="50"
+          :class="['nav-bars-picker', 'theme-picker', 'nav-bars-picker-fill', { selected: bars === 'filled' }]"
+          @click="bars = 'filled'">
+          <div class="demo-navbar" />
+          <span class="text-color-gray">Filled</span>
+        </f7-col>
+      </f7-row>
+    </group-box>
+
+    <group-box :title="t('about.miscellaneous')">
+      <f7-list>
+        <f7-list-item>
+          <span>{{ t('about.miscellaneous.home.navbar') }}</span>
+          <f7-segmented class="home-navbar-selection">
+            <f7-button
+              v-for="navbarstyle in ['default', 'simple', 'large']"
+              outline
+              small
+              :active="homeNavBar === navbarstyle"
+              @click="homeNavBar = navbarstyle"
+              :text="t('about.miscellaneous.home.navbar.' + navbarstyle)"
+              :key="navbarstyle" />
+          </f7-segmented>
+        </f7-list-item>
+        <f7-list-item>
+          <span>{{ t('about.miscellaneous.home.background') }}</span>
+          <f7-segmented class="home-navbar-selection">
+            <f7-button
+              v-for="background in ['default', 'standard', 'white']"
+              outline
+              small
+              :active="homeBackground === background"
+              @click="homeBackground = background"
+              :text="t('about.miscellaneous.home.background.' + background)"
+              :key="background" />
+          </f7-segmented>
+        </f7-list-item>
+        <f7-list-item v-show="runtimeStore.apiEndpoint('habot')">
+          <span>{{ t('about.miscellaneous.home.hideChatInput') }}</span>
+          <f7-toggle v-model:checked="hideChatInput" />
+        </f7-list-item>
+        <f7-list-item>
+          <span>{{ t('about.miscellaneous.home.disableCardExpansionAnimation') }}</span>
+          <f7-toggle v-model:checked="disableExpandableCardAnimation" />
+        </f7-list-item>
+        <f7-list-item>
+          <span>{{ t('about.miscellaneous.theme.disableLeftPanelSwipe') }}</span>
+          <f7-toggle v-model:checked="disableLeftPanelSwipe" />
+        </f7-list-item>
+        <f7-list-item>
+          <span>{{ t('about.miscellaneous.theme.disablePageTransition') }}</span>
+          <f7-toggle v-model:checked="disablePageTransitionAnimation" />
+        </f7-list-item>
+        <f7-list-item>
+          <span>{{ t('about.miscellaneous.theme.disableHideBarsOnScroll') }}</span>
+          <f7-toggle v-model:checked="disableHideBarsOnScroll" />
+        </f7-list-item>
+        <f7-list-item>
+          <span>{{ t('about.miscellaneous.webaudio.enable') }}</span>
+          <f7-toggle v-model:checked="webAudio" />
+        </f7-list-item>
+        <f7-list-group>
+          <item-picker :label="t('about.miscellaneous.commandItem.title')" :multiple="false" :value="commandItem" @input="setCommandItem" />
+        </f7-list-group>
+      </f7-list>
+    </group-box>
+
+    <group-box v-if="showDialogOptions" :title="t('about.dialog')" class="dialog-options">
+      <f7-list>
+        <f7-list-item>
+          <span>{{ t('about.dialog.enable') }}</span>
+          <f7-toggle v-model:checked="dialogEnabled" />
+        </f7-list-item>
+        <f7-list-item>
+          <span>{{ t('about.dialog.id') }}</span>
+          <f7-input type="button" :value="dialogIdentifier" />
+        </f7-list-item>
+        <f7-list-group>
+          <item-picker
+            :label="t('about.dialog.listeningItem')"
+            :multiple="false"
+            :value="dialogListeningItem"
+            @input="setDialogListeningItem" />
+        </f7-list-group>
+        <f7-list-group>
+          <item-picker
+            :label="t('about.dialog.locationItem')"
+            :multiple="false"
+            :value="dialogLocationItem"
+            @input="setDialogLocationItem" />
+        </f7-list-group>
+        <f7-list-item>
+          <span>{{ t('about.dialog.connectOnWindowEvent') }}</span>
+          <f7-toggle v-model:checked="dialogConnectOnWindowEvent" />
+        </f7-list-item>
+        <f7-list-item>
+          <span>{{ t('about.dialog.triggerOnConnect') }}</span>
+          <f7-toggle v-model:checked="dialogTriggerOnConnect" />
+        </f7-list-item>
+      </f7-list>
+    </group-box>
   </f7-block>
 </template>
-<script>
-import { loadLocaleMessages } from '@/js/i18n'
-import ItemPicker from '@/components/config/controls/item-picker.vue'
 
-export default {
-  components: {
-    ItemPicker
-  },
-  i18n: {
-    messages: loadLocaleMessages(require.context('@/assets/i18n/theme-switcher'))
-  },
-  methods: {
-    switchTheme (theme) {
-      localStorage.setItem('openhab.ui:theme', theme)
-      localStorage.removeItem('openhab.ui:theme.bars') // reset the bars to their default when switching themes
-      location.reload()
-    },
-    setThemeDark (value) {
-      if (value === 'auto') {
-        localStorage.removeItem('openhab.ui:theme.dark')
-      } else {
-        localStorage.setItem('openhab.ui:theme.dark', value)
-      }
-      localStorage.removeItem('openhab.ui:theme.bars') // reset the bars to their default when switching dark mode
-      location.reload()
-    },
-    setBarsStyle (value) {
-      localStorage.setItem('openhab.ui:theme.bars', value)
-      location.reload()
-    },
-    setHomePageNavbarStyle (value) {
-      localStorage.setItem('openhab.ui:theme.home.navbar', (value) ? 'simple' : 'default')
-      location.reload()
-    },
-    setHomePageBackground (value) {
-      localStorage.setItem('openhab.ui:theme.home.background', (value) ? 'standard' : 'default')
-      location.reload()
-    },
-    setHideChatInput (value) {
-      localStorage.setItem('openhab.ui:theme.home.hidechatinput', (value) ? 'true' : 'false')
-      location.reload()
-    },
-    setExpandableCardAnimation (value) {
-      localStorage.setItem('openhab.ui:theme.home.cardanimation', (value) ? 'disabled' : 'default')
-      location.reload()
-    },
-    setPageTransitionAnimation (value) {
-      localStorage.setItem('openhab.ui:theme.pagetransition', (value) ? 'disabled' : 'default')
-      location.reload()
-    },
-    setWebAudio (value) {
-      localStorage.setItem('openhab.ui:webaudio.enable', (value) ? 'enabled' : 'default')
-      location.reload()
-    },
-    setCommandItem (value) {
-      localStorage.setItem('openhab.ui:commandItem', value)
-      setTimeout(() => { location.reload() }, 50) // Delay reload, otherwise it doesn't work
-    }
-  },
-  computed: {
-    theme () {
-      return localStorage.getItem('openhab.ui:theme') || 'auto'
-    },
-    darkMode () {
-      return localStorage.getItem('openhab.ui:theme.dark') || 'auto'
-    },
-    barsStyle () {
-      return localStorage.getItem('openhab.ui:theme.bars') || 'light'
-    },
-    homePageNavbarStyle () {
-      return localStorage.getItem('openhab.ui:theme.home.navbar') || 'default'
-    },
-    homePageBackground () {
-      return localStorage.getItem('openhab.ui:theme.home.background') || 'default'
-    },
-    hideChatInput () {
-      return localStorage.getItem('openhab.ui:theme.home.hidechatinput') || 'default'
-    },
-    expandableCardsAnimation () {
-      return localStorage.getItem('openhab.ui:theme.home.cardanimation') || 'default'
-    },
-    pageTransitionAnimation () {
-      return localStorage.getItem('openhab.ui:theme.pagetransition') || 'default'
-    },
-    webAudio () {
-      return localStorage.getItem('openhab.ui:webaudio.enable') || 'default'
-    },
-    commandItem () {
-      return localStorage.getItem('openhab.ui:commandItem') || ''
-    }
-  }
-}
-</script>
 <style lang="stylus">
+.theme-switcher
+  .row.padding
+    box-sizing border-box
+
+  .home-navbar-selection
+    .button
+      width auto
+  .dialog-options
+    .title-fixed .item-title
+      width 200%
+    .input-right input
+      text-align right
+
 .theme-picker
   cursor pointer
   height 100px
   padding 40px 20px
   border-radius 10px
-  box-shadow 0px 5px 20px rgba(0,0,0,0.1)
+  box-shadow 0px 5px 20px rgba(0,0,0,0.2)
   border 1px solid rgba(255,255,255,0.2)
   box-sizing border-box
   position relative
@@ -197,15 +191,29 @@ export default {
     left 10px
     bottom 10px
 
+.theme-picker.selected, .nav-bars-picker.selected
+  overflow visible
+
+  &::after
+    content ''
+    position absolute
+    top -6px
+    left -6px
+    right -6px
+    bottom -6px
+    border-radius inherit
+    pointer-events none
+    box-shadow: 0 0 0 3px var(--f7-theme-color)
+
 .nav-bars-picker
   height 200px
   border-radius 10px
-  box-shadow 0px 5px 20px rgba(0,0,0,0.1)
+  box-shadow 0px 5px 20px rgba(0,0,0,0.2)
   cursor pointer
   position relative
-  overflow hidden
   background var(--f7-page-bg-color)
   border 1px solid rgba(255,255,255,0.2)
+  align-items center
 
 .nav-bars-picker .checkbox
   position absolute
@@ -219,6 +227,10 @@ export default {
   height 30px
   top 0
   border-bottom 1px solid transparent
+  // prevents the navbar from cutting into the parent's rounded corners
+  // without using overflow: hidden on the parent, which would hide the selection shadow
+  border-top-left-radius 9px
+  border-top-right-radius 9px
 
 .nav-bars-picker .demo-navbar:before
   content ''
@@ -242,7 +254,7 @@ export default {
   background #f7f7f8
   border-color rgba(0,0,0,0.1)
 
-.theme-dark .nav-bars-picker-empty .demo-navbar
+.dark .nav-bars-picker-empty .demo-navbar
   background #1b1b1b
   border-color #282829
 
@@ -256,5 +268,78 @@ export default {
 .nav-bars-picker-fill .demo-navbar:before,
 .nav-bars-picker-fill .demo-navbar:after
   background #fff
-
 </style>
+
+<script>
+import { mapStores, mapWritableState } from 'pinia'
+
+import ItemPicker from '@/components/config/controls/item-picker.vue'
+
+import { loadLocaleMessages } from '@/js/i18n'
+import { useI18n } from 'vue-i18n'
+
+import { useRuntimeStore } from '@/js/stores/useRuntimeStore'
+import { useUIOptionsStore } from '@/js/stores/useUIOptionsStore'
+
+export default {
+  components: {
+    ItemPicker
+  },
+  setup() {
+    const { t, mergeLocaleMessage } = useI18n({ useScope: 'local' })
+    loadLocaleMessages('theme-switcher', mergeLocaleMessage)
+    return {
+      t
+    }
+  },
+  methods: {
+    switchTheme(theme) {
+      localStorage.setItem('openhab.ui:theme', theme)
+      localStorage.removeItem('openhab.ui:theme.bars') // reset the bars to their default when switching themes
+      location.reload()
+    },
+    setCommandItem(value) {
+      localStorage.setItem('openhab.ui:commandItem', value)
+      setTimeout(() => {
+        location.reload()
+      }, 50) // Delay reload, otherwise it doesn't work
+    },
+    setDialogListeningItem(value) {
+      useUIOptionsStore().dialogListeningItem = value
+    },
+    setDialogLocationItem(value) {
+      useUIOptionsStore().dialogLocationItem = value
+    }
+  },
+  computed: {
+    theme() {
+      return localStorage.getItem('openhab.ui:theme') || 'auto'
+    },
+    commandItem() {
+      return localStorage.getItem('openhab.ui:commandItem') || ''
+    },
+    showDialogOptions() {
+      const getUserMediaSupported = !!(window.navigator && window.navigator.mediaDevices && window.navigator.mediaDevices.getUserMedia)
+      return getUserMediaSupported && !!window.AudioContext && !!window.crypto
+    },
+    ...mapStores(useRuntimeStore, useUIOptionsStore),
+    ...mapWritableState(useUIOptionsStore, [
+      'disableLeftPanelSwipe',
+      'disablePageTransitionAnimation',
+      'disableHideBarsOnScroll',
+      'bars',
+      'homeNavBar',
+      'homeBackground',
+      'hideChatInput',
+      'disableExpandableCardAnimation',
+      'webAudio',
+      'dialogEnabled',
+      'dialogIdentifier',
+      'dialogListeningItem',
+      'dialogLocationItem',
+      'dialogConnectOnWindowEvent',
+      'dialogTriggerOnConnect'
+    ])
+  }
+}
+</script>

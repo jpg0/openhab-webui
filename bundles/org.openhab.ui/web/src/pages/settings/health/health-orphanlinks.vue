@@ -1,20 +1,18 @@
 <template>
   <f7-page @page:afterin="onPageAfterIn">
-    <f7-navbar title="Orphan Links" back-link="Health Checks" back-link-url="/settings/health/" back-link-force>
-      <f7-nav-right>
-        <developer-dock-icon />
-      </f7-nav-right>
+    <f7-navbar>
+      <oh-nav-content title="Orphan Links" back-link="Health Checks" back-link-url="/settings/health/" :f7router />
     </f7-navbar>
 
     <f7-block class="block-narrow">
       <f7-col>
         <f7-block-footer class="padding-horizontal">
           Orphan links are items pointing to non-existent thing channels or vice versa.
-          <br>
-          <br>
-          Note that only the links of managed Items can be purged, not links defined
-          in <code>.items</code> files - these must be fixed manually in the corresponding file.
-          The latter are marked with <f7-icon f7="lock_fill" size="1rem" color="gray" />.
+          <br />
+          <br />
+          Note that only the links of managed Items can be purged, not links defined in
+          <code>.items</code> files - these must be fixed manually in the corresponding file. The latter are marked with
+          <f7-icon f7="lock_fill" size="1rem" color="gray" />.
         </f7-block-footer>
       </f7-col>
     </f7-block>
@@ -25,22 +23,32 @@
         <f7-block-title>&nbsp;Loading...</f7-block-title>
         <f7-list contacts-list class="col">
           <f7-list-group>
-            <f7-list-item media-item v-for="n in 10" :key="n" :class="`skeleton-text skeleton-effect-blink`"
-                          title="Type of problem" subtitle="Item name" footer="Channel link" />
+            <f7-list-item
+              v-for="n in 10"
+              media-item
+              :key="n"
+              :class="`skeleton-text skeleton-effect-blink`"
+              title="Type of problem"
+              subtitle="Item name"
+              footer="Channel link" />
           </f7-list-group>
         </f7-list>
       </f7-col>
 
       <f7-col v-else>
-        <f7-block-title>
-          {{ orphanLinks.length }} orphan links found
-        </f7-block-title>
+        <f7-block-title> {{ orphanLinks.length }} orphan link{{ plural(orphanLinks.length) }} found </f7-block-title>
         <f7-list class="col" contacts-list>
-          <f7-list-item v-for="orphanLink in orphanLinks" :key="orphanLink.itemChannelLink.channelUID" media-item
-                        :link="getLinkForProblem(orphanLink)" :title="'Problem: ' + orphanLinkProblemExplanation[orphanLink.problem]"
-                        :subtitle="'Item name: ' + orphanLink.itemChannelLink.itemName"
-                        :footer="'Channel UID: ' + orphanLink.itemChannelLink.channelUID">
-            <f7-icon v-if="!orphanLink.itemChannelLink.editable" slot="after-title" f7="lock_fill" size="1rem" color="gray" />
+          <f7-list-item
+            v-for="orphanLink in orphanLinks"
+            :key="orphanLink.itemChannelLink.channelUID"
+            media-item
+            :link="getLinkForProblem(orphanLink)"
+            :title="'Problem: ' + orphanLinkProblemExplanation[orphanLink.problem]"
+            :subtitle="'Item name: ' + orphanLink.itemChannelLink.itemName"
+            :footer="'Channel UID: ' + orphanLink.itemChannelLink.channelUID">
+            <template #after-title>
+              <f7-icon v-if="!orphanLink.itemChannelLink.editable" f7="lock_fill" size="1rem" color="gray" />
+            </template>
           </f7-list-item>
         </f7-list>
       </f7-col>
@@ -49,7 +57,7 @@
       <f7-col>
         <f7-list>
           <f7-list-button color="red" @click="purgeAllManaged()">
-            Purge all managed links (will purge {{ purgeableLinksCount }} managed links)
+            Purge all managed links (will purge {{ purgeableLinksCount }} managed link{{ plural(purgeableLinksCount) }})
           </f7-list-button>
         </f7-list>
       </f7-col>
@@ -59,7 +67,10 @@
 
 <script>
 export default {
-  data () {
+  props: {
+    f7router: Object
+  },
+  data() {
     return {
       ready: false,
       loading: false,
@@ -73,15 +84,15 @@ export default {
     }
   },
   computed: {
-    purgeableLinksCount () {
+    purgeableLinksCount() {
       return this.orphanLinks.filter((l) => l.itemChannelLink.editable).length
     }
   },
   methods: {
-    onPageAfterIn () {
+    onPageAfterIn() {
       this.load()
     },
-    load () {
+    load() {
       this.loading = true
       this.$oh.api.get('/rest/links/orphans').then((data) => {
         this.orphanLinks = data
@@ -89,24 +100,28 @@ export default {
         this.ready = true
       })
     },
-    getLinkForProblem (orphanLink) {
+    getLinkForProblem(orphanLink) {
       if (orphanLink.problem === 'THING_CHANNEL_MISSING') {
         return '/settings/items/' + orphanLink.itemChannelLink.itemName
       }
       return null
     },
-    purgeAllManaged () {
+    purgeAllManaged() {
       this.loading = true
-      this.$oh.api.post('/rest/links/purge').catch((e) => {
-        // ignore parseerror due to empty response
-        if (e === 'parseerror') return
-        console.error(e)
-      }).finally(() => {
-        this.load()
-      })
+      this.$oh.api
+        .post('/rest/links/purge')
+        .catch((e) => {
+          // ignore parseerror due to empty response
+          if (e === 'parseerror') return
+          console.error(e)
+        })
+        .finally(() => {
+          this.load()
+        })
+    },
+    plural(count) {
+      return count === 1 ? '' : 's'
     }
   }
 }
 </script>
-
-<style></style>

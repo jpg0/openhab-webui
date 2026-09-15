@@ -70,9 +70,9 @@ Display an input field in a list
     Input name
   </PropDescription>
 </PropBlock>
-<PropBlock type="TEXT" name="type" label="Type">
+<PropBlock type="TEXT" name="type" label="Input Type">
   <PropDescription>
-    Type of input (see <a class="external text-color-blue" target="_blank" href="https://framework7.io/docs/inputs.html#supported-inputs">f7 input docs</a>, <code>date</code> or <code>datepicker</code>)
+    Input type for different openHAB Item types (the first listed type is the default):  <div style="padding-left: 16px;">  <li><b>String:</b> text, textarea, texteditor, password, email, tel, url</li>  <li><b>DateTime:</b> datetime-local, date, datepicker</li>  <li><b>Number:</b> number</li>  </div>
   </PropDescription>
 </PropBlock>
 <PropBlock type="TEXT" name="inputmode" label="Input Mode">
@@ -123,6 +123,16 @@ Display an input field in a list
 <PropBlock type="BOOLEAN" name="useDisplayState" label="Use Display State">
   <PropDescription>
     Use the formatted state as the value for the input control
+  </PropDescription>
+</PropBlock>
+<PropBlock type="DECIMAL" name="min" label="Minimum">
+  <PropDescription>
+    Minimum allowed value when type set to number
+  </PropDescription>
+</PropBlock>
+<PropBlock type="DECIMAL" name="max" label="Maximum">
+  <PropDescription>
+    Maximum allowed value when type set to number
   </PropDescription>
 </PropBlock>
 <PropBlock type="DECIMAL" name="step" label="Step">

@@ -1,35 +1,32 @@
 /*
-* Adds new blocks to the unit of measurement section
-* supports jsscripting
-*/
+ * Adds new blocks to the unit of measurement section
+ * supports jsscripting
+ */
 
-import Blockly from 'blockly'
-import { javascriptGenerator } from 'blockly/javascript.js'
-import { blockGetCheckedInputType } from './utils.js'
+import * as Blockly from 'blockly'
+import { javascriptGenerator } from 'blockly/javascript'
+import { blockGetCheckedInputType, valueToCode } from './utils.js'
 
-const unavailMsg = 'Units of Measurements blocks aren\'t supported in "application/javascript;version=ECMAScript-5.1"'
-
-export default function (f7, isGraalJs) {
+export default function (f7) {
   Blockly.Blocks['oh_quantity_ext'] = {
     init: function () {
-      this.appendDummyInput()
-        .appendField('Qty ')
-      this.appendValueInput('value')
-        .setCheck(['String', 'Number', 'oh_itemtype', 'oh_item'])
-      this.appendValueInput('unit')
-        .setCheck('String')
+      this.appendDummyInput().appendField('Qty ')
+      this.appendValueInput('value').setCheck(['String', 'Number', 'oh_itemtype', 'oh_item'])
+      this.appendValueInput('unit').setCheck('String')
       this.setColour(58)
       this.setInputsInline(true)
-      this.setTooltip('Block that wraps Measurements in a Quantity block.\nA Quantity is a Number plus a Unit (of Measurement). \nMake sure you use the right units like 5.75 m, 1 N*m, 1 m/s, 1 m^2/s^2, 1 m^2/s^-2 ... ')
+      this.setTooltip(
+        'Block that wraps Measurements in a Quantity block.\nA Quantity is a Number plus a Unit (of Measurement). \nMake sure you use the right units like 5.75 m, 1 N*m, 1 m/s, 1 m^2/s^2, 1 m^2/s^-2 ... '
+      )
       this.setHelpUrl('https://www.openhab.org/docs/concepts/units-of-measurement.html')
       this.setOutput(true, ['oh_quantity', 'String'])
     }
   }
 
   javascriptGenerator.forBlock['oh_quantity_ext'] = function (block) {
-    let value = javascriptGenerator.valueToCode(block, 'value', javascriptGenerator.ORDER_NONE)
+    let value = valueToCode(block, 'value', javascriptGenerator.ORDER_NONE)
 
-    const unit = javascriptGenerator.valueToCode(block, 'unit', javascriptGenerator.ORDER_NONE)
+    const unit = valueToCode(block, 'unit', javascriptGenerator.ORDER_NONE)
     const inputType = blockGetCheckedInputType(block, 'value')
 
     let code
@@ -49,133 +46,116 @@ export default function (f7, isGraalJs) {
         code = `Quantity(${value} + ${unit})`
         break
     }
-
-    if (isGraalJs) {
-      return [code, 0]
-    } else {
-      throw new Error(unavailMsg)
-    }
+    return [code, 0]
   }
 
   Blockly.Blocks['oh_quantity'] = {
     init: function () {
-      this.appendDummyInput()
-        .appendField('Qty ')
-      this.appendValueInput('quantity')
-        .setCheck(['String', 'oh_itemtype', 'oh_item'])
+      this.appendDummyInput().appendField('Qty ')
+      this.appendValueInput('quantity').setCheck(['String', 'oh_itemtype', 'oh_item'])
       this.setColour(58)
       this.setInputsInline(true)
-      this.setTooltip('Block that wraps Measurements in a Quantity block.\nA Quantity is a Number plus a Unit (of Measurement). \nMake sure you use the right units like 5.75 m, 1 N*m, 1 m/s, 1 m^2/s^2, 1 m^2/s^-2 ... ')
+      this.setTooltip(
+        'Block that wraps Measurements in a Quantity block.\nA Quantity is a Number plus a Unit (of Measurement). \nMake sure you use the right units like 5.75 m, 1 N*m, 1 m/s, 1 m^2/s^2, 1 m^2/s^-2 ... '
+      )
       this.setHelpUrl('https://www.openhab.org/docs/concepts/units-of-measurement.html')
       this.setOutput(true, ['oh_quantity', 'String'])
     }
   }
 
   javascriptGenerator.forBlock['oh_quantity'] = function (block) {
-    if (isGraalJs) {
-      return [generateQuantityCode(block, 'quantity'), 0]
-    } else {
-      throw new Error(unavailMsg)
-    }
+    return [generateQuantityCode(block, 'quantity'), 0]
   }
 
   Blockly.Blocks['oh_quantity_arithmetic'] = {
     init: function () {
-      this.appendDummyInput()
-        .appendField('Qty ')
-      this.appendValueInput('first')
-        .setCheck(['oh_quantity', 'oh_itemtype', 'oh_item'])
+      this.appendDummyInput().appendField('Qty ')
+      this.appendValueInput('first').setCheck(['oh_quantity', 'oh_itemtype', 'oh_item'])
       this.appendValueInput('second')
         .setCheck(['oh_quantity', 'Number', 'oh_itemtype', 'oh_item'])
-        .appendField(new Blockly.FieldDropdown([
-          ['+', 'add'], ['-', 'subtract'],
-          ['*', 'multiply'], ['/', 'divide']
-        ]), 'operand')
+        .appendField(
+          new Blockly.FieldDropdown([
+            ['+', 'add'],
+            ['-', 'subtract'],
+            ['*', 'multiply'],
+            ['/', 'divide']
+          ]),
+          'operand'
+        )
 
       this.setInputsInline(true)
       this.setOutput(true, 'oh_quantity')
       this.setColour('%{BKY_MATH_HUE}')
-      this.setTooltip('Allows computation with Quantity blocks.\nA Quantity is a Number plus a Unit (of Measurement).\nNumbers must only be used with multiplication and division or it will fail.\nMake sure you use the right units like 5.75 m, 1 N*m, 1 m/s, 1 m^2/s^2, 1 m^2/s^-2 ... ')
+      this.setTooltip(
+        'Allows computation with Quantity blocks.\nA Quantity is a Number plus a Unit (of Measurement).\nNumbers must only be used with multiplication and division or it will fail.\nMake sure you use the right units like 5.75 m, 1 N*m, 1 m/s, 1 m^2/s^2, 1 m^2/s^-2 ... '
+      )
       this.setHelpUrl('https://www.openhab.org/docs/configuration/blockly/')
     }
   }
 
   javascriptGenerator.forBlock['oh_quantity_arithmetic'] = function (block) {
-    if (isGraalJs) {
-      const operand = block.getFieldValue('operand')
-
-      const first = generateQuantityCode(block, 'first')
-      const second = (blockGetCheckedInputType(block, 'second') !== 'Number')
+    const operand = block.getFieldValue('operand')
+    const first = generateQuantityCode(block, 'first')
+    const second =
+      blockGetCheckedInputType(block, 'second') !== 'Number'
         ? generateQuantityCode(block, 'second')
-        : javascriptGenerator.valueToCode(block, 'second', javascriptGenerator.ORDER_NONE)
-
-      return [`${first}.${operand}(${second})`, javascriptGenerator.ORDER_NONE]
-    } else {
-      throw new Error(unavailMsg)
-    }
+        : valueToCode(block, 'second', javascriptGenerator.ORDER_NONE)
+    return [`${first}.${operand}(${second})`, javascriptGenerator.ORDER_NONE]
   }
 
   Blockly.Blocks['oh_quantity_compare'] = {
     init: function () {
-      this.appendDummyInput()
-        .appendField('Qty ')
-      this.appendValueInput('first')
-        .setCheck(['oh_quantity', 'oh_itemtype', 'oh_item', 'String'])
+      this.appendDummyInput().appendField('Qty ')
+      this.appendValueInput('first').setCheck(['oh_quantity', 'oh_itemtype', 'oh_item', 'String'])
       this.appendValueInput('second')
         .setCheck(['oh_quantity', 'oh_itemtype', 'oh_item', 'String'])
-        .appendField(new Blockly.FieldDropdown([
-          ['=', 'equal'],
-          // ['\u2260', 'NEQ'], // maybe later by adding a not
-          ['\u200F<', 'lessThan'],
-          ['\u200F\u2264', 'lessThanOrEqual'],
-          ['\u200F>', 'greaterThan'],
-          ['\u200F\u2265', 'greaterThanOrEqual']
-        ]), 'operand')
+        .appendField(
+          new Blockly.FieldDropdown([
+            ['=', 'equal'],
+            // ['\u2260', 'NEQ'], // maybe later by adding a not
+            ['\u200F<', 'lessThan'],
+            ['\u200F\u2264', 'lessThanOrEqual'],
+            ['\u200F>', 'greaterThan'],
+            ['\u200F\u2265', 'greaterThanOrEqual']
+          ]),
+          'operand'
+        )
 
       this.setInputsInline(true)
       this.setOutput(true, 'Boolean')
       this.setColour('%{BKY_LOGIC_HUE}')
-      this.setTooltip('Compares two Quantities with each other.\nMake sure you use the target right units like 5.75 m, 1 N*m, 1 m/s, 1 m^2/s^2, 1 m^2/s^-2 ... ')
+      this.setTooltip(
+        'Compares two Quantities with each other.\nMake sure you use the target right units like 5.75 m, 1 N*m, 1 m/s, 1 m^2/s^2, 1 m^2/s^-2 ... '
+      )
       this.setHelpUrl('https://www.openhab.org/docs/concepts/units-of-measurement.html')
     }
   }
 
   javascriptGenerator.forBlock['oh_quantity_compare'] = function (block) {
-    if (isGraalJs) {
-      const operand = block.getFieldValue('operand')
-
-      const first = generateQuantityCode(block, 'first')
-      const second = generateQuantityCode(block, 'second')
-
-      return [`${first}.${operand}(${second})`, javascriptGenerator.ORDER_NONE]
-    } else {
-      throw new Error(unavailMsg)
-    }
+    const operand = block.getFieldValue('operand')
+    const first = generateQuantityCode(block, 'first')
+    const second = generateQuantityCode(block, 'second')
+    return [`${first}.${operand}(${second})`, javascriptGenerator.ORDER_NONE]
   }
 
   Blockly.Blocks['oh_quantity_to_unit'] = {
     init: function () {
-      this.appendValueInput('quantity')
-        .setCheck('oh_quantity')
-      this.appendValueInput('unit')
-        .appendField('to unit')
-        .setCheck('String')
+      this.appendValueInput('quantity').setCheck('oh_quantity')
+      this.appendValueInput('unit').appendField('to unit').setCheck('String')
       this.setColour(58)
       this.setInputsInline(true)
-      this.setTooltip('Converts a Quantity into another Unit.\nMake sure you use the target right units like 5.75 m, 1 N*m, 1 m/s, 1 m^2/s^2, 1 m^2/s^-2 ... ')
+      this.setTooltip(
+        'Converts a Quantity into another Unit.\nMake sure you use the target right units like 5.75 m, 1 N*m, 1 m/s, 1 m^2/s^2, 1 m^2/s^-2 ... '
+      )
       this.setHelpUrl('https://www.openhab.org/docs/concepts/units-of-measurement.html')
       this.setOutput(true, 'oh_quantity')
     }
   }
 
   javascriptGenerator.forBlock['oh_quantity_to_unit'] = function (block) {
-    const quantity = javascriptGenerator.valueToCode(block, 'quantity', javascriptGenerator.ORDER_NONE)
-    const unit = javascriptGenerator.valueToCode(block, 'unit', javascriptGenerator.ORDER_NONE)
-    if (isGraalJs) {
-      return [`${quantity}.toUnit(${unit})`, javascriptGenerator.ORDER_NONE]
-    } else {
-      throw new Error(unavailMsg)
-    }
+    const quantity = valueToCode(block, 'quantity', javascriptGenerator.ORDER_NONE)
+    const unit = valueToCode(block, 'unit', javascriptGenerator.ORDER_NONE)
+    return [`${quantity}.toUnit(${unit})`, javascriptGenerator.ORDER_NONE]
   }
 }
 
@@ -187,8 +167,8 @@ export default function (f7, isGraalJs) {
  * @param {string} inputName name of the input
  * @returns {string} generated Quantity code
  */
-function generateQuantityCode (block, inputName) {
-  const input = javascriptGenerator.valueToCode(block, inputName, javascriptGenerator.ORDER_NONE)
+function generateQuantityCode(block, inputName) {
+  const input = valueToCode(block, inputName, javascriptGenerator.ORDER_NONE)
   const inputType = blockGetCheckedInputType(block, inputName)
 
   let code = ''

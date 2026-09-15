@@ -3,11 +3,11 @@
  * supports jsscripting
  */
 
-import Blockly from 'blockly'
-import { javascriptGenerator } from 'blockly/javascript.js'
-import { blockGetCheckedInputType } from './utils.js'
+import * as Blockly from 'blockly'
+import { javascriptGenerator } from 'blockly/javascript'
+import { blockGetCheckedInputType, valueToCode } from './utils.js'
 
-export default function (f7, isGraalJs) {
+export default function (f7) {
   /*
     Send a command or post an update
     itemName: provide the name of the item ('String', 'oh_item') or even directly the item object ('oh_itemtype')
@@ -15,11 +15,16 @@ export default function (f7, isGraalJs) {
   */
   Blockly.Blocks['oh_event'] = {
     init: function () {
-      this.appendValueInput('value')
-        .appendField(new Blockly.FieldDropdown([['send command', 'sendCommand'], ['post update', 'postUpdate']]), 'eventType')
+      this.appendValueInput('value').appendField(
+        new Blockly.FieldDropdown([
+          ['send command', 'sendCommand'],
+          ['post update', 'postUpdate']
+        ]),
+        'eventType'
+      )
       this.appendValueInput('itemName')
         .appendField('to')
-        .setAlign(Blockly.ALIGN_RIGHT)
+        .setAlign(Blockly.inputs.Align.RIGHT)
         .setCheck(['String', 'oh_item', 'oh_itemtype'])
       this.setInputsInline(true)
       this.setPreviousStatement(true, null)
@@ -32,16 +37,14 @@ export default function (f7, isGraalJs) {
 
   javascriptGenerator.forBlock['oh_event'] = function (block) {
     const eventType = block.getFieldValue('eventType')
-    const itemName = javascriptGenerator.valueToCode(block, 'itemName', javascriptGenerator.ORDER_ATOMIC)
-    const value = javascriptGenerator.valueToCode(block, 'value', javascriptGenerator.ORDER_ATOMIC)
+    const itemName = valueToCode(block, 'itemName', javascriptGenerator.ORDER_ATOMIC)
+    const value = valueToCode(block, 'value', javascriptGenerator.ORDER_ATOMIC)
 
     const inputType = blockGetCheckedInputType(block, 'itemName')
 
     // Expect oh_itemtype as default because oh_groupmembers & oh_taggeditems return them
-    if (isGraalJs) {
-      return (inputType === 'oh_item' || inputType === 'String') ? `items.getItem(${itemName}).${eventType}(${value});\n` : `${itemName}.${eventType}(${value});\n`
-    } else {
-      return (inputType === 'oh_item' || inputType === 'String') ? `events.${eventType}(${itemName}, ${value});\n` : `events.${eventType}(${itemName}.getName(), ${value});\n`
-    }
+    return inputType === 'oh_item' || inputType === 'String'
+      ? `items.getItem(${itemName}).${eventType}(${value});\n`
+      : `${itemName}.${eventType}(${value});\n`
   }
 }

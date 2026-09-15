@@ -46,7 +46,7 @@ Position widgets on a canvas layout with arbitrary position and size down to pix
 </PropBlock>
 <PropBlock type="INTEGER" name="screenHeight" label="Screen Height">
   <PropDescription>
-    Screen width in pixels (default 720)
+    Screen height in pixels (default 720)
   </PropDescription>
 </PropBlock>
 <PropBlock type="BOOLEAN" name="scale" label="Scaling">
@@ -62,6 +62,22 @@ Position widgets on a canvas layout with arbitrary position and size down to pix
 <PropBlock type="TEXT" name="imageSrcSet" label="Image Source Set">
   <PropDescription>
     The src-set attribute of background image element to take into account multiple device resolutions. For example: "/static/floorplans/floor-0.jpg, /static/floorplans/floor-0@2x.jpg 2x"
+  </PropDescription>
+</PropBlock>
+</PropGroup>
+</div>
+
+### SVG Embedding
+<div class="props">
+<PropGroup name="svgEmbedding" label="SVG Embedding">
+<PropBlock type="BOOLEAN" name="embedSvg" label="Embed SVG">
+  <PropDescription>
+    Embed SVG image directly into the page (default false)
+  </PropDescription>
+</PropBlock>
+<PropBlock type="BOOLEAN" name="embedSvgFlashing" label="Embed SVG Flashing in Run-Mode">
+  <PropDescription>
+    Flashes SVG elements on hovering in run-mode as well (default false)
   </PropDescription>
 </PropBlock>
 </PropGroup>

@@ -1,12 +1,29 @@
 <template>
-  <f7-card v-if="visible" expandable ref="card" class="model-card" :class="type + '-card'" :animate="$f7.data.themeOptions.expandableCardAnimation !== 'disabled'" card-tablet-fullscreen @card:opened="cardOpening" @card:closed="cardClosed">
+  <f7-card
+    v-if="visible"
+    expandable
+    ref="card"
+    class="model-card"
+    :class="type + '-card'"
+    :animate="uiOptionsStore.disableExpandableCardAnimation ? false : true"
+    card-tablet-fullscreen
+    @card:opened="cardOpening"
+    @card:closed="cardClosed">
     <f7-card-content :padding="false">
-      <div :class="(!backgroundImageUrl) ? `bg-color-${color}` : undefined" :style="{ height: `calc(var(--f7-safe-area-top) + ${headerHeight})` }">
-        <f7-card-header :text-color="config.invertText ? 'black' : 'white'" class="display-block card-header" :style="{ height: `calc(var(--f7-safe-area-top) + ${headerHeight})` }">
-          <img v-if="config.backgroundImage" class="card-background lazy" :src="backgroundImageUrl" :style="config.backgroundImageStyle">
+      <div
+        :class="!backgroundImageUrl ? `bg-color-${color}` : undefined"
+        :style="{ height: `calc(var(--f7-safe-area-top) + ${headerHeight})` }">
+        <f7-card-header
+          :text-color="config.invertText ? 'black' : 'white'"
+          class="display-block card-header"
+          :style="{ height: `calc(var(--f7-safe-area-top) + ${headerHeight})` }">
+          <img v-if="config.backgroundImage" class="card-background lazy" :src="backgroundImageUrl" :style="config.backgroundImageStyle" />
           <slot name="header">
-            <div v-if="context && context.component.slots && context.component.slots.header">
-              <generic-widget-component :context="childContext(slotComponent)" v-for="(slotComponent, idx) in context.component.slots.header" :key="'header-' + idx" @command="onCommand" />
+            <div v-if="'header' in slots">
+              <generic-widget-component
+                v-for="(slotComponent, idx) in slots.header"
+                :context="childContext(slotComponent)"
+                :key="'header-' + idx" />
             </div>
             <div v-else>
               <div class="title">
@@ -19,11 +36,7 @@
           </slot>
           <slot name="glance" />
         </f7-card-header>
-        <f7-link
-          card-close
-          color="white"
-          class="card-opened-fade-in card-close-button"
-          icon-f7="multiply_circle_fill" />
+        <f7-link card-close color="white" class="card-opened-fade-in card-close-button" icon-f7="multiply_circle_fill" />
       </div>
       <div v-if="opened">
         <slot />
@@ -40,6 +53,8 @@
     position absolute
     top calc(16px + var(--f7-safe-area-top))
     right calc(var(--f7-card-content-padding-horizontal) + var(--f7-safe-area-right))
+  .media-list
+    margin-top 0 !important
   &.invert-text
   .card-background
     position absolute
@@ -80,19 +95,33 @@
 @media (min-width: 768px)
   .model-card
     --card-offset calc(675px - 200px + var(--f7-safe-area-left) + var(--f7-safe-area-right))
-
 </style>
 
 <script>
+import { computed } from 'vue'
+import { mapStores } from 'pinia'
 import CardMixin from './card-mixin'
+import { useWidgetContext } from '@/components/widgets/useWidgetContext'
+
+import { useUIOptionsStore } from '@/js/stores/useUIOptionsStore'
 
 export default {
   mixins: [CardMixin],
-  props: ['headerHeight'],
-  methods: {
+  props: {
+    context: Object,
+    headerHeight: [String, Number],
+    type: String,
+    element: Object
+  },
+  setup(props) {
+    const { config, childContext, visible, slots } = useWidgetContext(computed(() => props.context))
+    return { config, childContext, visible, slots }
+  },
+  computed: {
+    ...mapStores(useUIOptionsStore)
   },
   asyncComputed: {
-    backgroundImageUrl () {
+    backgroundImageUrl() {
       if (this.config.backgroundImage) {
         return this.$oh.media.getImage(this.config.backgroundImage)
       } else {

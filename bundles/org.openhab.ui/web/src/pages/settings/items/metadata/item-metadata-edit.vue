@@ -1,71 +1,65 @@
 <template>
-  <f7-page @page:beforein="onPageBeforeIn" @page:afterin="onPageAfterIn">
-    <f7-navbar back-link="Cancel" no-hairline>
-      <template slot="title">
-        Edit Item Metadata: {{ namespace }}
-        {{ dirtyIndicator }}
-      </template>
-      <f7-nav-right>
-        <f7-link @click="save()" v-if="$theme.md" icon-md="material:save" icon-only />
-        <f7-link @click="save()" v-if="!$theme.md">
-          Save
-        </f7-link>
-      </f7-nav-right>
+  <f7-page ref="item-metadata-edit-page" @page:beforein="onPageBeforeIn">
+    <f7-navbar no-hairline>
+      <oh-nav-content
+        :title="`${editable ? 'Edit' : 'View'} Item Metadata: ${namespace} ${dirtyIndicator}`"
+        :save-link="`Save${$device.desktop ? ' (Ctrl-S)' : ''}`"
+        @save="save()"
+        :f7router />
     </f7-navbar>
     <f7-toolbar v-if="ready" tabbar position="top">
-      <f7-link v-if="!generic" @click="switchTab('config', fromYaml)" :tab-link-active="currentTab === 'config'" class="tab-link">
+      <f7-link v-if="!generic" @click="switchTab('config', fromYaml)" :tab-link-active="currentTab === 'config'" tab-link="#config">
         Config
       </f7-link>
-      <f7-link @click="switchTab('code', toYaml)" :tab-link-active="currentTab === 'code'" class="tab-link">
-        Code
-      </f7-link>
+      <f7-link @click="switchTab('code', toYaml)" :tab-link-active="currentTab === 'code'" tab-link="#code"> Code </f7-link>
     </f7-toolbar>
     <f7-toolbar v-if="ready && generic" position="bottom">
-      <f7-button color="red" v-if="!creationMode" @click="remove()" class="width-100">
-        Remove metadata
-      </f7-button>
+      <f7-button v-if="!creationMode" color="red" @click="remove()" class="width-100"> Remove metadata </f7-button>
     </f7-toolbar>
     <f7-tabs class="metadata-editor-tabs">
-      <f7-tab id="config" class="metadata-editor-config-tab" @tab:show="() => this.currentTab = 'config'" :tab-active="currentTab === 'config'">
-        <f7-block class="block-narrow" v-if="ready && currentTab === 'config'">
+      <f7-tab id="config" class="metadata-editor-config-tab" :tab-active="currentTab === 'config'">
+        <f7-block v-if="ready && currentTab === 'config'" class="block-narrow">
           <f7-col>
             <component :is="editorControl" :item="item" :metadata="metadata" :namespace="namespace" />
           </f7-col>
         </f7-block>
-        <f7-block class="block-narrow" v-if="ready">
+        <f7-block v-if="ready && !creationMode && editable" class="block-narrow">
           <f7-col>
-            <f7-list>
-              <f7-list-button color="red" v-if="!creationMode" @click="remove()">
-                Remove metadata
-              </f7-list-button>
-            </f7-list>
+            <group-box>
+              <f7-list>
+                <f7-list-button color="red" @click="remove()"> Remove metadata </f7-list-button>
+              </f7-list>
+            </group-box>
           </f7-col>
         </f7-block>
       </f7-tab>
 
-      <f7-tab id="code" @tab:show="() => { this.currentTab = 'code' }" :tab-active="currentTab === 'code'">
-        <editor v-if="currentTab === 'code'" class="metadata-code-editor" mode="text/x-yaml" :value="yaml" @input="onEditorInput" />
-        <!-- <pre class="yaml-message padding-horizontal" :class="[yamlError === 'OK' ? 'text-color-green' : 'text-color-red']">{{yamlError}}</pre> -->
+      <f7-tab id="code" :tab-active="currentTab === 'code'">
+        <editor
+          v-if="currentTab === 'code'"
+          class="metadata-code-editor"
+          mode="text/x-yaml"
+          :value="yaml"
+          :readOnly="!editable"
+          @input="onEditorInput"
+          @save="save()" />
       </f7-tab>
     </f7-tabs>
   </f7-page>
 </template>
 
 <style lang="stylus">
-.metadata-code-editor.vue-codemirror
-  display block
-  top calc(var(--f7-navbar-height) + var(--f7-tabbar-height))
-  height calc(100% - 2*var(--f7-navbar-height))
-  width 100%
-.yaml-message
-  display block
+.metadata-code-editor
   position absolute
-  top 80%
-  white-space pre-wrap
+  height calc(100% - var(--f7-navbar-height) - var(--f7-toolbar-height))
 </style>
 
 <script>
+import { f7 } from 'framework7-vue'
+import { nextTick, defineAsyncComponent } from 'vue'
 import YAML from 'yaml'
+import fastDeepEqual from 'fast-deep-equal/es6'
+import cloneDeep from 'lodash/cloneDeep'
 
 import MetadataNamespaces from '@/assets/definitions/metadata/namespaces.js'
 
@@ -79,39 +73,53 @@ import ItemMetadataExpire from '@/components/item/metadata/item-metadata-expire.
 import ItemMetadataVoiceSystem from '@/components/item/metadata/item-metadata-voicesystem.vue'
 import ItemMetadataAlexa from '@/components/item/metadata/item-metadata-alexa.vue'
 import ItemMetadataHomeKit from '@/components/item/metadata/item-metadata-homekit.vue'
+import ItemMetadataMatter from '@/components/item/metadata/item-metadata-matter.vue'
 import ItemMetadataGa from '@/components/item/metadata/item-metadata-ga.vue'
 import ItemMetadataLinktomore from '@/components/item/metadata/item-metadata-linktomore.vue'
-import DirtyMixin from '../../dirty-mixin'
+import ItemMixin from '@/components/item/item-mixin.js'
+import { showToast } from '@/js/dialog-promises'
+import { useDirty } from '@/pages/useDirty'
+import { useTabs } from '@/pages/useTabs'
 
 export default {
-  mixins: [DirtyMixin],
-  props: ['itemName', 'namespace'],
-  components: {
-    'editor': () => import(/* webpackChunkName: "script-editor" */ '@/components/config/controls/script-editor.vue')
+  mixins: [ItemMixin],
+  props: {
+    itemName: String,
+    namespace: String,
+    f7router: Object
   },
-  data () {
+  components: {
+    editor: defineAsyncComponent(() => import(/* webpackChunkName: "script-editor" */ '@/components/config/controls/script-editor.vue'))
+  },
+  setup() {
+    const { currentTab, switchTab } = useTabs('config')
+    const { dirty, dirtyIndicator, setupDirtyWatch } = useDirty('item-metadata-edit-page')
+
+    return { dirty, dirtyIndicator, setupDirtyWatch, currentTab, switchTab }
+  },
+  data() {
     return {
       ready: false,
-      currentTab: 'config',
       creationMode: true,
-      generic: false,
+      generic: MetadataNamespaces.map((n) => n.name).indexOf(this.namespace) < 0,
       item: {},
       metadata: { value: '', config: {} },
+      savedMetadata: {},
       yaml: null
     }
   },
   watch: {
     metadata: {
       handler: function () {
-        if (this.ready) {
-          this.dirty = true
+        if (this.ready && this.editable) {
+          this.dirty = !fastDeepEqual(this.metadata, this.savedMetadata)
         }
       },
       deep: true
     }
   },
   computed: {
-    editorControl () {
+    editorControl() {
       switch (this.namespace) {
         case 'stateDescription':
         case 'commandDescription':
@@ -132,6 +140,8 @@ export default {
           return ItemMetadataExpire
         case 'voiceSystem':
           return ItemMetadataVoiceSystem
+        case 'matter':
+          return ItemMetadataMatter
         case 'alexa':
           return ItemMetadataAlexa
         case 'homekit':
@@ -144,7 +154,7 @@ export default {
           return null
       }
     },
-    yamlError () {
+    yamlError() {
       if (this.currentTab !== 'code') return null
       try {
         YAML.parse(this.yaml, { prettyErrors: true })
@@ -152,96 +162,85 @@ export default {
       } catch (e) {
         return e
       }
+    },
+    editable() {
+      if (this.namespace === 'semantics') return false
+      return this.metadata.editable !== false
     }
   },
   methods: {
-    onPageBeforeIn () {
-      this.generic = MetadataNamespaces.map((n) => n.name).indexOf(this.namespace) < 0
-      this.ready = false
+    onPageBeforeIn() {
+      this.load()
+      console.log('router', this.f7router)
     },
-    onPageAfterIn () {
-      this.$oh.api.get(`/rest/items/${this.itemName}?metadata=${this.namespace}`).then((data) => {
-        this.item = data
-        if (this.item.metadata) {
-          this.metadata = this.item.metadata[this.namespace]
-          if (!this.metadata.config) this.$set(this.metadata, 'config', {})
+    onEditorInput(value) {
+      this.yaml = value
+    },
+    load() {
+      this.$oh.api.get(`/rest/items/${this.itemName}?metadata=${this.namespace}`).then((item) => {
+        this.item = item
+        if (item.metadata) {
+          this.metadata = item.metadata[this.namespace]
+          if (!this.metadata.config) this.metadata.config = {}
           this.creationMode = false
         }
         if (this.generic) {
           this.currentTab = 'code'
           this.toYaml()
         }
-        this.$nextTick(() => {
+        this.savedMetadata = cloneDeep(this.metadata)
+        nextTick(() => {
           this.ready = true
         })
       })
     },
-    onEditorInput (value) {
-      this.yaml = value
-      this.dirty = true
-    },
-    save () {
+    save() {
+      if (!this.editable) return
+
       if (this.currentTab === 'code' && !this.fromYaml()) return
-      if (!this.metadata.value) this.metadata.value = ' '
-      this.$oh.api.put(`/rest/items/${this.itemName}/metadata/${this.namespace}`, this.metadata).then((data) => {
-        if (this.creationMode) {
-          this.$f7.toast.create({
-            text: 'Metadata created',
-            destroyOnClose: true,
-            closeTimeout: 2000
-          }).open()
-        } else {
-          this.$f7.toast.create({
-            text: 'Metadata updated',
-            destroyOnClose: true,
-            closeTimeout: 2000
-          }).open()
-        }
-        this.dirty = false
-        this.$f7router.back()
-      }).catch((err) => {
-        this.$f7.toast.create({
-          text: 'Error while saving metadata: ' + err,
-          destroyOnClose: true,
-          closeTimeout: 2000
-        }).open()
+      this.saveMetadata(this.item, this.namespace, this.metadata)
+        .then((data) => {
+          if (this.creationMode) {
+            showToast('Metadata created')
+          } else {
+            showToast('Metadata updated')
+          }
+          this.savedMetadata = cloneDeep(this.metadata)
+          this.dirty = false
+          this.f7router.back()
+        })
+        .catch((err) => {
+          showToast('Error while saving metadata: ' + err)
+        })
+    },
+    remove() {
+      let nslabel = ([...MetadataNamespaces].find((ns) => ns.name === this.namespace) || { label: this.namespace }).label
+      f7.dialog.confirm(`Are you sure you want to remove all metadata for "${nslabel}"?`, 'Remove metadata', () => {
+        this.deleteMetadata(this.item, this.namespace)
+          .then(() => {
+            showToast('Metadata deleted')
+            this.dirty = false
+            this.f7router.back()
+          })
+          .catch((err) => {
+            showToast('Error while deleting metadata: ' + err)
+          })
       })
     },
-    remove () {
-      let nslabel = ([...MetadataNamespaces].find(ns => ns.name === this.namespace) || { label: this.namespace }).label
-      this.$f7.dialog.confirm(
-        `Are you sure you want to remove all metadata for "${nslabel}"?`,
-        'Remove metadata',
-        () => {
-          this.$oh.api.delete(`/rest/items/${this.itemName}/metadata/${this.namespace}`).then(() => {
-            this.$f7.toast.create({
-              text: 'Metadata deleted',
-              destroyOnClose: true,
-              closeTimeout: 2000
-            }).open()
-            this.dirty = false
-            this.$f7router.back()
-          }).catch((err) => {
-            this.$f7.toast.create({
-              text: 'Error while deleting metadata: ' + err,
-              destroyOnClose: true,
-              closeTimeout: 2000
-            }).open()
-          })
-        }
-      )
+    toYaml() {
+      this.yaml = YAML.stringify({
+        value: this.metadata.value,
+        config: this.metadata.config || {}
+      })
     },
-    toYaml () {
-      this.yaml = YAML.stringify(this.metadata)
-    },
-    fromYaml () {
+    fromYaml() {
       try {
         const updatedMetadata = YAML.parse(this.yaml)
         this.metadata.value = updatedMetadata.value
-        if (updatedMetadata.config) this.$set(this.metadata, 'config', updatedMetadata.config)
+        if (updatedMetadata.config) this.metadata.config = updatedMetadata.config
         return true
       } catch (e) {
-        this.$f7.dialog.alert(e).open()
+        f7.dialog.alert(e).open()
         return false
       }
     }

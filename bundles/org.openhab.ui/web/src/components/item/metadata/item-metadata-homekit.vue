@@ -1,59 +1,76 @@
 <template>
   <div>
-    <div style="text-align:right" class="padding-right">
-      <label @click="toggleMultiple" style="cursor:pointer">Multiple</label> <f7-checkbox :checked="multiple" @change="toggleMultiple" />
-    </div>
-    <f7-list>
-      <f7-list-item :key="classSelectKey"
-                    :title="(multiple) ? 'HomeKit Accessory/Characteristics' : 'HomeKit Accessory/Characteristic'" smart-select :smart-select-params="{ openIn: 'popup', searchbar: true, closeOnSelect: !multiple }" ref="classes">
-        <select v-if="itemType == 'Group'" name="parameters" @change="updateClasses" :multiple="multiple">
-          <option v-if="!multiple" value="" />
-          <option v-for="cl in classesDefs.filter((c) => c.indexOf('.')===-1).filter((c) => c.indexOf('label:') !== 0)"
-                  :value="cl" :key="cl"
-                  :selected="isSelected(cl)">
-            {{ cl }}
-          </option>
-        </select>
-        <select v-else name="parameters" @change="updateClasses" :multiple="multiple">
-          <option v-if="!multiple" value="" />
-          <option v-for="cl in classesDefs.filter((c) => c.indexOf('label:') !== 0)"
-                  :value="cl" :key="cl"
-                  :selected="isSelected(cl)">
-            {{ cl }}
-          </option>
-        </select>
-      </f7-list-item>
-    </f7-list>
+    <group-box title="HomeKit Metadata">
+      <template v-if="editable" #after-title>
+        <label style="cursor: pointer">
+          <f7-checkbox :checked="multiple ? true : null" @change="toggleMultiple" />
+          Multiple
+        </label>
+      </template>
+      <f7-list>
+        <f7-list-item
+          :key="classSelectKey"
+          :title="multiple ? 'HomeKit Accessory/Characteristics' : 'HomeKit Accessory/Characteristic'"
+          :disabled="!editable ? true : null"
+          smart-select
+          :smart-select-params="{ openIn: 'popup', searchbar: true, closeOnSelect: !multiple }"
+          ref="classes">
+          <select v-if="itemType == 'Group'" name="parameters" @change="updateClasses" :multiple="multiple">
+            <option v-if="!multiple" value="" />
+            <option
+              v-for="cl in classesDefs.filter((c) => c.indexOf('.') === -1).filter((c) => c.indexOf('label:') !== 0)"
+              :value="cl"
+              :key="cl"
+              :selected="isSelected(cl) ? true : null">
+              {{ cl }}
+            </option>
+          </select>
+          <select v-else name="parameters" @change="updateClasses" :multiple="multiple">
+            <option v-if="!multiple" value="" />
+            <option
+              v-for="cl in classesDefs.filter((c) => c.indexOf('label:') !== 0)"
+              :value="cl"
+              :key="cl"
+              :selected="isSelected(cl) ? true : null">
+              {{ cl }}
+            </option>
+          </select>
+        </f7-list-item>
+      </f7-list>
+    </group-box>
+
     <div>
-      <config-sheet :parameterGroups="parametersGroups" :parameters="parameters" :configuration="metadata.config" />
+      <config-sheet :parameterGroups="parametersGroups" :parameters="parameters" :configuration="metadata.config" :read-only="!editable" />
     </div>
-    <f7-block class="padding-top no-padding no-margin" v-if="itemType === 'Group' && classes.length">
-      <f7-block-title class="padding-left">
-        Group HomeKit Characteristics Mapping
-      </f7-block-title>
-      <f7-block v-for="cl in classesAsArray" :key="cl">
-        <f7-block-title class="padding-left">
-          {{ cl }}
-        </f7-block-title>
-        <f7-list>
-          <f7-list-item v-for="accessory in accessories[cl]" :key="accessory.label" smart-select :title="accessory.mandatory?accessory.label+'*':accessory.label" :smart-select-params="{ openIn: 'popup', searchbar: true, closeOnSelect: !multiple }">
-            <select @change="updateLinkedItem(cl, accessory.label, $event.target.value)">
-              <option value="" />
-              <option v-for="mbr in item.members" :value="mbr.name" :key="mbr.id" :selected="isLinked(cl, accessory.label, mbr)">
-                {{ mbr.label }} ({{ mbr.name }})
-              </option>
-            </select>
-          </f7-list-item>
-        </f7-list>
-      </f7-block>
-      <f7-block-footer>
-        <f7-button color="blue" @click="updatedLinkedItem">
-          Update group members
-        </f7-button>
-      </f7-block-footer>
-    </f7-block>
+    <group-box v-if="itemType === 'Group' && classes.length" title="Group HomeKit Characteristics Mapping">
+      <f7-list v-for="cl in classesAsArray" :key="cl">
+        <f7-list-item group-title :title="cl" />
+
+        <f7-list-item
+          v-for="accessory in accessories[cl]"
+          :key="accessory.label"
+          :disabled="!editable ? true : null"
+          smart-select
+          :title="accessory.mandatory ? accessory.label + '*' : accessory.label"
+          :smart-select-params="{ openIn: 'popup', searchbar: true, closeOnSelect: !multiple }">
+          <select @change="updateLinkedItem(cl, accessory.label, $event.target.value)">
+            <option value="" />
+            <option
+              v-for="mbr in item.members"
+              :value="mbr.name"
+              :key="mbr.id"
+              :selected="isLinked(cl, accessory.label, mbr) ? true : null">
+              {{ mbr.label }} ({{ mbr.name }})
+            </option>
+          </select>
+        </f7-list-item>
+      </f7-list>
+      <f7-card-footer v-if="editable">
+        <f7-button color="theme-alt" @click="updatedLinkedItem"> Update group members </f7-button>
+      </f7-card-footer>
+    </group-box>
     <p class="padding">
-      <f7-link color="blue" external target="_blank" :href="`${$store.state.websiteUrl}/link/homekit`">
+      <f7-link color="theme-alt" external target="_blank" :href="`${runtimeStore.websiteUrl}/link/homekit`">
         HomeKit integration documentation
       </f7-link>
     </p>
@@ -61,49 +78,61 @@
 </template>
 
 <script>
+import { f7 } from 'framework7-vue'
+import { mapStores } from 'pinia'
+
 import { accessoriesAndCharacteristics, homekitParameters, accessories } from '@/assets/definitions/metadata/homekit'
 import ConfigSheet from '@/components/config/config-sheet.vue'
+import ItemMetadataMixin from '@/components/item/metadata/item-metadata-mixin'
+
+import { useRuntimeStore } from '@/js/stores/useRuntimeStore'
+import { showToast } from '@/js/dialog-promises'
 
 export default {
-  props: ['item', 'itemName', 'metadata', 'namespace'],
+  props: {
+    item: Object,
+    itemName: String,
+    metadata: Object
+  },
+  mixins: [ItemMetadataMixin],
   components: {
     ConfigSheet
   },
-  data () {
+  data() {
     return {
       accessories,
       classesDefs: accessoriesAndCharacteristics,
       multiple: !!this.metadata.value && this.metadata.value.indexOf(',') > 0,
-      classSelectKey: this.$f7.utils.id(),
+      classSelectKey: f7.utils.id(),
       itemType: this.item.groupType || this.item.type,
       dirtyItem: new Set()
     }
   },
   computed: {
-    classesAsArray () {
-      return (this.metadata.value) ? this.metadata.value.split(',') : []
+    classesAsArray() {
+      return this.metadata.value ? this.metadata.value.split(',') : []
     },
-    classes () {
+    classes() {
       if (!this.multiple) return this.metadata.value
-      return (this.metadata.value) ? this.metadata.value.split(',') : []
+      return this.metadata.value ? this.metadata.value.split(',') : []
     },
-    parametersGroups () {
-      if ((!this.classes) || (!this.multiple)) return []
+    parametersGroups() {
+      if (!this.classes || !this.multiple) return []
       let parametersGroups = []
-      this.classesAsArray.forEach(aType => {
+      this.classesAsArray.forEach((aType) => {
         parametersGroups.push({ name: aType, label: aType })
       })
       return parametersGroups
     },
-    parameters () {
+    parameters() {
       if (!this.classes) return []
       if (!this.multiple) return homekitParameters[this.classes]
-      if ((this.multiple) && (this.itemType === 'Group') && (this.classesAsArray.length > 1)) {
+      if (this.multiple && this.itemType === 'Group' && this.classesAsArray.length > 1) {
         let options = []
         let primaryOptions = []
-        this.classesAsArray.forEach(aType => {
+        this.classesAsArray.forEach((aType) => {
           primaryOptions.push({ value: aType, label: aType })
-          homekitParameters[aType].forEach(opt => {
+          homekitParameters[aType].forEach((opt) => {
             opt.groupName = aType
             options.push(opt)
           })
@@ -112,33 +141,34 @@ export default {
         return options
       }
       return []
-    }
+    },
+    ...mapStores(useRuntimeStore)
   },
 
   methods: {
-    isLinked (accessoryClass, characteristic, item) {
-      if ((item.metadata) && (item.metadata.homekit)) {
+    isLinked(accessoryClass, characteristic, item) {
+      if (item.metadata && item.metadata.homekit) {
         return item.metadata.homekit.value.indexOf(characteristic) >= 0
       }
       return false
     },
-    isSelected (cl) {
-      return (this.multiple) ? this.classes.indexOf(cl) >= 0 : this.classes === cl
+    isSelected(cl) {
+      return this.multiple ? this.classes.indexOf(cl) >= 0 : this.classes === cl
     },
-    toggleMultiple () {
+    toggleMultiple() {
       this.multiple = !this.multiple
       this.metadata.value = ''
-      this.classSelectKey = this.$f7.utils.id()
+      this.classSelectKey = f7.utils.id()
     },
-    updateClasses () {
-      const value = this.$refs.classes.f7SmartSelect.getValue()
-      this.metadata.value = (Array.isArray(value)) ? value.join(',') : value
-      this.$set(this.metadata, 'config', {})
+    updateClasses() {
+      const value = this.$refs.classes.$el.children[0].f7SmartSelect.getValue()
+      this.metadata.value = Array.isArray(value) ? value.join(',') : value
+      this.metadata.config = {}
     },
-    updateLinkedItem (accessoryType, accessoryCharacteristic, itemName) {
+    updateLinkedItem(accessoryType, accessoryCharacteristic, itemName) {
       const typeAndCharacteristic = accessoryType + '.' + accessoryCharacteristic
       if (itemName) {
-        const groupMbr = this.item.members.find(mbr => mbr.name === itemName)
+        const groupMbr = this.item.members.find((mbr) => mbr.name === itemName)
         if (groupMbr) {
           if (groupMbr.metadata.homekit.value) {
             groupMbr.metadata.homekit.value = groupMbr.metadata.homekit.value + ',' + typeAndCharacteristic
@@ -148,23 +178,19 @@ export default {
           this.dirtyItem.add(groupMbr)
         }
       } else {
-        const groupMbr = this.item.members.find(mbr => mbr.metadata.homekit.value.indexOf(typeAndCharacteristic) > 0)
+        const groupMbr = this.item.members.find((mbr) => mbr.metadata.homekit.value.indexOf(typeAndCharacteristic) > 0)
         if (groupMbr) {
           let itemClasses = groupMbr.metadata.homekit.value.split(',')
-          itemClasses = itemClasses.filter(tag => tag !== typeAndCharacteristic)
-          groupMbr.metadata.homekit.value = (Array.isArray(itemClasses)) ? itemClasses.join(',') : itemClasses
+          itemClasses = itemClasses.filter((tag) => tag !== typeAndCharacteristic)
+          groupMbr.metadata.homekit.value = Array.isArray(itemClasses) ? itemClasses.join(',') : itemClasses
           this.dirtyItem.add(groupMbr)
         }
       }
     },
-    updatedLinkedItem () {
-      this.dirtyItem.forEach(it =>
+    updatedLinkedItem() {
+      this.dirtyItem.forEach((it) =>
         this.$oh.api.put(`/rest/items/${it.name}/metadata/homekit`, it.metadata.homekit).then((data) => {
-          this.$f7.toast.create({
-            text: 'Metadata of group items updated. Please visit the items to review additional HomeKit configuration parameters.',
-            destroyOnClose: true,
-            closeTimeout: 3000
-          }).open()
+          showToast('Metadata of group items updated. Please visit the items to review additional HomeKit configuration parameters.')
         })
       )
       this.dirtyItem.clear()

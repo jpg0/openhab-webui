@@ -3,11 +3,11 @@
    in the "cellWidget" metadata namespace of the item
  */
 
-import store from '@/js/store'
+import { useSemanticsStore } from '@/js/stores/useSemanticsStore'
 
-export default function itemDefaultCellComponent (item, itemNameAsFooter) {
+export default function itemDefaultCellComponent(item, itemNameAsFooter) {
   const stateDescription = item.stateDescription || {}
-  const metadata = (item.metadata && item.metadata.cellWidget) ? item.metadata.cellWidget : {}
+  const metadata = item.metadata && item.metadata.cellWidget ? item.metadata.cellWidget : {}
   let component = null
   let semanticClass = {}
   let semanticProperty = {}
@@ -19,10 +19,10 @@ export default function itemDefaultCellComponent (item, itemNameAsFooter) {
     }
   } else {
     item.tags.forEach((tag) => {
-      if (store.getters.semanticClasses.Points.indexOf(tag) >= 0) {
+      if (useSemanticsStore().Points.indexOf(tag) >= 0) {
         semanticClass = tag
       }
-      if (store.getters.semanticClasses.Properties.indexOf(tag) >= 0) {
+      if (useSemanticsStore().Properties.indexOf(tag) >= 0) {
         semanticProperty = tag
       }
     })
@@ -31,7 +31,7 @@ export default function itemDefaultCellComponent (item, itemNameAsFooter) {
       component = {
         component: 'oh-cell',
         config: {
-          color: 'blue',
+          color: 'theme-alt',
           action: 'toggle',
           actionItem: item.name,
           actionCommand: 'ON',
@@ -44,7 +44,7 @@ export default function itemDefaultCellComponent (item, itemNameAsFooter) {
       component = {
         component: 'oh-slider-cell',
         config: {
-          color: 'blue',
+          color: 'theme-alt',
           action: 'toggle',
           actionItem: item.name,
           actionCommand: 'ON',
@@ -99,7 +99,7 @@ export default function itemDefaultCellComponent (item, itemNameAsFooter) {
           config: {
             min: stateDescription.minimum,
             max: stateDescription.maximum,
-            stepSize: stateDescription.step
+            step: stateDescription.step
           }
         }
       }
@@ -107,7 +107,7 @@ export default function itemDefaultCellComponent (item, itemNameAsFooter) {
         component = {
           component: 'oh-slider-cell',
           config: {
-            color: 'blue',
+            color: 'theme-alt',
             action: 'toggle',
             actionItem: item.name,
             actionCommand: 'ON',
@@ -125,7 +125,7 @@ export default function itemDefaultCellComponent (item, itemNameAsFooter) {
       component = {
         component: 'oh-cell',
         config: {
-          color: 'blue',
+          color: 'theme-alt',
           action: 'toggle',
           actionItem: item.name,
           actionCommand: 'ON',
@@ -140,7 +140,10 @@ export default function itemDefaultCellComponent (item, itemNameAsFooter) {
       component: 'oh-label-cell'
     }
 
-    if (item.type.indexOf('Number') === 0 && (!item.commandDescription || !item.commandDescription.commandOptions || stateDescription.readOnly)) {
+    if (
+      item.type.indexOf('Number') === 0 &&
+      (!item.commandDescription || !item.commandDescription.commandOptions || stateDescription.readOnly)
+    ) {
       component.config = {
         trendItem: item.name,
         action: 'analyzer',

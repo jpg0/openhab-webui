@@ -1,59 +1,75 @@
+// Note: useDirty() and useTabs() must be initialized in the page component using this mixin.
+// This mixin expects reactive dirty state (dirty/dirtyIndicator) and currentTab/switchTab to be provided at page level.
+import { nextTick } from 'vue'
+import { f7 } from 'framework7-vue'
+
 import YAML from 'yaml'
 import cloneDeep from 'lodash/cloneDeep'
 import fastDeepEqual from 'fast-deep-equal/es6'
 
 import WidgetConfigPopup from '@/components/pagedesigner/widget-config-popup.vue'
 import WidgetCodePopup from '@/components/pagedesigner/widget-code-popup.vue'
-import DirtyMixin from '../dirty-mixin'
+
+import { useStatesStore } from '@/js/stores/useStatesStore'
+import { useComponentsStore } from '@/js/stores/useComponentsStore'
+import { showToast } from '@/js/dialog-promises'
 
 export default {
-  mixins: [DirtyMixin],
-  data () {
+  props: {
+    f7router: Object,
+    f7route: Object
+  },
+  data() {
     return {
       pageReady: false,
       loading: false,
       savedPage: {},
-      pageKey: this.$f7.utils.id(),
+      pageKey: f7.utils.id(),
       pageYaml: null,
       props: {},
       previewMode: false,
-      currentTab: 'design',
       clipboard: null,
       clipboardType: null,
       currentComponent: null,
       currentWidget: null,
-      widgetConfigOpened: false,
-      widgetCodeOpened: false
+      forceEditMode: false
     }
   },
   computed: {
-    ready () {
-      return this.pageReady && this.$store.state.components.widgets != null
+    ready() {
+      return this.pageReady && useComponentsStore().ready
     },
-    context () {
+    isEditable() {
+      return !this.page || (this.page.editable ?? true)
+    },
+    context() {
       return {
         component: this.page,
-        store: this.$store.getters.trackedItems,
+        store: useStatesStore().trackedItems,
         props: this.props,
-        vars: (this.page && this.page.config && this.page.config.defineVars) ? this.page.config.defineVars : {},
-        editmode: (!this.previewMode || this.forceEditMode) ? {
-          addWidget: this.addWidget,
-          configureWidget: this.configureWidget,
-          configureSlot: this.configureSlot,
-          editWidgetCode: this.editWidgetCode,
-          cutWidget: this.cutWidget,
-          copyWidget: this.copyWidget,
-          pasteWidget: this.pasteWidget,
-          moveWidgetUp: this.moveWidgetUp,
-          moveWidgetDown: this.moveWidgetDown,
-          sendWidgetToBack: this.sendWidgetToBack,
-          bringWidgetToFront: this.bringWidgetToFront,
-          removeWidget: this.removeWidget
-        } : null,
+        vars: this.page && this.page.config && this.page.config.defineVars ? this.page.config.defineVars : {},
+        editmode:
+          !this.previewMode || this.forceEditMode
+            ? {
+                isEditable: this.isEditable,
+                addWidget: this.addWidget,
+                configureWidget: this.configureWidget,
+                configureSlot: this.configureSlot,
+                editWidgetCode: this.editWidgetCode,
+                cutWidget: this.cutWidget,
+                copyWidget: this.copyWidget,
+                pasteWidget: this.pasteWidget,
+                moveWidgetUp: this.moveWidgetUp,
+                moveWidgetDown: this.moveWidgetDown,
+                sendWidgetToBack: this.sendWidgetToBack,
+                bringWidgetToFront: this.bringWidgetToFront,
+                removeWidget: this.removeWidget
+              }
+            : null,
         clipboardtype: this.clipboardType
       }
     },
-    yamlError () {
+    yamlError() {
       if (this.currentTab !== 'code') return null
       try {
         YAML.parse(this.pageYaml, { prettyErrors: true })
@@ -66,7 +82,8 @@ export default {
   watch: {
     page: {
       handler: function () {
-        if (!this.loading) { // ignore changes during loading
+        if (!this.loading && this.isEditable) {
+          // ignore changes during loading or when page is not editable
           this.dirty = !fastDeepEqual(this.page, this.savedPage)
         }
       },
@@ -74,20 +91,20 @@ export default {
     }
   },
   methods: {
-    onPageAfterIn () {
+    onPageAfterIn() {
       if (window) {
         window.addEventListener('keydown', this.keyDown)
       }
-      this.$store.dispatch('startTrackingStates')
+      useStatesStore().startTrackingStates()
       this.load()
     },
-    onPageBeforeOut () {
+    onPageBeforeOut() {
       if (window) {
         window.removeEventListener('keydown', this.keyDown)
       }
-      this.$store.dispatch('stopTrackingStates')
+      useStatesStore().stopTrackingStates()
     },
-    keyDown (ev) {
+    keyDown(ev) {
       if ((ev.ctrlKey || ev.metaKey) && !(ev.altKey || ev.shiftKey)) {
         switch (ev.keyCode) {
           case 82:
@@ -96,130 +113,127 @@ export default {
             ev.preventDefault()
             break
           case 83:
-            this.save(!this.createMode)
+            this.save()
             ev.stopPropagation()
             ev.preventDefault()
             break
         }
       }
     },
-    onEditorInput (value) {
+    onEditorInput(value) {
       this.pageYaml = value
     },
-    load () {
+    load() {
       if (this.loading) return
       this.loading = true
 
       if (this.createMode) {
+        if (this.pageCopy) {
+          this.page = this.pageCopy
+        }
         this.savedPage = cloneDeep(this.page)
         this.loading = false
         this.pageReady = true
       } else {
         this.$oh.api.get('/rest/ui/components/ui:page/' + this.uid).then((data) => {
-          this.$set(this, 'page', data)
+          this.page = data
           this.savedPage = cloneDeep(this.page)
-          this.$nextTick(() => {
+          nextTick(() => {
             this.pageReady = true
             this.loading = false
           })
         })
       }
     },
-    save (stay) {
+    save() {
+      if (!this.isEditable) return
       if (this.currentTab === 'code' && !this.fromYaml()) return
       if (!this.page.uid) {
-        this.$f7.dialog.alert('Please give an ID to the page')
+        f7.dialog.alert('Please give an ID to the page')
         return
       } else if (!/^[A-Za-z0-9_]+$/.test(this.page.uid)) {
-        this.$f7.dialog.alert('Page ID is only allowed to contain A-Z,a-z,0-9,_')
+        f7.dialog.alert('Page ID is only allowed to contain A-Z,a-z,0-9,_')
+        return
+      }
+      if (this.createMode) {
+        if (useComponentsStore().page(this.page.uid)) {
+          f7.dialog.alert('A page with this ID already exists')
+          return
+        }
+      } else if (this.uid !== this.page.uid) {
+        f7.dialog.alert('You cannot change the ID of an existing page. Duplicate it with the new ID then delete this one.')
         return
       }
       if (!this.page.config.label) {
-        this.$f7.dialog.alert('Please give a label to the page')
-        return
-      }
-      if (!this.createMode && this.uid !== this.page.uid) {
-        this.$f7.dialog.alert('You cannot change the ID of an existing page. Duplicate it with the new ID then delete this one.')
+        f7.dialog.alert('Please give a label to the page')
         return
       }
 
-      const promise = (this.createMode)
+      const promise = this.createMode
         ? this.$oh.api.postPlain('/rest/ui/components/ui:page', JSON.stringify(this.page), 'text/plain', 'application/json')
         : this.$oh.api.put('/rest/ui/components/ui:page/' + this.page.uid, this.page)
-      promise.then((data) => {
-        this.dirty = false
-        this.savedPage = cloneDeep(this.page)
-        if (this.createMode) {
-          this.$f7.toast.create({
-            text: 'Page created',
-            destroyOnClose: true,
-            closeTimeout: 2000
-          }).open()
-          this.$f7router.navigate(this.$f7route.url.replace('/add', '/' + this.page.uid), { reloadCurrent: true })
-          this.load()
-        } else {
-          this.$f7.toast.create({
-            text: 'Page updated',
-            destroyOnClose: true,
-            closeTimeout: 2000
-          }).open()
-        }
-        this.$f7.emit('sidebarRefresh', null)
-        // if (!stay) this.$f7router.back()
-      }).catch((err) => {
-        this.$f7.toast.create({
-          text: 'Error while saving page: ' + err,
-          destroyOnClose: true,
-          closeTimeout: 2000
-        }).open()
-      })
+      promise
+        .then(() => {
+          this.dirty = false
+          this.savedPage = cloneDeep(this.page)
+          if (this.createMode) {
+            showToast('Page created')
+            this.f7router.navigate(this.f7route.url.replace('/add', '/' + this.page.uid), { reloadCurrent: true })
+            this.load()
+          } else {
+            showToast('Page updated')
+          }
+          f7.emit('sidebarRefresh', null)
+        })
+        .catch((err) => {
+          console.error('Error while saving page: ', err)
+          showToast('Error while saving page: ' + err)
+        })
     },
-    widgetConfigClosed () {
+    widgetConfigClosed() {
       this.currentComponent = null
       this.currentWidget = null
-      this.widgetConfigOpened = false
     },
-    updateWidgetConfig (config) {
-      this.$set(this.currentComponent, 'config', config)
+    updateWidgetConfig(config) {
+      this.currentComponent.config = config
       this.forceUpdate()
-      this.widgetConfigClosed()
     },
-    widgetCodeClosed () {
+    widgetCodeClosed() {
       this.currentComponent = null
       this.currentWidget = null
-      this.widgetCodeOpened = false
     },
-    updateWidgetCode (code) {
+    updateWidgetCode(code) {
       const updatedWidget = YAML.parse(code)
-      this.$set(this.currentComponent, 'config', updatedWidget.config)
-      this.$set(this.currentComponent, 'slots', updatedWidget.slots)
+      this.currentComponent.config = updatedWidget.config
+      this.currentComponent.slots = updatedWidget.slots
       this.forceUpdate()
-      this.widgetCodeClosed()
     },
-    configureWidget (component, parentContext, forceComponentType) {
+    configureWidget(component, parentContext, forceComponentType) {
       const componentType = forceComponentType || component.component
       this.currentComponent = null
       this.currentWidget = null
       let widgetDefinition
       if (componentType.indexOf('widget:') === 0) {
-        this.currentWidget = this.$store.getters.widget(componentType.substring(7))
+        this.currentWidget = useComponentsStore().widget(componentType.substring(7))
       } else {
         // getWidgetDefinition should be defined locally in the page designers SFCs
         widgetDefinition = this.getWidgetDefinition(componentType)
         if (!widgetDefinition) {
           console.warn('Widget not found: ' + componentType)
-          this.$f7.toast.create({
-            text: `This type of component cannot be configured: ${componentType}.`,
-            destroyOnClose: true,
-            closeTimeout: 3000,
-            closeButton: true,
-            closeButtonText: 'Edit YAML',
-            on: {
-              closeButtonClick: () => {
-                this.editWidgetCode(component, parentContext)
+          f7.toast
+            .create({
+              text: `This type of component cannot be configured: ${componentType}.`,
+              destroyOnClose: true,
+              closeTimeout: 3000,
+              closeButton: true,
+              closeButtonText: 'Edit YAML',
+              on: {
+                closeButtonClick: () => {
+                  this.editWidgetCode(component, parentContext)
+                }
               }
-            }
-          }).open()
+            })
+            .open()
           return
         }
         this.currentWidget = widgetDefinition
@@ -231,83 +245,96 @@ export default {
         componentType: this.type
       }
 
-      this.$f7router.navigate({
-        url: 'configure-widget',
-        route: {
-          path: 'configure-widget',
-          popup
+      this.f7router.navigate(
+        {
+          url: 'configure-widget',
+          route: {
+            path: 'configure-widget',
+            popup
+          }
+        },
+        {
+          props: {
+            component: this.currentComponent,
+            widget: this.currentWidget,
+            readOnly: !this.isEditable
+          }
         }
-      }, {
-        props: {
-          component: this.currentComponent,
-          widget: this.currentWidget
-        }
-      })
+      )
 
-      this.$f7.once('widgetConfigUpdate', this.updateWidgetConfig)
-      this.$f7.once('widgetConfigClosed', () => {
-        this.$f7.off('widgetConfigUpdate', this.updateWidgetConfig)
+      f7.on('widgetConfigUpdate', this.updateWidgetConfig)
+      f7.once('widgetConfigClosed', () => {
+        f7.off('widgetConfigUpdate', this.updateWidgetConfig)
         this.widgetConfigClosed()
       })
-      // this.widgetConfigOpened = true
     },
-    editWidgetCode (component, parentContext, slot) {
+    configureSlot() {
+      // This needs to be defined here, otherwise vue will complain about it in the computed context() method above.
+      // it will get overridden by the component that includes this mixin.
+    },
+    editWidgetCode(component, parentContext, slot) {
       if (slot && !component.slots) component.slots = {}
       if (slot && !component.slots[slot]) component.slots[slot] = []
       this.currentComponent = component
-      this.widgetCodeOpened = true
       const popup = {
         component: WidgetCodePopup
       }
 
-      this.$f7router.navigate({
-        url: 'widget-code',
-        route: {
-          path: 'widget-code',
-          popup
+      this.f7router.navigate(
+        {
+          url: 'widget-code',
+          route: {
+            path: 'widget-code',
+            popup
+          }
+        },
+        {
+          props: {
+            componentType: this.f7router.currentRoute.params.type,
+            component: this.currentComponent,
+            readOnly: !this.isEditable
+          }
         }
-      }, {
-        props: {
-          componentType: this.$f7router.currentRoute.params.type,
-          component: this.currentComponent
-        }
-      })
+      )
 
-      this.$f7.once('widgetCodeUpdate', this.updateWidgetCode)
-      this.$f7.once('widgetCodeClosed', () => {
-        this.$f7.off('widgetCodeUpdate', this.updateWidgetCode)
+      f7.on('widgetCodeUpdate', this.updateWidgetCode)
+      f7.once('widgetCodeClosed', () => {
+        f7.off('widgetCodeUpdate', this.updateWidgetCode)
         this.widgetCodeClosed()
       })
     },
-    cutWidget (component, parentContext, slot = 'default') {
+    cutWidget(component, parentContext, slot = 'default') {
+      if (!this.isEditable) return
       this.copyWidget(component, parentContext)
       this.removeWidget(component, parentContext)
     },
-    copyWidget (component, parentContext, slot = 'default') {
+    copyWidget(component, parentContext, slot = 'default') {
       let newClipboard = JSON.stringify(component)
-      this.$set(this, 'clipboard', newClipboard)
+      this.clipboard = newClipboard
       this.clipboardType = component.component
     },
-    pasteWidget (component, parentContext, slot = 'default') {
+    pasteWidget(component, parentContext, slot = 'default') {
+      if (!this.isEditable) return
       if (!this.clipboard) return
       component.slots[slot].push(JSON.parse(this.clipboard))
       this.forceUpdate()
     },
-    moveWidgetUp (component, parentContext, slot = 'default') {
+    moveWidgetUp(component, parentContext, slot = 'default') {
       let siblings = parentContext.component.slots[slot]
       return this.moveWidget(component, parentContext, slot, siblings.indexOf(component) - 1)
     },
-    moveWidgetDown (component, parentContext, slot = 'default') {
+    moveWidgetDown(component, parentContext, slot = 'default') {
       let siblings = parentContext.component.slots[slot]
       return this.moveWidget(component, parentContext, slot, siblings.indexOf(component) + 1)
     },
-    bringWidgetToFront (component, parentContext, slot = 'default') {
+    bringWidgetToFront(component, parentContext, slot = 'default') {
       return this.moveWidget(component, parentContext, slot, parentContext.component.slots[slot].length)
     },
-    sendWidgetToBack (component, parentContext, slot = 'default') {
+    sendWidgetToBack(component, parentContext, slot = 'default') {
       return this.moveWidget(component, parentContext, slot, 0)
     },
-    moveWidget (component, parentContext, slot = 'default', newPos) {
+    moveWidget(component, parentContext, slot = 'default', newPos) {
+      if (!this.isEditable) return
       let siblings = parentContext.component.slots[slot]
       let pos = siblings.indexOf(component)
       newPos = Math.max(0, Math.min(siblings.length, newPos))
@@ -317,14 +344,15 @@ export default {
       this.forceUpdate()
       return Math.min(siblings.length - 1, newPos)
     },
-    removeWidget (component, parentContext, slot = 'default') {
+    removeWidget(component, parentContext, slot = 'default') {
+      if (!this.isEditable) return
       parentContext.component.slots[slot].splice(parentContext.component.slots[slot].indexOf(component), 1)
       this.forceUpdate()
     },
-    forceUpdate () {
-      this.pageKey = this.$f7.utils.id()
+    forceUpdate() {
+      this.pageKey = f7.utils.id()
     },
-    togglePreviewMode (value) {
+    togglePreviewMode(value) {
       if (value === undefined) value = !this.previewMode
       if (value === true) {
         if (this.currentTab === 'code') {

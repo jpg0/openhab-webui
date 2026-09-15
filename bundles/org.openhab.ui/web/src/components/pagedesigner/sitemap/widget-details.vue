@@ -1,52 +1,284 @@
 <template>
   <f7-card v-if="widget">
     <f7-card-content>
-      <f7-list inline-labels>
-        <f7-list-input v-if="widget.component === 'Sitemap'" label="Widget ID" type="text" placeholder="Widget ID" :value="widget.uid" @input="widget.uid = $event.target.value"
-                       required validate pattern="[A-Za-z0-9_]+" error-message="Required. Alphanumeric &amp; underscores only" :disabled="!createMode" />
-        <f7-list-input label="Label" type="text" placeholder="Label" :value="widget.config.label" @input="updateParameter('label', $event)" clear-button />
-        <item-picker v-if="widget.component !== 'Sitemap' && widget.component !== 'Frame'" title="Item" :value="widget.config.item" @input="(value) => widget.config.item = value" />
-        <ul v-if="widget.component !== 'Sitemap'">
-          <f7-list-input ref="icon" label="Icon" autocomplete="off" type="text" placeholder="temperature, firstfloor..." :value="widget.config.icon"
-                         @input="updateParameter('icon', $event)" clear-button>
-            <div slot="root-end" style="margin-left: calc(35% + 8px)">
-              <oh-icon :icon="widget.config.icon" height="32" width="32" />
-            </div>
-          </f7-list-input>
-          <f7-list-item title="Static icon">
-            <f7-toggle slot="after" :checked="widget.config.staticIcon" @toggle:change="widget.config.staticIcon = $event" />
+      <f7-list class="widget-detail" inline-labels>
+        <f7-list-input
+          v-if="widget.type === 'Sitemap'"
+          label="Name"
+          type="text"
+          placeholder="Sitemap name"
+          :value="widget.name"
+          @input="widget.name = $event.target.value"
+          required
+          validate
+          pattern="[A-Za-z0-9_]+"
+          error-message="Required. Alphanumeric &amp; underscores only"
+          :disabled="!createMode || !editable" />
+        <f7-list-input
+          label="Label"
+          type="text"
+          placeholder="Label"
+          :value="widget.label"
+          @input="updateParameter('label', $event)"
+          :clear-button="editable"
+          :disabled="!editable" />
+        <ul v-if="widget.type !== 'Sitemap' && !['Frame', 'Buttongrid'].includes(widget.type)" class="format-editor-wrapper">
+          <format-editor title="Format" :editable="editable" :value="widget.format" @input="updateItemFormat" />
+          <f7-list-item title="No state" :disabled="!editable || widget.format?.length > 0">
+            <template #after>
+              <f7-toggle
+                tooltip="Do not show item state"
+                :checked="widget.itemFormatOverride && !widget.format?.length"
+                @toggle:change="toggleItemFormatOverride" />
+            </template>
           </f7-list-item>
         </ul>
+        <ul v-if="widget.type !== 'Sitemap' && !['Frame', 'Buttongrid'].includes(widget.type)">
+          <item-picker
+            label="Item"
+            :value="widget.item"
+            @input="(value) => (widget.item = value)"
+            class="widget-item"
+            :disabled="!editable" />
+        </ul>
         <ul>
+          <f7-list-input
+            ref="icon"
+            label="Icon"
+            autocomplete="off"
+            type="text"
+            placeholder="temperature, firstfloor..."
+            :value="widget.icon"
+            @input="updateParameter('icon', $event)"
+            :clear-button="editable"
+            :disabled="!editable">
+            <template #root-end>
+              <div v-if="widget.icon" style="margin-left: calc(25% + 8px)">
+                <oh-icon :icon="widget.icon || ''" height="32" width="32" />
+              </div>
+            </template>
+          </f7-list-input>
+        </ul>
+        <ul v-if="widget.type !== 'Sitemap'">
+          <f7-list-item title="Static icon" :disabled="!editable || widget.iconRules?.length > 0">
+            <template #after>
+              <f7-toggle
+                tooltip="openHAB icon does not change with state"
+                :checked="widget.staticIcon && !widget.iconRules?.length"
+                @toggle:change="widget.staticIcon = $event" />
+            </template>
+          </f7-list-item>
+        </ul>
+        <ul id="additional" class="additional-controls">
           <!-- additional controls -->
-          <f7-list-input v-if="supports('url')" label="URL" type="url" :value="widget.config.url" @input="updateParameter('url', $event)" clear-button />
-          <f7-list-input v-if="supports('refresh')" label="Refresh interval" type="number" :value="widget.config.refresh" @input="updateParameter('refresh', $event)" clear-button />
-          <f7-list-input v-if="supports('encoding')" label="Encoding" type="text" :value="widget.config.encoding" @input="updateParameter('encoding', $event)" clear-button />
-          <f7-list-input v-if="supports('service')" label="Service" type="text" :value="widget.config.service" @input="updateParameter('service', $event)" clear-button />
-          <f7-list-input v-if="supports('period')" label="Period" type="text"
-                         placeholder="PnYnMnDTnHnMnS-PnYnMnDTnHnMnS"
-                         validate pattern="^((P(\d+Y)?(\d+M)?(\d+W)?(\d+D)?(T(\d+H)?(\d+M)?(\d+S)?)?|\d*[YMWDh])-)?-?(P(\d+Y)?(\d+M)?(\d+W)?(\d+D)?(T(\d+H)?(\d+M)?(\d+S)?)?|\d*[YMWDh])$"
-                         :value="widget.config.period" @input="updateParameter('period', $event)" clear-button />
-          <f7-list-input v-if="supports('height')" label="Height" type="number" :value="widget.config.height" @input="updateParameter('height', $event)" clear-button />
-          <f7-list-input v-if="supports('minValue')" label="Minimum" type="number" :value="widget.config.minValue" @input="updateParameter('minValue', $event)" clear-button />
-          <f7-list-input v-if="supports('maxValue')" label="Maximum" type="number" :value="widget.config.maxValue" @input="updateParameter('maxValue', $event)" clear-button />
-          <f7-list-input v-if="supports('step')" label="Step" type="number" :value="widget.config.step" @input="updateParameter('step', $event)" clear-button />
-          <f7-list-input v-if="supports('yAxisDecimalPattern')" label="Y-axis decimal pattern" type="text" :value="widget.config.separator" @input="updateParameter('yAxisDecimalPattern', $event)" clear-button />
-          <f7-list-item v-if="supports('switchEnabled')" title="Switch enabled">
-            <f7-toggle slot="after" :checked="widget.config.switchEnabled" @toggle:change="widget.config.switchEnabled = $event" />
+          <f7-list-input
+            v-if="supports('url')"
+            label="URL"
+            type="url"
+            :value="widget.url"
+            @input="updateParameter('url', $event)"
+            :clear-button="editable"
+            :disabled="!editable" />
+          <f7-list-input
+            v-if="supports('refresh')"
+            label="Refresh interval (ms)"
+            type="number"
+            min="1"
+            :value="widget.refresh"
+            @input="updateParameter('refresh', $event)"
+            :clear-button="editable"
+            :disabled="!editable" />
+          <f7-list-item
+            v-if="supports('encoding')"
+            title="Encoding"
+            smart-select
+            :smart-select-params="{ openIn: 'popover', closeOnSelect: true }"
+            class="widget-smart-select"
+            :no-chevron="!editable"
+            :disabled="!editable">
+            <select name="encodings" :value="widget.encoding?.toLowerCase() || ''" @change="updateParameter('encoding', $event)">
+              <option key="" />
+              <option v-for="def in ENCODING_DEFS" :key="def.key" :value="def.key">
+                {{ def.value }}
+              </option>
+            </select>
           </f7-list-item>
-          <f7-list-item v-if="supports('releaseOnly')" title="Release only">
-            <f7-toggle slot="after" :checked="widget.config.releaseOnly" @toggle:change="widget.config.releaseOnly = $event" />
+          <persistence-picker
+            v-if="supports('service')"
+            style="padding-left: 0"
+            title="Persistence service"
+            :value="widget.service"
+            class="widget-persistence"
+            :disabled="!editable"
+            @input="(value) => (widget.service = value)" />
+          <f7-list-input
+            v-if="supports('period')"
+            label="Period"
+            type="text"
+            placeholder="PnYnMnDTnHnMnS-PnYnMnDTnHnMnS"
+            validate
+            pattern="^((P(\d+Y)?(\d+M)?(\d+W)?(\d+D)?(T(\d+H)?(\d+M)?(\d+S)?)?|\d*[YMWDh])-)?-?(P(\d+Y)?(\d+M)?(\d+W)?(\d+D)?(T(\d+H)?(\d+M)?(\d+S)?)?|\d*[YMWDh])$"
+            :value="widget.period"
+            @input="updateParameter('period', $event)"
+            :clear-button="editable"
+            :disabled="!editable" />
+          <f7-list-input
+            v-if="supports('height')"
+            label="Height"
+            type="number"
+            min="1"
+            :value="widget.height"
+            @input="updateParameter('height', $event)"
+            :clear-button="editable"
+            :disabled="!editable" />
+          <f7-list-input
+            v-if="supports('minValue')"
+            label="Minimum"
+            type="number"
+            :value="widget.minValue"
+            @input="updateParameter('minValue', $event)"
+            :clear-button="editable"
+            :disabled="!editable" />
+          <f7-list-input
+            v-if="supports('maxValue')"
+            label="Maximum"
+            type="number"
+            :value="widget.maxValue"
+            @input="updateParameter('maxValue', $event)"
+            :clear-button="editable"
+            :disabled="!editable" />
+          <f7-list-input
+            v-if="supports('step')"
+            label="Step"
+            type="number"
+            min="0"
+            :value="widget.step"
+            @input="updateParameter('step', $event)"
+            :clear-button="editable"
+            :disabled="!editable" />
+          <f7-list-input
+            v-if="supports('yAxisDecimalPattern')"
+            label="Y-axis decimal pattern"
+            type="text"
+            placeholder="##0.0"
+            validate
+            pattern="^(?:'[0#.,;E]?'|[^0#.,;E'])*((#[,#]*|0)[,0]*)(\.(0+#*|#+))?(?:E0+)?(?:';'|[^;])*(?:;(?:'[0#.,;E]?'|[^0#.,;E'])*((#[,#]*|0)[,0]*)(\.(0+#*|#+))?(?:E0+)?.*)?$"
+            :value="widget.yAxisDecimalPattern"
+            @input="updateParameter('yAxisDecimalPattern', $event)"
+            :clear-button="editable"
+            :disabled="!editable" />
+          <f7-list-item
+            v-if="supports('interpolation')"
+            title="Interpolation"
+            smart-select
+            :smart-select-params="{ openIn: 'popover', closeOnSelect: true }"
+            class="widget-smart-select"
+            :no-chevron="!editable"
+            :disabled="!editable">
+            <select
+              name="interpolations"
+              :value="widget.interpolation?.toLowerCase() || ''"
+              @change="updateParameter('interpolation', $event)">
+              <option key="" />
+              <option v-for="def in INTERPOLATION_DEFS" :key="def.key" :value="def.key">
+                {{ def.value }}
+              </option>
+            </select>
           </f7-list-item>
-          <f7-list-item v-if="supports('legend')" title="Legend">
-            <f7-toggle slot="after" :checked="widget.config.legend" @toggle:change="widget.config.legend = $event" />
+          <f7-list-input
+            v-if="supports('row')"
+            label="Row"
+            type="number"
+            required
+            validate
+            min="1"
+            :value="widget.row"
+            @input="updateParameter('row', $event)"
+            :clear-button="editable"
+            :disabled="!editable" />
+          <f7-list-input
+            v-if="supports('column')"
+            label="Column"
+            type="number"
+            required
+            validate
+            min="1"
+            max="12"
+            :value="widget.column"
+            @input="updateParameter('column', $event)"
+            :clear-button="editable"
+            :disabled="!editable" />
+          <f7-list-input
+            v-if="supports('command')"
+            label="Click command"
+            type="text"
+            required
+            validate
+            :value="widget.command"
+            @input="updateParameter('command', $event)"
+            :clear-button="editable"
+            :disabled="!editable" />
+          <f7-list-input
+            v-if="supports('releaseCommand')"
+            label="Release command"
+            type="text"
+            :value="widget.releaseCommand"
+            @input="updateParameter('releaseCommand', $event)"
+            :clear-button="editable"
+            :disabled="!editable" />
+          <f7-list-item v-if="supports('stateless')" title="Stateless" :disabled="!editable">
+            <template #after>
+              <f7-toggle :checked="widget.stateless ? true : null" @toggle:change="widget.stateless = $event" />
+            </template>
           </f7-list-item>
-          <f7-list-item v-if="supports('forceAsItem')" title="Force as item">
-            <f7-toggle slot="after" :checked="widget.config.forceAsItem" @toggle:change="widget.config.forceAsItem = $event" />
+          <f7-list-item v-if="supports('switchSupport')" title="Switch enabled" :disabled="!editable">
+            <template #after>
+              <f7-toggle :checked="widget.switchSupport ? true : null" @toggle:change="widget.switchSupport = $event" />
+            </template>
           </f7-list-item>
-          <f7-list-item v-if="supports('inputHint')" title="Hint" smart-select :smart-select-params="{openIn: 'popover', closeOnSelect: true}">
-            <select name="inputHints" required :value="widget.config.inputHint" @change="updateParameter('inputHint', $event)">
-              <option v-for="def in inputHintDefs" :key="def.key" :value="def.key">
+          <f7-list-item v-if="supports('releaseOnly')" title="Release only" :disabled="!editable">
+            <template #after>
+              <f7-toggle :checked="widget.releaseOnly ? true : null" @toggle:change="widget.releaseOnly = $event" />
+            </template>
+          </f7-list-item>
+          <f7-list-item
+            v-if="supports('legend')"
+            title="Legend"
+            smart-select
+            :smart-select-params="{ openIn: 'popover', closeOnSelect: true }"
+            class="widget-smart-select"
+            :no-chevron="!editable"
+            :disabled="!editable">
+            <select
+              name="legend"
+              :value="triStateBooleanSelectValue(widget.legend)"
+              @change="updateTriStateBooleanParameter('legend', $event)">
+              <option key="" />
+              <option v-for="def in LEGEND_DEFS" :key="def.key" :value="String(def.key)">
+                {{ def.value }}
+              </option>
+            </select>
+          </f7-list-item>
+          <f7-list-item v-if="supports('forceAsItem')" title="Force as item" :disabled="!editable">
+            <template #after>
+              <f7-toggle :checked="widget.forceAsItem ? true : null" @toggle:change="widget.forceAsItem = $event" />
+            </template>
+          </f7-list-item>
+          <f7-list-item
+            v-if="supports('inputHint')"
+            title="Hint"
+            smart-select
+            :smart-select-params="{ openIn: 'popover', closeOnSelect: true }"
+            class="widget-smart-select"
+            :no-chevron="!editable"
+            :disabled="!editable">
+            <select
+              name="inputHints"
+              required
+              :value="widget.inputHint?.toLowerCase() || ''"
+              @change="updateParameter('inputHint', $event)">
+              <option key="" />
+              <option v-for="def in INPUT_HINT_DEFS" :key="def.key" :value="def.key">
                 {{ def.value }}
               </option>
             </select>
@@ -54,62 +286,83 @@
         </ul>
       </f7-list>
     </f7-card-content>
-    <f7-card-footer key="sitemap-widget-buttons-edit-mode" v-if="widget.component !== 'Sitemap'">
-      <!-- <f7-button v-if="!editMode && !createMode" color="blue" @click="editMode = true" icon-ios="material:expand_more" icon-md="material:expand_more" icon-aurora="material:expand_more">Edit</f7-button> -->
-      <f7-segmented>
-        <f7-button color="blue" @click="$emit('moveup', widget)" icon-f7="chevron_up" />
-        <f7-button color="blue" @click="$emit('movedown', widget)" icon-f7="chevron_down" />
+    <f7-card-footer v-if="editable || widget.type === 'Sitemap'" key="sitemap-widget-buttons-edit-mode" class="widget-details-footer">
+      <!-- <f7-button v-if="!editMode && !createMode" color="theme-alt" @click="editMode = true" icon-ios="material:expand_more" icon-md="material:expand_more" icon-aurora="material:expand_more">Edit</f7-button> -->
+      <f7-segmented v-if="editable && widget.type !== 'Sitemap'">
+        <f7-button
+          v-if="widget.type === 'Button'"
+          color="theme-alt"
+          @click="$emit('sortbuttons', widget.parent)"
+          icon-f7="sort_down"
+          tooltip="Sort Buttons" />
+        <f7-button color="theme-alt" @click="$emit('moveup', widget)" icon-f7="chevron_up" tooltip="Move Up" />
+        <f7-button color="theme-alt" @click="$emit('movedown', widget)" icon-f7="chevron_down" tooltip="Move Down" />
       </f7-segmented>
-      <f7-button v-if="widget.component !== 'Sitemap'" color="red" @click="$emit('remove', widget)">
-        Remove
-      </f7-button>
+      <f7-button v-if="editable || widget.type === 'Sitemap'" color="theme-alt" @click="$emit('duplicate', widget)"> Duplicate </f7-button>
+      <f7-button v-if="editable && widget.type !== 'Sitemap'" color="red" @click="$emit('remove', widget)"> Remove </f7-button>
     </f7-card-footer>
   </f7-card>
 </template>
 
-<style>
+<style lang="stylus">
+.widget-detail
+  .item-title
+    width 25%
+  .item-inner:after
+    height 0 !important /* remove all lines between params */
+  .additional-controls:before
+    display block !important
+  .widget-item .item-after
+    color var(--f7-block-text-color)
+  .widget-smart-select .item-after
+    color var(--f7-block-text-color)
+  .widget-persistence .item-after
+    color var(--f7-block-text-color)
+#additional:before
+  display block !important /* need two selectors to override the important Vue card css */
 
+.format-editor-wrapper
+  margin 0
+  padding 0
+
+.widget-details-footer > :only-child
+  margin-left auto
+  margin-right auto
 </style>
 
 <script>
+import { f7 } from 'framework7-vue'
 import { Categories } from '@/assets/categories.js'
+import FormatEditor from '@/components/config/controls/format-editor.vue'
 import ItemPicker from '@/components/config/controls/item-picker.vue'
+import PersistencePicker from '@/components/config/controls/persistence-picker.vue'
+import SitemapMixin from '@/components/pagedesigner/sitemap/sitemap-mixin'
 
 export default {
+  mixins: [SitemapMixin],
   components: {
-    ItemPicker
+    FormatEditor,
+    ItemPicker,
+    PersistencePicker
   },
-  props: ['widget', 'createMode'],
-  data () {
+  props: {
+    widget: Object,
+    editable: Boolean,
+    createMode: Boolean
+  },
+  emits: ['sortbuttons', 'moveup', 'movedown', 'duplicate', 'remove'],
+  data() {
     return {
       iconInputId: '',
-      iconAutocomplete: null,
-      additionalControls: {
-        Image: ['url', 'refresh'],
-        Video: ['url', 'encoding'],
-        Chart: ['service', 'period', 'refresh', 'legend', 'forceAsItem', 'yAxisDecimalPattern'],
-        Webview: ['url', 'height'],
-        Mapview: ['height'],
-        Slider: ['switchEnabled', 'releaseOnly', 'minValue', 'maxValue', 'step'],
-        Setpoint: ['minValue', 'maxValue', 'step'],
-        Input: ['inputHint'],
-        Default: ['height']
-      },
-      inputHintDefs: [
-        { key: 'text', value: 'Text' },
-        { key: 'number', value: 'Number' },
-        { key: 'date', value: 'Date' },
-        { key: 'time', value: 'Time' },
-        { key: 'datetime', value: 'Date and Time' }
-      ]
+      iconAutocomplete: null
     }
   },
   methods: {
-    initializeAutocomplete (inputElement) {
-      this.iconAutocomplete = this.$f7.autocomplete.create({
+    initializeAutocomplete(inputElement) {
+      this.iconAutocomplete = f7.autocomplete.create({
         inputEl: inputElement,
         openIn: 'dropdown',
-        source (query, render) {
+        source(query, render) {
           if (!query || !query.length) {
             render([])
           } else {
@@ -118,32 +371,62 @@ export default {
         }
       })
     },
-    supports (parameter) {
-      if (!this.additionalControls[this.widget.component]) return false
-      return (this.additionalControls[this.widget.component].indexOf(parameter) >= 0)
+    supports(parameter) {
+      if (!this.ADDITIONAL_CONTROLS[this.widget.type]) return false
+      return this.ADDITIONAL_CONTROLS[this.widget.type].indexOf(parameter) >= 0
     },
-    updateParameter (parameter, $event) {
+    updateParameter(parameter, $event) {
       let value = $event.target.value
       if (value && $event.target.type === 'number' && !isNaN(value)) {
         value = parseFloat(value)
       }
-      this.$set(this.widget.config, parameter, value)
+      this.widget[parameter] = value
     },
-    remove () {
+    triStateBooleanSelectValue(value) {
+      if (value === true) return 'true'
+      if (value === false) return 'false'
+      return ''
+    },
+    updateTriStateBooleanParameter(parameter, $event) {
+      const value = $event.target.value
+      if (value === 'true') {
+        this.widget[parameter] = true
+      } else if (value === 'false') {
+        this.widget[parameter] = false
+      } else {
+        delete this.widget[parameter]
+      }
+    },
+    updateItemFormat(event) {
+      if (event === null || event === undefined || event.length === 0) {
+        delete this.widget.format
+      } else {
+        this.widget.format = event
+      }
+    },
+    toggleItemFormatOverride(event) {
+      if (!this.widget.format?.length) {
+        if (event) {
+          this.widget.itemFormatOverride = true
+        } else {
+          delete this.widget.itemFormatOverride
+        }
+      }
+    },
+    remove() {
       this.$emit('remove')
     }
   },
-  mounted () {
+  mounted() {
     if (!this.widget) return
-    if (!this.widget.config.icon) this.$set(this.widget.config, 'icon', '')
     const iconControl = this.$refs.icon
     if (!iconControl || !iconControl.$el) return
     const inputElement = this.$$(iconControl.$el).find('input')
     this.initializeAutocomplete(inputElement)
   },
-  beforeDestroy () {
+  beforeUnmount() {
     if (this.iconControl) {
-      this.$f7.autocomplete.destroy(this.iconControl)
+      f7.autocomplete.destroy(this.iconControl)
     }
   }
 }

@@ -1,33 +1,66 @@
 <template>
   <f7-block class="developer-sidebar">
-    <f7-row :inner="false" v-if="!$theme.md">
-      <f7-searchbar ref="searchbar" style="width: 100%" custom-search placeholder="Search and Pin" :backdrop="false" @searchbar:search="search" @searchbar:clear="clearSearch" />
+    <f7-row v-if="!theme.md" :inner="false">
+      <f7-searchbar
+        ref="searchbar"
+        style="width: 100%"
+        custom-search
+        placeholder="Search and Pin"
+        :backdrop="false"
+        @searchbar:search="search"
+        @searchbar:clear="clearSearch" />
     </f7-row>
-    <f7-row style="width: 100%" :inner="false" v-else>
-      <f7-searchbar ref="searchbar" custom-search placeholder="Search and Pin" :backdrop="false" @searchbar:search="search" @searchbar:clear="clearSearch" />
+    <f7-row v-else style="width: 100%" :inner="false">
+      <f7-searchbar
+        ref="searchbar"
+        custom-search
+        placeholder="Search and Pin"
+        :backdrop="false"
+        @searchbar:search="search"
+        @searchbar:clear="clearSearch" />
     </f7-row>
     <div v-if="!searching" class="developer-sidebar-content">
       <div v-if="activeToolTab === 'pin'">
         <f7-block class="no-margin no-padding">
-          <f7-block-title class="padding-horizontal" medium>
-            Pinned Objects
-          </f7-block-title>
+          <f7-block-title class="padding-horizontal" medium> Pinned Objects </f7-block-title>
         </f7-block>
-        <f7-block class="no-margin no-padding" v-if="!pinnedObjects.items.length && !pinnedObjects.things.length && !pinnedObjects.rules.length && !pinnedObjects.scenes.length && !pinnedObjects.scripts.length && !pinnedObjects.pages.length && !pinnedObjects.transformations.length">
+        <f7-list v-if="Object.keys(developerStore.pinCollections).length > 0 || isAnythingPinned">
+          <f7-list-item accordion-item title="Saved Pins" ref="pinCollectionsAccordion">
+            <f7-accordion-content>
+              <f7-list>
+                <f7-list-input v-if="isAnythingPinned" type="text" :input="false" clear-button>
+                  <template #input>
+                    <input type="text" placeholder="Save current pins as" v-model="newCollectionName" @keyup.enter="savePinCollection" />
+                  </template>
+                </f7-list-input>
+              </f7-list>
+              <f7-list v-if="developerStore.sortedCollectionNames.length > 0" class="pin-collections">
+                <f7-list-item group-title title="Saved Pin Collections" class="padding-vertical" />
+                <f7-list-item
+                  v-for="collectionName in developerStore.sortedCollectionNames"
+                  :key="collectionName"
+                  :title="collectionName"
+                  :link="true"
+                  @click="loadPinCollection(collectionName)">
+                  <template #after>
+                    <f7-link color="red" icon-f7="trash" tooltip="Delete Collection" @click.stop="deletePinCollection(collectionName)" />
+                  </template>
+                </f7-list-item>
+              </f7-list>
+            </f7-accordion-content>
+          </f7-list-item>
+        </f7-list>
+        <f7-block v-if="!isAnythingPinned" class="no-margin no-padding">
+          <p class="padding-horizontal">Use the search box above or the button below to temporarily pin objects here for quick access.</p>
           <p class="padding-horizontal">
-            Use the search box above or the button below to temporarily pin objects here for quick access.
-          </p>
-          <p class="padding-horizontal">
-            <f7-button fill color="blue" @click="openModelPicker">
-              Pin Items from Model
-            </f7-button>
+            <f7-button fill color="theme-alt" @click="openModelPicker"> Pin Items from Model </f7-button>
           </p>
         </f7-block>
         <!-- Pinned Items -->
-        <f7-block class="no-margin no-padding" v-if="pinnedObjects.items.length">
+        <f7-block v-if="developerStore.pinnedObjects.items.length" class="no-margin no-padding">
           <f7-block-title class="padding-horizontal display-flex">
             <span>Pinned Items</span>
-            <span style="margin-left:auto">
+            <span style="margin-left: auto">
               <!-- <f7-link color="gray" icon-f7="eye" icon-size="14"></f7-link> -->
               <f7-link color="gray" icon-f7="list_bullet_indent" icon-size="14" @click="openModelPicker" />
               <f7-link color="gray" icon-f7="multiply" icon-size="14" @click="unpinAll('items')" />
@@ -35,197 +68,447 @@
           </f7-block-title>
           <f7-list>
             <ul>
-              <item v-for="item in pinnedObjects.items" :key="item.name" link="" :item="item" :context="context" :no-icon="true" :no-type="true" :no-tags="true" @click="(evt) => showItem(evt, item)">
-                <div class="display-flex align-items-flex-end justify-content-flex-end" style="margin-top: 3px" slot="footer">
-                  <f7-link color="gray" class="margin-right itemlist-actions">
-                    <clipboard-icon :value="item.name" size="18" tooltip="Copy Item name" />
-                  </f7-link>
-                  <f7-link class="margin-right itemlist-actions" color="gray" icon-f7="pencil" icon-size="18" tooltip="Edit" :href="'/settings/items/' + item.name" :animate="false" />
-                  <f7-link class="itemlist-actions" color="red" icon-f7="pin_slash_fill" icon-size="18" tooltip="Unpin" @click="unpin('items', item, 'name')" />
-                </div>
+              <item
+                v-for="item in developerStore.pinnedObjects.items"
+                :key="item.name"
+                link=""
+                :item="item"
+                :context="context"
+                :no-icon="true"
+                :no-type="true"
+                :no-tags="true"
+                @click="(evt) => showItem(evt, item)">
+                <template #footer>
+                  <div class="display-flex align-items-flex-end justify-content-flex-end" style="margin-top: 3px">
+                    <f7-link color="gray" class="margin-right itemlist-actions">
+                      <clipboard-icon :value="item.name" :size="18" tooltip="Copy Item name" />
+                    </f7-link>
+                    <f7-link
+                      class="margin-right itemlist-actions"
+                      color="gray"
+                      icon-f7="pencil"
+                      icon-size="18"
+                      tooltip="Edit"
+                      :href="'/settings/items/' + item.name"
+                      :animate="false" />
+                    <f7-link
+                      class="itemlist-actions"
+                      color="theme-alt"
+                      icon-f7="pin_fill"
+                      icon-size="18"
+                      tooltip="Unpin"
+                      @click="unpin('items', item, 'name')" />
+                  </div>
+                </template>
               </item>
             </ul>
             <!-- <f7-list-button title="Pick Items" @click="modelPickerOpened = true"></f7-list-button> -->
           </f7-list>
         </f7-block>
         <!-- Pinned Things -->
-        <f7-block class="no-margin no-padding" v-if="pinnedObjects.things.length">
+        <f7-block v-if="developerStore.pinnedObjects.things.length" class="no-margin no-padding">
           <f7-block-title class="padding-horizontal display-flex">
             <span>Pinned Things</span>
-            <span style="margin-left:auto">
+            <span style="margin-left: auto">
               <f7-link color="gray" icon-f7="multiply" icon-size="14" @click="unpinAll('things')" />
             </span>
           </f7-block-title>
           <f7-list media-list>
             <ul>
-              <f7-list-item v-for="thing in pinnedObjects.things" :key="thing.UID" media-item
-                            :title="thing.label" :footer="thing.UID">
-                <f7-badge slot="after" :color="thingStatusBadgeColor(thing.statusInfo)" :tooltip="thing.statusInfo.description">
-                  {{ thingStatusBadgeText(thing.statusInfo) }}
-                </f7-badge>
-                <div class="display-flex align-items-flex-end justify-content-flex-end" style="margin-top: 3px" slot="footer">
-                  <f7-link color="gray" class="margin-right">
-                    <clipboard-icon :value="thing.UID" size="18" tooltip="Copy Thing UID" />
-                  </f7-link>
-                  <f7-link class="margin-right" :icon-color="(thing.statusInfo.statusDetail === 'DISABLED') ? 'orange' : 'gray'" :tooltip="(thing.statusInfo.statusDetail === 'DISABLED') ? 'Enable' : 'Disable'" icon-f7="pause_circle" icon-size="18" @click="toggleThingDisabled(thing)" />
-                  <f7-link class="margin-right" color="gray" icon-f7="pencil" icon-size="18" tooltip="Edit" :href="'/settings/things/' + thing.UID" :animate="false" />
-                  <f7-link color="red" icon-f7="pin_slash_fill" icon-size="18" tooltip="Unpin" @click="unpin('things', thing, 'UID')" />
-                </div>
+              <f7-list-item
+                v-for="thing in developerStore.pinnedObjects.things"
+                :key="thing.UID"
+                media-item
+                :title="thing.label"
+                :footer="thing.UID">
+                <template #after>
+                  <f7-badge :color="thingStatusBadgeColor(thing.statusInfo)" :tooltip="thing.statusInfo.description">
+                    {{ thingStatusBadgeText(thing.statusInfo) }}
+                  </f7-badge>
+                </template>
+                <template #footer>
+                  <div class="display-flex align-items-flex-end justify-content-flex-end" style="margin-top: 3px">
+                    <f7-link color="gray" class="margin-right">
+                      <clipboard-icon :value="thing.UID" :size="18" tooltip="Copy Thing UID" />
+                    </f7-link>
+                    <f7-link
+                      class="margin-right"
+                      :icon-color="thing.statusInfo.statusDetail === 'DISABLED' ? 'orange' : 'gray'"
+                      :tooltip="thing.statusInfo.statusDetail === 'DISABLED' ? 'Enable' : 'Disable'"
+                      icon-f7="pause_circle"
+                      icon-size="18"
+                      @click="toggleThingDisabled(thing)" />
+                    <f7-link
+                      class="margin-right"
+                      color="gray"
+                      icon-f7="pencil"
+                      icon-size="18"
+                      tooltip="Edit"
+                      :href="'/settings/things/' + thing.UID"
+                      :animate="false" />
+                    <f7-link color="theme-alt" icon-f7="pin_fill" icon-size="18" tooltip="Unpin" @click="unpin('things', thing, 'UID')" />
+                  </div>
+                </template>
               </f7-list-item>
             </ul>
           </f7-list>
         </f7-block>
         <!-- Pinned Rules -->
-        <f7-block class="no-margin no-padding" v-if="pinnedObjects.rules.length">
+        <f7-block v-if="developerStore.pinnedObjects.rules.length" class="no-margin no-padding">
           <f7-block-title class="padding-horizontal display-flex">
             <span>Pinned Rules</span>
-            <span style="margin-left:auto">
+            <span style="margin-left: auto">
               <f7-link color="gray" icon-f7="multiply" icon-size="14" @click="unpinAll('rules')" />
             </span>
           </f7-block-title>
           <f7-list media-list>
             <ul>
-              <f7-list-item v-for="rule in pinnedObjects.rules" :key="rule.uid" media-item
-                            :title="rule.name" :footer="rule.uid">
-                <f7-badge slot="after" :color="ruleStatusBadgeColor(rule.status)" :tooltip="rule.status.description">
-                  {{ ruleStatusBadgeText(rule.status) }}
-                </f7-badge>
-                <div class="display-flex align-items-flex-end justify-content-flex-end" style="margin-top: 3px" slot="footer">
-                  <f7-link color="gray" class="margin-right">
-                    <clipboard-icon :value="rule.uid" size="18" tooltip="Copy Rule UID" />
-                  </f7-link>
-                  <f7-link class="margin-right" :icon-color="(rule.status.statusDetail === 'DISABLED') ? 'orange' : 'gray'" :tooltip="(rule.status.statusDetail === 'DISABLED') ? 'Enable' : 'Disable'" icon-f7="pause_circle" icon-size="18" @click="toggleRuleDisabled(rule)" />
-                  <f7-link class="margin-right" color="blue" icon-f7="play" icon-size="18" tooltip="Run" @click="runRuleNow(rule)" />
-                  <f7-link class="margin-right" color="gray" icon-f7="pencil" icon-size="18" tooltip="Edit" :href="'/settings/' + (rule.tags.indexOf('Script') >= 0 ? 'scripts' : 'rules') + '/' + rule.uid" :animate="false" />
-                  <f7-link color="red" icon-f7="pin_slash_fill" icon-size="18" tooltip="Unpin" @click="unpin('rules', rule, 'uid')" />
-                </div>
+              <f7-list-item
+                v-for="rule in developerStore.pinnedObjects.rules"
+                :key="rule.uid"
+                media-item
+                :title="rule.name"
+                :footer="rule.uid">
+                <template #after>
+                  <f7-badge :color="ruleStatusBadgeColor(rule.status)" :tooltip="rule.status.description">
+                    {{ ruleStatusBadgeText(rule.status) }}
+                  </f7-badge>
+                </template>
+                <template #footer>
+                  <div class="display-flex align-items-flex-end justify-content-flex-end" style="margin-top: 3px">
+                    <f7-link color="gray" class="margin-right">
+                      <clipboard-icon :value="rule.uid" :size="18" tooltip="Copy Rule UID" />
+                    </f7-link>
+                    <f7-link
+                      class="margin-right"
+                      :icon-color="rule.status.statusDetail === 'DISABLED' ? 'orange' : 'gray'"
+                      :tooltip="rule.status.statusDetail === 'DISABLED' ? 'Enable' : 'Disable'"
+                      icon-f7="pause_circle"
+                      icon-size="18"
+                      @click="toggleRuleDisabled(rule)" />
+                    <f7-link
+                      class="margin-right"
+                      :color="rule.status.status === 'IDLE' ? 'theme-alt' : 'gray'"
+                      icon-f7="play"
+                      icon-size="18"
+                      tooltip="Run"
+                      @click="runRuleNow(rule)" />
+                    <f7-link
+                      class="margin-right"
+                      color="gray"
+                      icon-f7="pencil"
+                      icon-size="18"
+                      tooltip="Edit"
+                      :href="'/settings/' + (rule.tags.indexOf('Script') >= 0 ? 'scripts' : 'rules') + '/' + rule.uid"
+                      :animate="false" />
+                    <f7-link color="theme-alt" icon-f7="pin_fill" icon-size="18" tooltip="Unpin" @click="unpin('rules', rule, 'uid')" />
+                  </div>
+                </template>
               </f7-list-item>
             </ul>
           </f7-list>
         </f7-block>
         <!-- Pinned Scenes -->
-        <f7-block class="no-margin no-padding" v-if="pinnedObjects.scenes.length">
+        <f7-block v-if="developerStore.pinnedObjects.scenes.length" class="no-margin no-padding">
           <f7-block-title class="padding-horizontal display-flex">
             <span>Pinned Scenes</span>
-            <span style="margin-left:auto">
+            <span style="margin-left: auto">
               <f7-link color="gray" icon-f7="multiply" icon-size="14" @click="unpinAll('scenes')" />
             </span>
           </f7-block-title>
           <f7-list media-list>
             <ul>
-              <f7-list-item v-for="rule in pinnedObjects.scenes" :key="rule.uid" media-item
-                            :title="rule.name" :footer="rule.uid">
-                <f7-badge slot="after" :color="ruleStatusBadgeColor(rule.status)" :tooltip="rule.status.description">
-                  {{ ruleStatusBadgeText(rule.status) }}
-                </f7-badge>
-                <div class="display-flex align-items-flex-end justify-content-flex-end" style="margin-top: 3px" slot="footer">
-                  <f7-link color="gray" class="margin-right">
-                    <clipboard-icon :value="rule.uid" size="18" tooltip="Copy Rule UID" />
-                  </f7-link>
-                  <f7-link class="margin-right" :icon-color="(rule.status.statusDetail === 'DISABLED') ? 'orange' : 'gray'" :tooltip="(rule.status.statusDetail === 'DISABLED') ? 'Enable' : 'Disable'" icon-f7="pause_circle" icon-size="18" @click="toggleRuleDisabled(rule)" />
-                  <f7-link class="margin-right" color="blue" icon-f7="play" icon-size="18" tooltip="Run" @click="runRuleNow(rule)" />
-                  <f7-link class="margin-right" color="gray" icon-f7="pencil" icon-size="18" tooltip="Edit" :href="'/settings/' + (rule.tags.indexOf('Script') >= 0 ? 'scripts' : 'rules') + '/' + rule.uid" :animate="false" />
-                  <f7-link color="red" icon-f7="pin_slash_fill" icon-size="18" tooltip="Unpin" @click="unpin('scenes', rule, 'uid')" />
-                </div>
+              <f7-list-item
+                v-for="rule in developerStore.pinnedObjects.scenes"
+                :key="rule.uid"
+                media-item
+                :title="rule.name"
+                :footer="rule.uid">
+                <template #after>
+                  <f7-badge :color="ruleStatusBadgeColor(rule.status)" :tooltip="rule.status.description">
+                    {{ ruleStatusBadgeText(rule.status) }}
+                  </f7-badge>
+                </template>
+                <template #footer>
+                  <div class="display-flex align-items-flex-end justify-content-flex-end" style="margin-top: 3px">
+                    <f7-link color="gray" class="margin-right">
+                      <clipboard-icon :value="rule.uid" :size="18" tooltip="Copy Rule UID" />
+                    </f7-link>
+                    <f7-link
+                      class="margin-right"
+                      :icon-color="rule.status.statusDetail === 'DISABLED' ? 'orange' : 'gray'"
+                      :tooltip="rule.status.statusDetail === 'DISABLED' ? 'Enable' : 'Disable'"
+                      icon-f7="pause_circle"
+                      icon-size="18"
+                      @click="toggleRuleDisabled(rule, 'Scene')" />
+                    <f7-link
+                      class="margin-right"
+                      :color="rule.status.status === 'IDLE' ? 'theme-alt' : 'gray'"
+                      icon-f7="play"
+                      icon-size="18"
+                      tooltip="Run"
+                      @click="runRuleNow(rule, 'Scene')" />
+                    <f7-link
+                      class="margin-right"
+                      color="gray"
+                      icon-f7="pencil"
+                      icon-size="18"
+                      tooltip="Edit"
+                      :href="'/settings/' + (rule.tags.indexOf('Script') >= 0 ? 'scripts' : 'rules') + '/' + rule.uid"
+                      :animate="false" />
+                    <f7-link color="theme-alt" icon-f7="pin_fill" icon-size="18" tooltip="Unpin" @click="unpin('scenes', rule, 'uid')" />
+                  </div>
+                </template>
               </f7-list-item>
             </ul>
           </f7-list>
         </f7-block>
         <!-- Pinned Scripts -->
-        <f7-block class="no-margin no-padding" v-if="pinnedObjects.scripts.length">
+        <f7-block v-if="developerStore.pinnedObjects.scripts.length" class="no-margin no-padding">
           <f7-block-title class="padding-horizontal display-flex">
             <span>Pinned Scripts</span>
-            <span style="margin-left:auto">
+            <span style="margin-left: auto">
               <f7-link color="gray" icon-f7="multiply" icon-size="14" @click="unpinAll('scripts')" />
             </span>
           </f7-block-title>
           <f7-list media-list>
             <ul>
-              <f7-list-item v-for="rule in pinnedObjects.scripts" :key="rule.uid" media-item
-                            :title="rule.name" :footer="rule.uid">
-                <f7-badge slot="after" :color="ruleStatusBadgeColor(rule.status)" :tooltip="rule.status.description">
-                  {{ ruleStatusBadgeText(rule.status) }}
-                </f7-badge>
-                <div class="display-flex align-items-flex-end justify-content-flex-end" style="margin-top: 3px" slot="footer">
-                  <f7-link color="gray" class="margin-right">
-                    <clipboard-icon :value="rule.uid" size="18" tooltip="Copy Rule UID" />
-                  </f7-link>
-                  <f7-link class="margin-right" :icon-color="(rule.status.statusDetail === 'DISABLED') ? 'orange' : 'gray'" :tooltip="(rule.status.statusDetail === 'DISABLED') ? 'Enable' : 'Disable'" icon-f7="pause_circle" icon-size="18" @click="toggleRuleDisabled(rule)" />
-                  <f7-link class="margin-right" color="blue" icon-f7="play" icon-size="18" tooltip="Run" @click="runRuleNow(rule)" />
-                  <f7-link class="margin-right" color="gray" icon-f7="pencil" icon-size="18" tooltip="Edit" :href="'/settings/' + (rule.tags.indexOf('Script') >= 0 ? 'scripts' : 'rules') + '/' + rule.uid" :animate="false" />
-                  <f7-link color="red" icon-f7="pin_slash_fill" icon-size="18" tooltip="Unpin" @click="unpin('scripts', rule, 'uid')" />
-                </div>
+              <f7-list-item
+                v-for="rule in developerStore.pinnedObjects.scripts"
+                :key="rule.uid"
+                media-item
+                :title="rule.name"
+                :footer="rule.uid">
+                <template #after>
+                  <f7-badge :color="ruleStatusBadgeColor(rule.status)" :tooltip="rule.status.description">
+                    {{ ruleStatusBadgeText(rule.status) }}
+                  </f7-badge>
+                </template>
+                <template #footer>
+                  <div class="display-flex align-items-flex-end justify-content-flex-end" style="margin-top: 3px">
+                    <f7-link color="gray" class="margin-right">
+                      <clipboard-icon :value="rule.uid" :size="18" tooltip="Copy Rule UID" />
+                    </f7-link>
+                    <f7-link
+                      class="margin-right"
+                      :icon-color="rule.status.statusDetail === 'DISABLED' ? 'orange' : 'gray'"
+                      :tooltip="rule.status.statusDetail === 'DISABLED' ? 'Enable' : 'Disable'"
+                      icon-f7="pause_circle"
+                      icon-size="18"
+                      @click="toggleRuleDisabled(rule, 'Script')" />
+                    <f7-link
+                      class="margin-right"
+                      :color="rule.status.status === 'IDLE' ? 'theme-alt' : 'gray'"
+                      icon-f7="play"
+                      icon-size="18"
+                      tooltip="Run"
+                      @click="runRuleNow(rule, 'Script')" />
+                    <f7-link
+                      class="margin-right"
+                      color="gray"
+                      icon-f7="pencil"
+                      icon-size="18"
+                      tooltip="Edit"
+                      :href="'/settings/' + (rule.tags.indexOf('Script') >= 0 ? 'scripts' : 'rules') + '/' + rule.uid"
+                      :animate="false" />
+                    <f7-link color="theme-alt" icon-f7="pin_fill" icon-size="18" tooltip="Unpin" @click="unpin('scripts', rule, 'uid')" />
+                  </div>
+                </template>
               </f7-list-item>
             </ul>
           </f7-list>
         </f7-block>
         <!-- Pinned Pages -->
-        <f7-block class="no-margin no-padding" v-if="pinnedObjects.pages.length">
+        <f7-block v-if="developerStore.pinnedObjects.pages.length" class="no-margin no-padding">
           <f7-block-title class="padding-horizontal display-flex">
             <span>Pinned Pages</span>
-            <span style="margin-left:auto">
+            <span style="margin-left: auto">
               <f7-link color="gray" icon-f7="multiply" icon-size="14" @click="unpinAll('pages')" />
             </span>
           </f7-block-title>
           <f7-list media-list>
             <ul>
-              <f7-list-item v-for="page in pinnedObjects.pages" :key="page.uid" media-item
-                            :title="page.config.label" :footer="page.uid">
-                <div class="display-flex align-items-flex-end justify-content-flex-end" style="margin-top: 3px" slot="footer">
-                  <f7-link color="gray" class="margin-right">
-                    <clipboard-icon :value="page.uid" size="18" tooltip="Copy Page UID" />
-                  </f7-link>
-                  <!-- <f7-link class="margin-right" color="blue" icon-f7="rectangle_on_rectangle" icon-size="18" tooltip="Open in Popup" /> -->
-                  <f7-link class="margin-right" color="blue" icon-f7="play" icon-size="18" tooltip="View" :href="'/page/' + page.uid" :animate="false" />
-                  <f7-link class="margin-right" color="gray" icon-f7="pencil" icon-size="18" tooltip="Edit" :href="'/settings/pages/' + getPageType(page).type + '/' + page.uid" :animate="false" />
-                  <f7-link color="red" icon-f7="pin_slash_fill" icon-size="18" tooltip="Unpin" @click="unpin('pages', page, 'uid')" />
-                </div>
+              <f7-list-item
+                v-for="page in developerStore.pinnedObjects.pages"
+                :key="page.uid"
+                media-item
+                :title="page.config.label"
+                :footer="page.uid">
+                <template #footer>
+                  <div class="display-flex align-items-flex-end justify-content-flex-end" style="margin-top: 3px">
+                    <f7-link color="gray" class="margin-right">
+                      <clipboard-icon :value="page.uid" :size="18" tooltip="Copy Page UID" />
+                    </f7-link>
+                    <!-- <f7-link class="margin-right" color="theme-alt" icon-f7="rectangle_on_rectangle" icon-size="18" tooltip="Open in Popup" /> -->
+                    <f7-link
+                      class="margin-right"
+                      color="theme-alt"
+                      icon-f7="play"
+                      icon-size="18"
+                      tooltip="View"
+                      :href="'/page/' + page.uid"
+                      :animate="false" />
+                    <f7-link
+                      class="margin-right"
+                      color="gray"
+                      icon-f7="pencil"
+                      icon-size="18"
+                      tooltip="Edit"
+                      :href="'/settings/pages/' + getPageType(page).type + '/' + page.uid"
+                      :animate="false" />
+                    <f7-link color="theme-alt" icon-f7="pin_fill" icon-size="18" tooltip="Unpin" @click="unpin('pages', page, 'uid')" />
+                  </div>
+                </template>
+              </f7-list-item>
+            </ul>
+          </f7-list>
+        </f7-block>
+        <!-- Pinned Widgets -->
+        <f7-block v-if="developerStore.pinnedObjects.widgets.length" class="no-margin no-padding">
+          <f7-block-title class="padding-horizontal display-flex">
+            <span>Pinned Widgets</span>
+            <span style="margin-left: auto">
+              <f7-link color="gray" icon-f7="multiply" icon-size="14" @click="unpinAll('widgets')" />
+            </span>
+          </f7-block-title>
+          <f7-list media-list>
+            <ul>
+              <f7-list-item v-for="widget in developerStore.pinnedObjects.widgets" :key="widget.uid" media-item :title="widget.uid">
+                <template #footer>
+                  <div class="display-flex align-items-flex-end justify-content-flex-end">
+                    <f7-link color="gray" class="margin-right">
+                      <clipboard-icon :value="widget.uid" :size="18" tooltip="Copy Widget UID" />
+                    </f7-link>
+                    <f7-link
+                      class="margin-right"
+                      color="gray"
+                      icon-f7="pencil"
+                      icon-size="18"
+                      tooltip="Edit"
+                      :href="'/developer/widgets/' + widget.uid"
+                      :animate="false" />
+                    <f7-link color="theme-alt" icon-f7="pin_fill" icon-size="18" tooltip="Unpin" @click="unpin('widgets', widget, 'uid')" />
+                  </div>
+                </template>
+              </f7-list-item>
+            </ul>
+          </f7-list>
+        </f7-block>
+        <!-- Pinned Sitemaps -->
+        <f7-block v-if="developerStore.pinnedObjects.sitemaps.length" class="no-margin no-padding">
+          <f7-block-title class="padding-horizontal display-flex">
+            <span>Pinned Sitemaps</span>
+            <span style="margin-left: auto">
+              <f7-link color="gray" icon-f7="multiply" icon-size="14" @click="unpinAll('sitemaps')" />
+            </span>
+          </f7-block-title>
+          <f7-list media-list>
+            <ul>
+              <f7-list-item
+                v-for="sitemap in developerStore.pinnedObjects.sitemaps"
+                :key="sitemap.name"
+                media-item
+                :title="sitemap.label"
+                :footer="sitemap.name">
+                <template #footer>
+                  <div class="display-flex align-items-flex-end justify-content-flex-end" style="margin-top: 3px">
+                    <f7-link color="gray" class="margin-right">
+                      <clipboard-icon :value="sitemap.name" :size="18" tooltip="Copy Sitemap Name" />
+                    </f7-link>
+                    <!-- <f7-link class="margin-right" color="blue" icon-f7="rectangle_on_rectangle" icon-size="18" tooltip="Open in Popup" /> -->
+                    <f7-link
+                      class="margin-right"
+                      color="gray"
+                      icon-f7="pencil"
+                      icon-size="18"
+                      tooltip="Edit"
+                      :href="'/settings/sitemaps/' + sitemap.name"
+                      :animate="false" />
+                    <f7-link color="blue" icon-f7="pin_fill" icon-size="18" tooltip="Unpin" @click="unpin('sitemaps', sitemap, 'name')" />
+                  </div>
+                </template>
               </f7-list-item>
             </ul>
           </f7-list>
         </f7-block>
         <!-- Pinned Transformations -->
-        <f7-block class="no-margin no-padding" v-if="pinnedObjects.transformations.length">
+        <f7-block v-if="developerStore.pinnedObjects.transformations.length" class="no-margin no-padding">
           <f7-block-title class="padding-horizontal display-flex">
             <span>Pinned Transformations</span>
-            <span style="margin-left:auto">
+            <span style="margin-left: auto">
               <f7-link color="gray" icon-f7="multiply" icon-size="14" @click="unpinAll('transformations')" />
             </span>
           </f7-block-title>
           <f7-list media-list>
             <ul>
-              <f7-list-item v-for="transformation in pinnedObjects.transformations" :key="transformation.uid" media-item
-                            :title="transformation.label" :footer="transformation.uid">
-                <div class="display-flex align-items-flex-end justify-content-flex-end" style="margin-top: 3px" slot="footer">
-                  <f7-link color="gray" class="margin-right">
-                    <clipboard-icon :value="transformation.uid" size="18" tooltip="Copy Transformation UID" />
-                  </f7-link>
-                  <f7-link class="margin-right" color="gray" icon-f7="pencil" icon-size="18" tooltip="Edit" :href="'/settings/transformations/' + transformation.uid" :animate="false" />
-                  <f7-link color="red" icon-f7="pin_slash_fill" icon-size="18" tooltip="Unpin" @click="unpin('transformations', transformation, 'uid')" />
-                </div>
+              <f7-list-item
+                v-for="transformation in developerStore.pinnedObjects.transformations"
+                :key="transformation.uid"
+                media-item
+                :title="transformation.label"
+                :footer="transformation.uid">
+                <template #footer>
+                  <div class="display-flex align-items-flex-end justify-content-flex-end" style="margin-top: 3px">
+                    <f7-link color="gray" class="margin-right">
+                      <clipboard-icon :value="transformation.uid" :size="18" tooltip="Copy Transformation UID" />
+                    </f7-link>
+                    <f7-link
+                      class="margin-right"
+                      color="gray"
+                      icon-f7="pencil"
+                      icon-size="18"
+                      tooltip="Edit"
+                      :href="'/settings/transformations/' + transformation.uid"
+                      :animate="false" />
+                    <f7-link
+                      color="theme-alt"
+                      icon-f7="pin_fill"
+                      icon-size="18"
+                      tooltip="Unpin"
+                      @click="unpin('transformations', transformation, 'uid')" />
+                  </div>
+                </template>
               </f7-list-item>
             </ul>
           </f7-list>
         </f7-block>
         <!-- Pinned Persistence configs -->
-        <f7-block class="no-margin no-padding" v-if="pinnedObjects.persistenceConfigs.length">
+        <f7-block v-if="developerStore.pinnedObjects.persistenceConfigs.length" class="no-margin no-padding">
           <f7-block-title class="padding-horizontal display-flex">
             <span>Pinned Persistence Configs</span>
-            <span style="margin-left:auto">
+            <span style="margin-left: auto">
               <f7-link color="gray" icon-f7="multiply" icon-size="14" @click="unpinAll('persistenceConfigs')" />
             </span>
           </f7-block-title>
           <f7-list media-list>
             <ul>
-              <f7-list-item v-for="persistenceConfig in pinnedObjects.persistenceConfigs" :key="persistenceConfig.serviceId" media-item
-                            :title="persistenceConfig.label" :footer="persistenceConfig.serviceId">
-                <div class="display-flex align-items-flex-end justify-content-flex-end" style="margin-top: 3px" slot="footer">
-                  <f7-link color="gray" class="margin-right">
-                    <clipboard-icon :value="persistenceConfig.serviceId" size="18" tooltip="Copy Service ID" />
-                  </f7-link>
-                  <f7-link class="margin-right" color="gray" icon-f7="pencil" icon-size="18" tooltip="Edit" :href="'/settings/persistence/' + persistenceConfig.serviceId" :animate="false" />
-                  <f7-link color="red" icon-f7="pin_slash_fill" icon-size="18" tooltip="Unpin" @click="unpin('persistenceConfig', persistenceConfig, 'serviceId')" />
-                </div>
+              <f7-list-item
+                v-for="persistenceConfig in developerStore.pinnedObjects.persistenceConfigs"
+                :key="persistenceConfig.serviceId"
+                media-item
+                :title="persistenceConfig.label"
+                :footer="persistenceConfig.serviceId">
+                <template #footer>
+                  <div class="display-flex align-items-flex-end justify-content-flex-end" style="margin-top: 3px">
+                    <f7-link color="gray" class="margin-right">
+                      <clipboard-icon :value="persistenceConfig.serviceId" :size="18" tooltip="Copy Service ID" />
+                    </f7-link>
+                    <f7-link
+                      class="margin-right"
+                      color="gray"
+                      icon-f7="pencil"
+                      icon-size="18"
+                      tooltip="Edit"
+                      :href="'/settings/persistence/' + persistenceConfig.serviceId"
+                      :animate="false" />
+                    <f7-link
+                      color="theme-alt"
+                      icon-f7="pin_fill"
+                      icon-size="18"
+                      tooltip="Unpin"
+                      @click="unpin('persistenceConfig', persistenceConfig, 'serviceId')" />
+                  </div>
+                </template>
               </f7-list-item>
             </ul>
           </f7-list>
@@ -236,108 +519,93 @@
         <f7-block class="no-margin no-padding">
           <f7-block-title class="padding-horizontal display-flex" medium>
             <span>Event Monitor</span>
-            <span style="margin-left:auto">
-              <f7-link :color="eventTopicFilter ? 'blue' : 'gray'" :icon-f7="eventTopicFilter ? 'line_horizontal_3_decrease_circle_fill' : 'line_horizontal_3_decrease_circle'" icon-size="14" tooltip="Filter topics" @click="changeEventTopicFilter" />
+            <span style="margin-left: auto">
+              <f7-link
+                :color="eventTopicFilter ? 'theme-alt' : 'gray'"
+                :icon-f7="eventTopicFilter ? 'line_horizontal_3_decrease_circle_fill' : 'line_horizontal_3_decrease_circle'"
+                icon-size="14"
+                tooltip="Filter topics"
+                @click="changeEventTopicFilter" />
             </span>
           </f7-block-title>
           <f7-block>
             <p v-if="!sseClient">
-              <f7-button fill color="blue" @click="startSSE">
-                Stream Events
-              </f7-button>
+              <f7-button fill color="theme-alt" @click="startSSE"> Stream Events </f7-button>
             </p>
             <p v-if="sseClient">
-              <f7-button fill color="red" @click="stopSSE">
-                Stop Streaming
-              </f7-button>
+              <f7-button fill color="red" @click="stopSSE"> Stop Streaming </f7-button>
             </p>
           </f7-block>
           <f7-list media-list>
-            <f7-list-item v-for="event in sseEvents" :key="event.time.getTime()" :title="event.topic" :subtitle="event.type" :footer="event.payload" />
+            <f7-list-item
+              v-for="event in sseEvents"
+              :key="event.sequenceId"
+              :title="event.topic"
+              :subtitle="event.type"
+              :footer="event.payload" />
           </f7-list>
         </f7-block>
       </div>
 
       <div v-else-if="activeToolTab === 'scripting'">
         <f7-block class="no-margin no-padding">
-          <f7-block-title class="padding-horizontal" medium>
-            Code Tools
-          </f7-block-title>
+          <f7-block-title class="padding-horizontal" medium> Code Tools </f7-block-title>
         </f7-block>
-        <expression-tester />
+        <expression-tester
+          :context="{
+            component: {
+              config: {
+                style: {
+                  fontFamily: 'monospace',
+                  'word-break': 'break-all'
+                },
+                noBorder: true,
+                noShadow: true,
+                text: ''
+              }
+            },
+            editmode: true,
+            vars: {},
+            store: statesStore.trackedItems
+          }" />
         <f7-block class="no-margin no-padding">
-          <f7-block-title class="padding-horizontal">
-            Scripting Scratchpad
-          </f7-block-title>
+          <f7-block-title class="padding-horizontal"> Scripting Scratchpad </f7-block-title>
           <f7-list>
-            <f7-list-button @click="openScriptingScratchpad" color="blue">
-              Open Scratchpad
-            </f7-list-button>
+            <f7-list-button @click="openScriptingScratchpad" color="theme-alt"> Open Scratchpad </f7-list-button>
           </f7-list>
         </f7-block>
       </div>
 
       <div v-else-if="activeToolTab === 'tools'">
         <f7-block class="no-margin no-padding">
-          <f7-block-title class="padding-horizontal" medium>
-            Create Shortcuts
-          </f7-block-title>
+          <f7-block-title class="padding-horizontal" medium> Create Shortcuts </f7-block-title>
         </f7-block>
         <f7-block class="no-margin no-padding">
           <f7-list>
             <f7-list-item divider title="Things" />
-            <f7-list-button href="/settings/things/add" color="blue" :animate="false">
-              Add Thing
-            </f7-list-button>
-            <f7-list-button @click="quickAddThing" color="blue">
-              Add Thing (quick)
-            </f7-list-button>
-            <f7-list-button href="/settings/things/inbox" color="blue" :animate="false">
-              Inbox
-            </f7-list-button>
+            <f7-list-button href="/settings/things/add" color="theme-alt" :animate="false"> Add Thing </f7-list-button>
+            <f7-list-button @click="quickAddThing" color="theme-alt"> Add Thing (quick) </f7-list-button>
+            <f7-list-button href="/settings/things/inbox" color="theme-alt" :animate="false"> Inbox </f7-list-button>
             <f7-list-item divider title="Items" />
-            <f7-list-button href="/settings/items/add" color="blue" :animate="false">
-              Create Item
-            </f7-list-button>
-            <f7-list-button href="/settings/items/add-from-textual-definition" color="blue" :animate="false">
+            <f7-list-button href="/settings/items/add" color="theme-alt" :animate="false"> Create Item </f7-list-button>
+            <f7-list-button href="/settings/items/add-from-textual-definition" color="theme-alt" :animate="false">
               Add Items (textual)
             </f7-list-button>
             <f7-list-item divider title="Pages" />
-            <f7-list-button href="/settings/pages/layout/add" color="blue" :animate="false">
-              Create layout page
-            </f7-list-button>
-            <f7-list-button href="/settings/pages/tabs/add" color="blue" :animate="false">
-              Create tabbed page
-            </f7-list-button>
-            <f7-list-button href="/settings/pages/map/add" color="blue" :animate="false">
-              Create map view
-            </f7-list-button>
-            <f7-list-button href="/settings/pages/plan/add" color="blue" :animate="false">
-              Create floor plan
-            </f7-list-button>
-            <f7-list-button href="/settings/pages/chart/add" color="blue" :animate="false">
-              Create chart
-            </f7-list-button>
-            <f7-list-button href="/settings/pages/sitemap/add" color="blue" :animate="false">
-              Create sitemap
-            </f7-list-button>
+            <f7-list-button href="/settings/pages/layout/add" color="theme-alt" :animate="false"> Create layout page </f7-list-button>
+            <f7-list-button href="/settings/pages/tabs/add" color="theme-alt" :animate="false"> Create tabbed page </f7-list-button>
+            <f7-list-button href="/settings/pages/map/add" color="theme-alt" :animate="false"> Create map view </f7-list-button>
+            <f7-list-button href="/settings/pages/plan/add" color="theme-alt" :animate="false"> Create floor plan </f7-list-button>
+            <f7-list-button href="/settings/pages/chart/add" color="theme-alt" :animate="false"> Create chart </f7-list-button>
+            <f7-list-item divider title="Sitemaps" />
+            <f7-list-button href="/settings/sitemaps/add" color="theme-alt" :animate="false"> Create sitemap </f7-list-button>
             <f7-list-item divider title="Automation" />
-            <f7-list-button href="/settings/rules/add" color="blue" :animate="false">
-              Create rule
-            </f7-list-button>
-            <f7-list-button href="/settings/scripts/add" color="blue" :animate="false">
-              Create script
-            </f7-list-button>
-            <f7-list-button href="/settings/schedule/add" color="blue" :animate="false">
-              Create scheduled rule
-            </f7-list-button>
+            <f7-list-button href="/settings/rules/add" color="theme-alt" :animate="false"> Create rule </f7-list-button>
+            <f7-list-button href="/settings/scripts/add" color="theme-alt" :animate="false"> Create script </f7-list-button>
+            <f7-list-button href="/settings/schedule/add" color="theme-alt" :animate="false"> Create scheduled rule </f7-list-button>
             <f7-list-item divider title="Advanced" />
-            <f7-list-button href="/developer/widgets/add" color="blue" :animate="false">
-              Create widget
-            </f7-list-button>
-            <f7-list-button href="/developer/blocks/add" color="blue" :animate="false">
-              Create block library
-            </f7-list-button>
+            <f7-list-button href="/developer/widgets/add" color="theme-alt" :animate="false"> Create widget </f7-list-button>
+            <f7-list-button href="/developer/blocks/add" color="theme-alt" :animate="false"> Create block library </f7-list-button>
           </f7-list>
         </f7-block>
       </div>
@@ -346,7 +614,15 @@
     <f7-popover ref="itemPopover" class="item-popover">
       <item-standalone-control v-if="openedItem" :item="openedItem" :context="context" :no-border="true" />
     </f7-popover>
-    <search-results v-if="searching" class="margin-top" :searchResults="searchResults" :pinnedObjects="pinnedObjects" @pin="pin" @unpin="unpin" :cachedObjects="cachedObjects" :loading="searchResultsLoading" />
+    <search-results
+      v-if="searching"
+      class="margin-top"
+      :searchResults="searchResults"
+      :pinnedObjects="developerStore.pinnedObjects"
+      @pin="pin"
+      @unpin="unpin"
+      :cachedObjects="cachedObjects"
+      :loading="searchResultsLoading" />
   </f7-block>
 </template>
 
@@ -361,6 +637,12 @@
 
   .developer-sidebar-content
     margin-top 1rem
+    .pin-collections
+      max-height 11rem /* Make the last item partially show to hint that there are more items */
+      overflow-y auto
+
+  .searchbar
+    width 100%
 
   &.page
     background #e7e7e7 !important
@@ -369,13 +651,22 @@
     overflow-x hidden
 .md .developer-sidebar-content
   margin-top 0
-.theme-dark
+.dark
   .developer-sidebar
     &.page
       background #232323 !important
 </style>
 
 <script>
+import { f7, theme } from 'framework7-vue'
+import { nextTick } from 'vue'
+import { mapStores } from 'pinia'
+
+import { useDeveloperStore } from '@/js/stores/useDeveloperStore'
+import { useStatesStore } from '@/js/stores/useStatesStore'
+import { useComponentsStore } from '@/js/stores/useComponentsStore'
+
+import Fuse from 'fuse.js'
 import Item from '@/components/item/item.vue'
 import ItemStandaloneControl from '@/components/item/item-standalone-control.vue'
 import ModelPickerPopup from '@/components/model/model-picker-popup.vue'
@@ -383,8 +674,14 @@ import SearchResults from './search-results.vue'
 import ExpressionTester from './expression-tester.vue'
 import ClipboardIcon from '@/components/util/clipboard-icon.vue'
 
+import { getPageType } from '@/pages/page-type'
 import RuleStatus from '@/components/rule/rule-status-mixin'
 import ThingStatus from '@/components/thing/thing-status-mixin'
+import cloneDeep from 'lodash/cloneDeep'
+import fastDeepEqual from 'fast-deep-equal/es6'
+
+import * as api from '@/api'
+import { showToast } from '@/js/dialog-promises'
 
 export default {
   mixins: [RuleStatus, ThingStatus],
@@ -395,8 +692,16 @@ export default {
     SearchResults,
     ExpressionTester
   },
-  props: ['activeToolTab'],
-  data () {
+  props: {
+    activeToolTab: String,
+    searchFor: String
+  },
+  watch: {
+    searchFor(val) {
+      if (val) this.$refs.searchbar.$el.f7Searchbar.search(val)
+    }
+  },
+  data() {
     return {
       searchQuery: '',
       searchResultsLoading: false,
@@ -406,6 +711,7 @@ export default {
       eventTopicFilter: '',
       eventSource: null,
       cachedObjects: null,
+      cachedFuseObjects: null,
       searchResults: {
         items: [],
         things: [],
@@ -413,226 +719,167 @@ export default {
         scenes: [],
         scripts: [],
         pages: [],
+        widgets: [],
+        sitemaps: [],
         transformations: [],
         persistenceConfigs: []
       },
-      pinnedObjects: {
-        items: [],
-        things: [],
-        rules: [],
-        scenes: [],
-        scripts: [],
-        pages: [],
-        transformations: [],
-        persistenceConfigs: []
-      },
+      newCollectionName: '',
       sseEvents: [],
       openedItem: null,
-      pageTypes: [
-        { type: 'sitemap', label: 'Sitemap', componentType: 'Sitemap', icon: 'menu' },
-        { type: 'layout', label: 'Layout', componentType: 'oh-layout-page', icon: 'rectangle_grid_2x2' },
-        { type: 'home', label: 'Home', componentType: 'oh-home-page', icon: 'house' },
-        { type: 'tabs', label: 'Tabbed', componentType: 'oh-tabs-page', icon: 'squares_below_rectangle' },
-        { type: 'map', label: 'Map', componentType: 'oh-map-page', icon: 'map' },
-        { type: 'plan', label: 'Floor plan', componentType: 'oh-plan-page', icon: 'square_stack_3d_up' },
-        { type: 'chart', label: 'Chart', componentType: 'oh-chart-page', icon: 'graph_square' }
-      ],
       testExpression: '',
-      addThingAutocomplete: null
+      addThingAutocomplete: null,
+      theme
     }
   },
-  computed: {
-    context () {
-      return {
-        store: this.$store.getters.trackedItems
+  created() {
+    const fuseOptions = {
+      threshold: 0, // precise search, no fuzzy matching
+      ignoreLocation: true, // search anywhere in the string
+      useExtendedSearch: true // see https://www.fusejs.io/examples.html#extended-search
+    }
+
+    const slots = {
+      name: 'slots',
+      getFn: (obj) => JSON.stringify(obj.slots)
+    }
+
+    const props = {
+      name: 'props',
+      getFn: (obj) => JSON.stringify(obj.props)
+    }
+
+    const metadata = {
+      name: 'metadata',
+      getFn: (obj) => JSON.stringify(obj.metadata)
+    }
+
+    const sitemapWidgets = {
+      name: 'widgets',
+      getFn: (obj) => JSON.stringify(obj.widgets)
+    }
+
+    this.SEARCH = {
+      items: {
+        keys: ['name', 'label', 'tags', metadata]
+      },
+      things: {
+        keys: ['UID', 'label']
+      },
+      rules: {
+        keys: [
+          'uid',
+          'name',
+          'description',
+          'tags',
+          'triggers.configuration.itemName',
+          'triggers.configuration.groupName',
+          'triggers.configuration.thingUID',
+          'triggers.type',
+          'actions.configuration.itemName',
+          'actions.configuration.thingUID',
+          'actions.configuration.type',
+          'actions.configuration.blockSource',
+          'actions.configuration.script',
+          'actions.type',
+          'conditions.configuration.itemName',
+          'conditions.configuration.thingUID',
+          'conditions.configuration.type',
+          'conditions.configuration.blockSource',
+          'conditions.configuration.script',
+          'conditions.type'
+        ]
+      },
+      pages: {
+        keys: ['uid', 'config.label', slots]
+      },
+      widgets: {
+        keys: ['uid', props, slots]
+      },
+      sitemaps: {
+        keys: ['name', 'label', sitemapWidgets]
+      },
+      transformations: {
+        keys: ['uid', 'label', 'configuration.function']
+      },
+      persistence: {
+        keys: ['serviceId', 'label', 'configs.items']
       }
     }
+
+    // Add fuseOptions to all SEARCH
+    Object.values(this.SEARCH).forEach((options) => Object.assign(options, fuseOptions))
   },
-  mounted () {
+  computed: {
+    context() {
+      return {
+        store: useStatesStore().trackedItems
+      }
+    },
+    isAnythingPinned() {
+      return Object.values(useDeveloperStore().pinnedObjects).some((obj) => obj.length > 0)
+    },
+    ...mapStores(useDeveloperStore, useStatesStore)
+  },
+  mounted() {
     this.startEventSource()
-    this.$nextTick(() => {
+    nextTick(() => {
       if (this.$device.desktop && this.$refs.searchbar) {
-        this.$refs.searchbar.f7Searchbar.$inputEl.focus()
+        this.$refs.searchbar.$el.f7Searchbar.$inputEl[0].focus()
+        if (this.searchFor) this.$refs.searchbar.$el.f7Searchbar.search(this.searchFor)
       }
     })
   },
-  beforeDestroy () {
+  beforeUnmount() {
     this.stopEventSource()
+    this.stopSSE()
     if (this.addThingAutocomplete) this.addThingAutocomplete.destroy()
   },
   methods: {
-    itemContext (item) {
-      return {
-
-      }
+    addItemsFromModel(value) {
+      useDeveloperStore().pinnedObjects.items = [...value]
     },
-    addItemsFromModel (value) {
-      this.$set(this.pinnedObjects, 'items', [...value])
-    },
-    openModelPicker () {
+    openModelPicker() {
       const popup = {
         component: ModelPickerPopup
       }
 
-      this.$f7.views.main.router.navigate({
-        url: 'pick-from-model',
-        route: {
-          path: 'pick-from-model',
-          popup
+      f7.views.main.router.navigate(
+        {
+          url: 'pick-from-model',
+          route: {
+            path: 'pick-from-model',
+            popup
+          }
+        },
+        {
+          props: {
+            value: useDeveloperStore().pinnedObjects.items,
+            multiple: true,
+            allowEmpty: true,
+            popupTitle: 'Pin Items from Model',
+            actionLabel: 'Pin'
+          }
         }
-      }, {
-        props: {
-          value: this.pinnedObjects.items,
-          multiple: true,
-          allowEmpty: true,
-          popupTitle: 'Pin Items from Model',
-          actionLabel: 'Pin'
-        }
-      })
+      )
 
-      this.$f7.once('itemsPicked', this.addItemsFromModel)
-      this.$f7.once('modelPickerClosed', () => {
-        this.$f7.off('itemsPicked', this.addItemsFromModel)
+      f7.once('itemsPicked', this.addItemsFromModel)
+      f7.once('modelPickerClosed', () => {
+        f7.off('itemsPicked', this.addItemsFromModel)
       })
-    },
-    /**
-     * Search for the query string inside a single Item.
-     * All searches are non case-intensive.
-     *
-     * Checks:
-     *  - name
-     *  - label
-     *  - metadata
-     *  - tags (requires exact match)
-     *
-     * @param i Item
-     * @param query search query (as typed, not in lowercase)
-     * @returns {boolean}
-     */
-    searchItem (i, query) {
-      query = query.toLowerCase()
-      if (i.name.toLowerCase().indexOf(query) >= 0) return true
-      if (i.label && i.label.toLowerCase().indexOf(query) >= 0) return true
-      if (i.metadata && JSON.stringify(i.metadata).toLowerCase().indexOf(query) >= 0) return true
-      if (i.tags && i.tags.map(t => t.toLowerCase()).includes(query)) return true
-      return false
-    },
-    /**
-     * Search for the query string inside a single rule.
-     * All searches are non case-intensive.
-     *
-     * Checks:
-     *  - name
-     *  - label
-     *  - description
-     *  - tags (requires exact match)
-     *  - itemName & thingUID of triggers, actions & conditions
-     *  - script content (e.g. JavaScript or Rule DSL)
-     *  - script MIME types (requires exact match)
-     *  - Blockly scripts when lowercase search term is 'block', 'blockly' or 'blocksource'
-     *
-     * @param r rule
-     * @param query query (as typed, not in lowercase)
-     * @returns {boolean}
-     */
-    searchRule (r, query) {
-      query = query.toLowerCase()
-      if (r.uid.toLowerCase().indexOf(query) >= 0) return true
-      if (r.name.toLowerCase().indexOf(query) >= 0) return true
-      if (r.description && r.description.toLowerCase().indexOf(query) >= 0) return true
-      if (r.tags && r.tags.map(t => t.toLowerCase()).includes(query)) return true
-      const searchItemOrThing = (m) => {
-        // Match Item names non case-intensive
-        if (m.configuration.itemName && m.configuration.itemName.toLowerCase().indexOf(query) >= 0) {
-          return true
-        }
-        // Match Thing names non case-intensive
-        if (m.configuration.thingUID && m.configuration.thingUID.toLowerCase().indexOf(query) >= 0) {
-          return true
-        }
-      }
-      const searchScript = (m) => {
-        // MIME types require exact match
-        if (m.configuration.type && m.configuration.type.toLowerCase() === query) {
-          return true
-        }
-        if (['block', 'blockly', 'blocksource'].includes(query) && m.configuration.blockSource !== undefined) {
-          return true
-        }
-        if (m.configuration.script && m.configuration.script.toLowerCase().indexOf(query) >= 0) {
-          return true
-        }
-      }
-      for (let i = 0; i < r.triggers.length; i++) {
-        const t = r.triggers[i]
-        if (searchItemOrThing(t)) return true
-      }
-      for (let i = 0; i < r.actions.length; i++) {
-        const a = r.actions[i]
-        if (searchItemOrThing(a)) return true
-        if (searchScript(a)) return true
-      }
-      for (let i = 0; i < r.conditions.length; i++) {
-        const c = r.conditions[i]
-        if (searchItemOrThing(c)) return true
-        if (searchScript(c)) return true
-      }
-      return false
-    },
-    /**
-     * Search for the query string inside a single page or sitemap.
-     * All searches are non case-intensive.
-     *
-     * Checks:
-     *  - uid
-     *  - label
-     *  - slots
-     *
-     * @param p page
-     * @param query search query (as typed, not in lowercase)
-     * @returns {boolean}
-     */
-    searchPage (p, query) {
-      query = query.toLowerCase()
-      if (p.uid.toLowerCase().indexOf(query) >= 0) return true
-      if (p.config && p.config.label && p.config.label.toLowerCase().indexOf(query) >= 0) return true
-      if (p.slots && JSON.stringify(p.slots).toLowerCase().indexOf(query) >= 0) return true
-      return false
-    },
-    /**
-     * Search for the query string inside a persistence configuration.
-     * All searches are non case-intensive.
-     *
-     * Checks:
-     *  - serviceId
-     *  - label
-     *  - Items
-     *
-     * @param pc persistence config
-     * @param query search query (as typed, not in lowercase)
-     * @returns {boolean}
-     */
-    searchPersistenceConfigs (pc, query) {
-      query = query.toLowerCase()
-      if (pc.serviceId.toLowerCase().indexOf(query) >= 0) return true
-      if (pc.label.toLowerCase().indexOf(query) >= 0) return true
-      for (const conf of pc.configs) {
-        if (conf.items.toString().toLowerCase().indexOf(query) >= 0) return true
-      }
-      return false
     },
     /**
      * Load all persistence configs and extend them with the persistence service label.
      *
      * @returns {Promise} load promise
      */
-    loadPersistenceConfigs () {
-      return this.$oh.api.get('/rest/persistence').then((data) => {
+    async loadPersistenceConfigs() {
+      return api.getPersistenceServices().then((data) => {
         const labels = {}
         data.forEach((p) => {
           labels[p.id] = p.label
         })
-        const loadPromises = data.map(p => this.$oh.api.get('/rest/persistence/' + p.id))
+        const loadPromises = data.map((p) => api.getPersistenceServiceConfiguration({ serviceId: p.id }))
         const configs = []
 
         Promise.allSettled(loadPromises).then((results) => {
@@ -647,316 +894,406 @@ export default {
         return configs
       })
     },
-    search (searchbar, query, previousQuery) {
+    search(searchbar, query, previousQuery) {
       if (!query) {
         this.clearSearch()
         return
       }
       this.searching = true
+      query = query.trim()
       this.searchQuery = query
 
       if (this.searchResultsLoading) return
 
-      const promises = (this.cachedObjects)
-        ? [
-          Promise.resolve(this.cachedObjects[0]),
-          Promise.resolve(this.cachedObjects[1]),
-          Promise.resolve(this.cachedObjects[2]),
-          Promise.resolve(this.cachedObjects[3]),
-          Promise.resolve(this.cachedObjects[4]),
-          Promise.resolve(this.cachedObjects[5]),
-          Promise.resolve(this.cachedObjects[6])
-        ] : [
-          this.$oh.api.get('/rest/items?staticDataOnly=true&metadata=.*'),
-          this.$oh.api.get('/rest/things?summary=true'),
-          this.$oh.api.get('/rest/rules?summary=false'),
-          Promise.resolve(this.$store.getters.pages),
-          this.$oh.api.get('/rest/transformations'),
-          this.$oh.api.get('/rest/ui/components/system:sitemap'),
-          this.loadPersistenceConfigs()
-        ]
+      const promises = this.cachedObjects
+        ? this.cachedObjects.map((o) => Promise.resolve(o))
+        : [
+            this.$oh.api.get('/rest/items?staticDataOnly=true&metadata=.*'), // 0
+            this.$oh.api.get('/rest/things?summary=true'), // 1
+            this.$oh.api.get('/rest/rules?summary=false'), // 2
+            Promise.resolve(useComponentsStore().pages()), // 3
+            Promise.resolve(useComponentsStore().widgets()), // 4
+            this.$oh.api.get('/rest/sitemaps/*/definition'), // 5
+            this.$oh.api.get('/rest/transformations'), // 6
+            this.loadPersistenceConfigs() // 7
+          ]
 
       this.searchResultsLoading = true
       Promise.all(promises).then((data) => {
-        this.$set(this, 'cachedObjects', data)
-        const items = data[0].filter((i) => this.searchItem(i, this.searchQuery)).sort((a, b) => {
-          const labelA = a.name
-          const labelB = b.name
-          return (labelA) ? labelA.localeCompare(labelB) : 0
-        })
-        const things = data[1].filter((t) => t.UID.toLowerCase().indexOf(this.searchQuery.toLowerCase()) >= 0 ||
-          (t.label && t.label.toLowerCase().indexOf(this.searchQuery.toLowerCase())) >= 0).sort((a, b) => {
-          const labelA = a.name
-          const labelB = b.name
-          return (labelA) ? labelA.localeCompare(labelB) : 0
-        })
-        const rulesScenesScripts = data[2].filter((r) => this.searchRule(r, this.searchQuery)).sort((a, b) => {
-          const labelA = a.name
-          const labelB = b.name
-          return (labelA) ? labelA.localeCompare(labelB) : 0
-        })
-        const rules = rulesScenesScripts.filter((r) => r.tags.indexOf('Scene') < 0 && r.tags.indexOf('Script') < 0)
-        const scenes = rulesScenesScripts.filter((r) => r.tags.indexOf('Scene') >= 0)
-        const scripts = rulesScenesScripts.filter((r) => r.tags.indexOf('Script') >= 0)
-        const pages = [...data[3], ...data[5]].filter((p) => this.searchPage(p, this.searchQuery)).sort((a, b) => {
-          const labelA = a.name
-          const labelB = b.name
-          return (labelA) ? labelA.localeCompare(labelB) : 0
-        })
-        const transformations = data[4].filter((t) => t.uid.toLowerCase().indexOf(this.searchQuery.toLowerCase()) >= 0 || t.label.toLowerCase().indexOf(this.searchQuery.toLowerCase()) >= 0).sort((a, b) => {
-          const labelA = a.name
-          const labelB = b.name
-          return (labelA) ? labelA.localeCompare(labelB) : 0
-        })
-        const persistenceConfigs = data[6].filter((pc) => this.searchPersistenceConfigs(pc, this.searchQuery)).sort((a, b) => {
-          const idA = a.id
-          const idB = b.id
-          return (idA) ? idA.localeCompare(idB) : 0
-        })
-        this.$set(this, 'searchResults', {
+        this.cachedObjects = data
+
+        if (!this.cachedFuseObjects) {
+          this.cachedFuseObjects = {
+            items: new Fuse(data[0], this.SEARCH.items),
+            things: new Fuse(data[1], this.SEARCH.things),
+            rules: new Fuse(data[2], this.SEARCH.rules),
+            pages: new Fuse(data[3], this.SEARCH.pages),
+            widgets: new Fuse(data[4], this.SEARCH.widgets),
+            sitemaps: new Fuse(data[5], this.SEARCH.sitemaps),
+            transformations: new Fuse(data[6], this.SEARCH.transformations),
+            persistence: new Fuse(data[7], this.SEARCH.persistence)
+          }
+        }
+
+        const items = this.searchData(this.cachedFuseObjects.items, query)
+        const things = this.searchData(this.cachedFuseObjects.things, query)
+
+        const rulesScenesScripts = this.searchData(this.cachedFuseObjects.rules, query)
+        const { rules, scenes, scripts } = rulesScenesScripts.reduce(
+          (acc, r) => {
+            if (r.tags.includes('Scene')) {
+              acc.scenes.push(r)
+            } else if (r.tags.includes('Script')) {
+              acc.scripts.push(r)
+            } else {
+              acc.rules.push(r)
+            }
+            return acc
+          },
+          { rules: [], scenes: [], scripts: [] }
+        )
+
+        const pages = this.searchData(this.cachedFuseObjects.pages, query)
+        const widgets = this.searchData(this.cachedFuseObjects.widgets, query)
+        const sitemaps = this.searchData(this.cachedFuseObjects.sitemaps, query)
+        const transformations = this.searchData(this.cachedFuseObjects.transformations, query)
+        const persistenceConfigs = this.searchData(this.cachedFuseObjects.persistence, query)
+
+        this.searchResults = {
           items,
           things,
           rules,
           scenes,
           scripts,
           pages,
+          widgets,
+          sitemaps,
           transformations,
           persistenceConfigs
-        })
+        }
         this.searchResultsLoading = false
       })
     },
-    clearSearch () {
+    searchData(fuse, query) {
+      if (!query) return []
+
+      return fuse
+        .search(query)
+        .map((result) => result.item)
+        .sort((a, b) => {
+          const nameA = a.label || a.name || a.uid || a.UID || ''
+          const nameB = b.label || b.name || b.uid || b.UID || ''
+          return nameA.localeCompare(nameB)
+        })
+    },
+    clearSearch() {
       this.searching = false
       this.searchResultsLoading = false
-      this.searchSuery = ''
-      this.$set(this, 'cachedObjects', null)
-      this.$set(this, 'searchResults', { items: [], things: [], rules: [], scenes: [], scripts: [], pages: [], transformations: [], persistenceConfigs: [] })
-    },
-    pin (type, obj) {
-      this.pinnedObjects[type].push(obj)
-    },
-    unpin (type, obj, keyName) {
-      let index = this.pinnedObjects[type].findIndex((o) => o[keyName] === obj[keyName])
-      if (index >= 0) {
-        this.pinnedObjects[type].splice(index, 1)
+      this.searchQuery = ''
+      this.cachedObjects = null
+      this.cachedFuseObjects = null
+      this.searchResults = {
+        items: [],
+        things: [],
+        rules: [],
+        scenes: [],
+        scripts: [],
+        pages: [],
+        widgets: [],
+        sitemaps: [],
+        transformations: [],
+        persistenceConfigs: []
       }
     },
-    unpinAll (type) {
-      this.$set(this.pinnedObjects, type, [])
+    pin(type, obj) {
+      useDeveloperStore().pinnedObjects[type].push(obj)
     },
-    getPageType (page) {
-      return this.pageTypes.find(t => t.componentType === page.component)
+    unpin(type, obj, keyName) {
+      let index = useDeveloperStore().pinnedObjects[type].findIndex((o) => o[keyName] === obj[keyName])
+      if (index >= 0) {
+        useDeveloperStore().pinnedObjects[type].splice(index, 1)
+      }
     },
-    showItem (evt, item) {
+    unpinAll(type) {
+      useDeveloperStore().pinnedObjects[type] = []
+    },
+    savePinCollection(evt) {
+      this.newCollectionName = this.newCollectionName.trim()
+      if (!this.newCollectionName) return
+
+      const save = () => {
+        useDeveloperStore().pinCollections[this.newCollectionName] = cloneDeep(useDeveloperStore().pinnedObjects)
+        f7.accordion.close(this.$refs.pinCollectionsAccordion.$el)
+        this.newCollectionName = ''
+      }
+
+      if (useDeveloperStore().pinCollections[this.newCollectionName]) {
+        f7.dialog.confirm('A Pin Collection with this name already exists. Do you want to overwrite it?', 'Overwrite Collection?', () => {
+          save()
+        })
+      } else {
+        save()
+      }
+    },
+    deletePinCollection(name) {
+      f7.dialog.confirm(
+        `Are you sure you want to delete the '${name}' collection? This action cannot be undone.`,
+        'Delete Pin Collection?',
+        () => {
+          delete useDeveloperStore().pinCollections[name]
+        }
+      )
+    },
+    loadPinCollection(name) {
+      const pinCollection = useDeveloperStore().pinCollections[name]
+      if (!pinCollection) return
+
+      if (fastDeepEqual(pinCollection, useDeveloperStore().pinnedObjects)) {
+        f7.accordion.close(this.$refs.pinCollectionsAccordion.$el)
+        return
+      }
+
+      const load = () => {
+        useDeveloperStore().clearPinnedObjects()
+        Object.assign(useDeveloperStore().pinnedObjects, cloneDeep(pinCollection))
+        f7.accordion.close(this.$refs.pinCollectionsAccordion.$el)
+      }
+
+      if (this.isAnythingPinned) {
+        f7.dialog.confirm(`Discard the current set of pinned objects and load '${name}' collection?`, () => {
+          load()
+        })
+      } else {
+        load()
+      }
+    },
+    getPageType,
+    showItem(evt, item) {
       evt.cancelBubble = true
       if (this.$$(evt.target).closest('.itemlist-actions').length) return
       const itemEl = this.$$(evt.target).closest('.itemlist-item')
       if (!itemEl.length) return
       this.openedItem = item
-      this.$nextTick(() => this.$refs.itemPopover.f7Popover.open(itemEl[0]))
+      nextTick(() => this.$refs.itemPopover.$el.f7Modal.open(itemEl[0]))
     },
-    toggleThingDisabled (thing) {
-      const enable = (thing.statusInfo.statusDetail === 'DISABLED')
-      this.$oh.api.putPlain('/rest/things/' + thing.UID + '/enable', enable.toString()).then((data) => {
-        this.$f7.toast.create({
-          text: (enable) ? 'Thing enabled' : 'Thing disabled',
-          destroyOnClose: true,
-          closeTimeout: 2000
-        }).open()
-      }).catch((err) => {
-        this.$f7.toast.create({
-          text: 'Error while disabling or enabling: ' + err,
-          destroyOnClose: true,
-          closeTimeout: 2000
-        }).open()
-      })
-    },
-    toggleRuleDisabled (rule) {
-      const enable = (rule.status.statusDetail === 'DISABLED')
-      this.$oh.api.postPlain('/rest/rules/' + rule.uid + '/enable', enable.toString()).then((data) => {
-        this.$f7.toast.create({
-          text: (enable) ? 'Rule enabled' : 'Rule disabled',
-          destroyOnClose: true,
-          closeTimeout: 2000
-        }).open()
-      }).catch((err) => {
-        this.$f7.toast.create({
-          text: 'Error while disabling or enabling: ' + err,
-          destroyOnClose: true,
-          closeTimeout: 2000
-        }).open()
-      })
-    },
-    runRuleNow (rule) {
-      if (rule.status === 'RUNNING') return
-      this.$f7.toast.create({
-        text: 'Running rule',
-        destroyOnClose: true,
-        closeTimeout: 2000
-      }).open()
-      this.$oh.api.postPlain('/rest/rules/' + rule.uid + '/runnow', '').catch((err) => {
-        this.$f7.toast.create({
-          text: 'Error while running rule: ' + err,
-          destroyOnClose: true,
-          closeTimeout: 2000
-        }).open()
-      })
-    },
-    openScriptingScratchpad () {
-      this.$oh.api.get('/rest/rules/scratchpad')
+    toggleThingDisabled(thing) {
+      const enable = thing.statusInfo.statusDetail === 'DISABLED'
+      this.$oh.api
+        .putPlain('/rest/things/' + thing.UID + '/enable', enable.toString())
         .then((data) => {
-          this.$f7.views.main.router.navigate('/settings/scripts/scratchpad', { animate: false })
+          showToast(enable ? 'Thing enabled' : 'Thing disabled')
+        })
+        .catch((err) => {
+          showToast('Error while disabling or enabling: ' + err)
+        })
+    },
+    toggleRuleDisabled(rule, type = 'Rule') {
+      const enable = rule.status.statusDetail === 'DISABLED'
+      this.$oh.api
+        .postPlain('/rest/rules/' + rule.uid + '/enable', enable.toString())
+        .then((data) => {
+          showToast(enable ? `${type} enabled` : `${type} disabled`)
+        })
+        .catch((err) => {
+          showToast(`Error while disabling or enabling ${type.toLowerCase()}: ` + err)
+        })
+    },
+    runRuleNow(rule, type = 'Rule') {
+      if (rule.status.status === 'RUNNING' || rule.status.status === 'UNINITIALIZED') {
+        showToast(
+          `${type} cannot be run ${rule.status.status === 'RUNNING' ? 'while already running, please wait' : 'if it is uninitialized'}!`
+        )
+        return
+      }
+      showToast(`Running ${type.toLowerCase()}`)
+      this.$oh.api.postPlain('/rest/rules/' + rule.uid + '/runnow', '').catch((err) => {
+        showToast(`Error while running ${type.toLowerCase()}: ` + err)
+      })
+    },
+    openScriptingScratchpad() {
+      this.$oh.api
+        .get('/rest/rules/scratchpad')
+        .then((data) => {
+          f7.views.main.router.navigate('/settings/scripts/scratchpad', { animate: false })
         })
         .catch(() => {
           this.$oh.api.get('/rest/module-types/script.ScriptAction').then((data) => {
             const languages = data.configDescriptions.find((c) => c.name === 'type').options
-            this.$f7.actions.create({
-              buttons: [
-                [
-                  { label: true, text: 'Scripting Language' },
-                  ...languages.map((l) => {
-                    return {
-                      text: l.label,
-                      color: 'blue',
-                      onClick: () => {
-                        const scratchpad = {
-                          uid: 'scratchpad',
-                          name: '-Scratchpad-',
-                          description: 'Created from the developer sidebar on ' + new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString(),
-                          triggers: [],
-                          conditions: [],
-                          actions: [
-                            {
-                              id: 'script',
-                              type: 'script.ScriptAction',
-                              configuration: {
-                                type: l.value,
-                                script: ''
+            f7.actions
+              .create({
+                buttons: [
+                  [
+                    { label: true, text: 'Scripting Language' },
+                    ...languages.map((l) => {
+                      return {
+                        text: l.label,
+                        color: 'theme-alt',
+                        onClick: () => {
+                          const scratchpad = {
+                            uid: 'scratchpad',
+                            name: '-Scratchpad-',
+                            description:
+                              'Created from the developer sidebar on ' +
+                              new Date().toLocaleDateString() +
+                              ' ' +
+                              new Date().toLocaleTimeString(),
+                            triggers: [],
+                            conditions: [],
+                            actions: [
+                              {
+                                id: 'script',
+                                type: 'script.ScriptAction',
+                                configuration: {
+                                  type: l.value,
+                                  script: ''
+                                }
                               }
-                            }
-                          ],
-                          tags: ['Script', 'Scratchpad']
+                            ],
+                            tags: ['Script', 'Scratchpad']
+                          }
+                          this.$oh.api.postPlain('/rest/rules', JSON.stringify(scratchpad), 'text/plain', 'application/json').then(() => {
+                            showToast('Scratchpad script created')
+                            f7.views.main.router.navigate('/settings/scripts/scratchpad', { animate: false })
+                          })
                         }
-                        this.$oh.api.postPlain('/rest/rules', JSON.stringify(scratchpad), 'text/plain', 'application/json').then(() => {
-                          this.$f7.toast.create({
-                            text: 'Scratchpad script created',
-                            destroyOnClose: true,
-                            closeTimeout: 2000
-                          }).open()
-                          this.$f7.views.main.router.navigate('/settings/scripts/scratchpad', { animate: false })
-                        })
                       }
-                    }
-                  })
-                ],
-                [
-                  { color: 'red', text: 'Cancel', close: true }
+                    })
+                  ],
+                  [{ color: 'red', text: 'Cancel', close: true }]
                 ]
-              ]
-            }).open()
+              })
+              .open()
           })
         })
     },
-    quickAddThing () {
+    quickAddThing() {
       if (this.addThingAutocomplete) {
         this.addThingAutocomplete.value = []
         this.addThingAutocomplete.open()
       } else {
-        this.$f7.preloader.show()
+        f7.preloader.show()
         const self = this
         this.$oh.api.get('/rest/thing-types').then((data) => {
-          const listedThingTypes = data.filter((t) => t.listed).map((t) => { return { UID: t.UID, label: `${t.label} (${t.UID})` } }).sort((a, b) => a.label.localeCompare(b.label))
-          this.$f7.preloader.hide()
-          this.addThingAutocomplete = this.$f7.autocomplete.create({
-            openIn: 'popup',
-            autoFocus: true,
-            value: [],
-            pageTitle: 'Select Thing Type',
-            searchbarPlaceholder: 'Search thing types',
-            requestSourceOnOpen: true,
-            multiple: false,
-            valueProperty: 'UID',
-            textProperty: 'label',
-            url: 'quick-add-thing/',
-            source (query, render) {
-              if (query.length === 0) {
-                render(listedThingTypes)
-              } else {
-                render(listedThingTypes.filter((t) => (t.label.toLowerCase().indexOf(query.toLowerCase()) >= 0 || t.UID.toLowerCase().indexOf(query.toLowerCase()) >= 0)))
+          const listedThingTypes = data
+            .filter((t) => t.listed)
+            .map((t) => {
+              return { UID: t.UID, label: `${t.label} (${t.UID})` }
+            })
+            .sort((a, b) => a.label.localeCompare(b.label))
+          f7.preloader.hide()
+          this.addThingAutocomplete = f7.autocomplete
+            .create({
+              openIn: 'popup',
+              autoFocus: true,
+              value: [],
+              pageTitle: 'Select Thing Type',
+              searchbarPlaceholder: 'Search thing types',
+              requestSourceOnOpen: true,
+              multiple: false,
+              valueProperty: 'UID',
+              textProperty: 'label',
+              url: 'quick-add-thing/',
+              source(query, render) {
+                if (query.length === 0) {
+                  render(listedThingTypes)
+                } else {
+                  render(
+                    listedThingTypes.filter(
+                      (t) =>
+                        t.label.toLowerCase().indexOf(query.toLowerCase()) >= 0 || t.UID.toLowerCase().indexOf(query.toLowerCase()) >= 0
+                    )
+                  )
+                }
+              },
+              on: {
+                change(value) {
+                  if (!value.length) return
+                  f7.views.main.router.navigate('/settings/things/add/' + value[0].UID.split(':')[0] + '/' + value[0].UID, {
+                    animate: false
+                  })
+                }
               }
-            },
-            on: {
-              change (value) {
-                if (!value.length) return
-                self.$f7.views.main.router.navigate('/settings/things/add/' + value[0].UID.split(':')[0] + '/' + value[0].UID, { animate: false })
-              }
-            }
-          }).open()
+            })
+            .open()
         })
       }
     },
-    changeEventTopicFilter () {
-      this.$f7.dialog.prompt('Filter events by topics (comma-separated, wildcards accepted):',
+    changeEventTopicFilter() {
+      f7.dialog.prompt(
+        'Filter events by topics (comma-separated, wildcards accepted):',
         'Event Monitor',
         (filter) => {
           this.eventTopicFilter = filter
         },
         null,
-        this.eventTopicFilter)
+        this.eventTopicFilter
+      )
     },
-    startSSE () {
-      this.$set(this, 'sseEvents', [])
-      this.sseClient = this.$oh.sse.connect('/rest/events' + (this.eventTopicFilter ? '?topics=' + this.eventTopicFilter : ''), '', (event) => {
-        event.time = new Date()
-        this.sseEvents.unshift(...[event])
-        this.sseEvents.splice(20)
-      })
+    startSSE() {
+      this.sseEvents = []
+      this.sseClient = this.$oh.sse.connect(
+        '/rest/events' + (this.eventTopicFilter ? '?topics=' + this.eventTopicFilter : ''),
+        '',
+        (event) => {
+          event.time = new Date()
+          event.sequenceId = this.sseEvents.length > 0 ? this.sseEvents[0].sequenceId + 1 : 1
+          this.sseEvents.unshift(...[event])
+          this.sseEvents.splice(20)
+        }
+      )
     },
-    stopSSE () {
+    stopSSE() {
+      if (!this.sseClient) return
+
       this.$oh.sse.close(this.sseClient)
       this.sseClient = null
     },
-    startEventSource () {
-      this.eventSource = this.$oh.sse.connect('/rest/events?topics=openhab/rules/*/*,openhab/things/*/*,openhab/addons/*/*', null, (event) => {
-        const topicParts = event.topic.split('/')
-        switch (topicParts[1]) {
-          case 'addons':
-            if (this.addThingAutocomplete) this.addThingAutocomplete.destroy()
-            break
-          case 'things':
-            switch (topicParts[3]) {
-              case 'removed':
-                this.unpin('things', { UID: topicParts[2] }, 'UID')
-                break
-              case 'status':
-                const updatedThing = this.pinnedObjects.things.find((t) => t.UID === topicParts[2])
-                if (!updatedThing) break
-                const newStatus = JSON.parse(event.payload)
-                if (updatedThing) {
-                  if (updatedThing.statusInfo.status !== newStatus.status) updatedThing.statusInfo.status = newStatus.status
-                  if (updatedThing.statusInfo.statusDetail !== newStatus.statusDetail) updatedThing.statusInfo.statusDetail = newStatus.statusDetail
-                  if (updatedThing.statusInfo.description !== newStatus.description) updatedThing.statusInfo.description = newStatus.description
-                }
-            }
-            break
-          case 'rules':
-            switch (topicParts[3]) {
-              case 'removed':
-                this.unpin('rules', { uid: topicParts[2] }, 'uid')
-                break
-              case 'state':
-                let rule = this.pinnedObjects.rules.find((r) => r.uid === topicParts[2])
-                if (!rule) rule = this.pinnedObjects.scenes.find((r) => r.uid === topicParts[2])
-                if (!rule) rule = this.pinnedObjects.scripts.find((r) => r.uid === topicParts[2])
-                if (!rule) break
-                this.$set(rule, 'status', JSON.parse(event.payload))
-            }
-            break
+    startEventSource() {
+      this.eventSource = this.$oh.sse.connect(
+        '/rest/events?topics=openhab/rules/*/*,openhab/things/*/*,openhab/addons/*/*',
+        null,
+        (event) => {
+          const topicParts = event.topic.split('/')
+          switch (topicParts[1]) {
+            case 'addons':
+              if (this.addThingAutocomplete) this.addThingAutocomplete.destroy()
+              break
+            case 'things':
+              switch (topicParts[3]) {
+                case 'removed':
+                  this.unpin('things', { UID: topicParts[2] }, 'UID')
+                  break
+                case 'status':
+                  const updatedThing = useDeveloperStore().pinnedObjects.things.find((t) => t.UID === topicParts[2])
+                  if (!updatedThing) break
+                  const newStatus = JSON.parse(event.payload)
+                  if (updatedThing) {
+                    if (updatedThing.statusInfo.status !== newStatus.status) updatedThing.statusInfo.status = newStatus.status
+                    if (updatedThing.statusInfo.statusDetail !== newStatus.statusDetail)
+                      updatedThing.statusInfo.statusDetail = newStatus.statusDetail
+                    if (updatedThing.statusInfo.description !== newStatus.description)
+                      updatedThing.statusInfo.description = newStatus.description
+                  }
+              }
+              break
+            case 'rules':
+              switch (topicParts[3]) {
+                case 'removed':
+                  this.unpin('rules', { uid: topicParts[2] }, 'uid')
+                  break
+                case 'state':
+                  let rule = useDeveloperStore().pinnedObjects.rules.find((r) => r.uid === topicParts[2])
+                  if (!rule) rule = useDeveloperStore().pinnedObjects.scenes.find((r) => r.uid === topicParts[2])
+                  if (!rule) rule = useDeveloperStore().pinnedObjects.scripts.find((r) => r.uid === topicParts[2])
+                  if (!rule) break
+                  rule.status = JSON.parse(event.payload)
+              }
+              break
+          }
         }
-      })
+      )
     },
-    stopEventSource () {
+    stopEventSource() {
       this.$oh.sse.close(this.eventSource)
       this.eventSource = null
     }

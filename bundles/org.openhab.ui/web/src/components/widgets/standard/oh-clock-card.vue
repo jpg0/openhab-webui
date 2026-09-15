@@ -1,42 +1,67 @@
 <template>
-  <f7-card :no-border="config.noBorder" :no-shadow="config.noShadow" :outline="config.outline" :style="{ background: config.background }">
-    <f7-card-header v-if="config.title">
-      <div>{{ config.title }}</div>
-    </f7-card-header>
-    <f7-card-content @click.native="performAction" class="clock-card-content text-align-center">
+  <oh-card :context="context" :content-class="['clock-card-content', 'text-align-center']">
+    <!-- @vue-expect-error - required to ignore missing slot info on options api oh-card -->
+    <template #content>
       <f7-row v-if="config.showDate && config.datePos !== 'below'">
         <f7-col>
-          <oh-clock :context="{ component: { component: 'oh-clock', config: {} }}" :style="{ 'font-size': config.dateFontSize || '1vw', 'font-weight': config.dateFontWeight || 'normal' }" :format="config.dateFormat" />
+          <oh-clock
+            :context="clockContext"
+            :style="{ 'font-size': config.dateFontSize || '1vw', 'font-weight': config.dateFontWeight || 'normal' }"
+            :format="config.dateFormat"
+            :timezone="config.timezone" />
         </f7-col>
       </f7-row>
       <f7-row>
         <f7-col>
-          <oh-clock :context="{ component: { component: 'oh-clock', config: {} }}" :style="{ 'font-size': config.timeFontSize || '2vw', 'font-weight': config.timeFontWeight || 'normal' }" :format="config.timeFormat" />
+          <oh-clock
+            :context="clockContext"
+            :style="{ 'font-size': config.timeFontSize || '2vw', 'font-weight': config.timeFontWeight || 'normal' }"
+            :format="config.timeFormat"
+            :timezone="config.timezone" />
         </f7-col>
       </f7-row>
       <f7-row v-if="config.showDate && config.datePos === 'below'">
         <f7-col>
-          <oh-clock :context="{ component: { component: 'oh-clock', config: {} }}" :style="{ 'font-size': config.dateFontSize || '1vw', 'font-weight': config.dateFontWeight || 'normal' }" :format="config.dateFormat" />
+          <oh-clock
+            :context="clockContext"
+            :style="{ 'font-size': config.dateFontSize || '1vw', 'font-weight': config.dateFontWeight || 'normal' }"
+            :format="config.dateFormat"
+            :timezone="config.timezone" />
         </f7-col>
       </f7-row>
-    </f7-card-content>
-    <oh-card-footer v-if="config.footer" :texts="config.footer" />
-  </f7-card>
+    </template>
+  </oh-card>
 </template>
 
-<script>
-import mixin from '../widget-mixin'
-import { actionsMixin } from '../widget-actions'
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useWidgetContext } from '@/components/widgets/useWidgetContext'
+import OhCard from '@/components/widgets/standard/oh-card.vue'
 import OhClock from '../system/oh-clock.vue'
-import OhCardFooter from '../system/oh-card-footer.vue'
 import { OhClockCardDefinition } from '@/assets/definitions/widgets/standard/cards'
+import type { WidgetContext } from '../types'
+import { OhClockCard as OhClockCardType } from '@/types/components/widgets'
 
-export default {
-  mixins: [mixin, actionsMixin],
-  components: {
-    OhClock,
-    OhCardFooter
+const props = defineProps<{
+  context: WidgetContext
+}>()
+
+const { config } = useWidgetContext<OhClockCardType.Config>(
+  computed(() => props.context),
+  OhClockCardType.isConfig
+)
+
+const clockContext: WidgetContext = {
+  component: {
+    component: 'oh-clock',
+    config: {}
   },
-  widget: OhClockCardDefinition
+  config: {},
+  props: {},
+  parent: props.context
 }
+
+defineOptions({
+  widget: OhClockCardDefinition
+})
 </script>

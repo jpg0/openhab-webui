@@ -1,0 +1,266 @@
+import { defineStore } from 'pinia'
+import { nextTick, ref, reactive } from 'vue'
+
+import sse, { type SSEConnection } from '@/js/openhab/sse'
+import * as api from '@/api'
+
+export type TrackedItems = Record<string, ItemState>
+
+export interface ItemState {
+  state: string
+  displayState?: string
+  numericState?: number
+  unit?: string
+  type: string
+  toString: () => string
+}
+
+const UndefinedItemState: ItemState = {
+  state: '-',
+  type: '-',
+  toString() {
+    return JSON.stringify(this)
+  }
+}
+
+const PendingItemsProcessingInterval = 100
+
+const INVALID_PROPS = new Set([
+  'constructor',
+  'getters',
+  'effect',
+  '_vm',
+  'toJSON',
+  '__v_isRef',
+  '__v_isReadonly',
+  '__v_skip',
+  '__v_isShallow',
+  '__v_raw',
+  '__v_isReactive'
+])
+
+export const useStatesStore = defineStore('states', () => {
+  const itemStates = ref<Map<string, ItemState>>(new Map())
+  const pendingNewItems = new Set<string>()
+  let processingIntervalId: number | null = null
+
+  function ensureItemTracking(itemName: string): ItemState {
+    if (itemName === 'undefined') return UndefinedItemState
+
+    const itemState = itemStates.value.get(itemName)
+    if (!isItemTracked(itemName)) {
+      pendingNewItems.add(itemName)
+
+      // Start processing interval if not already running
+      if (processingIntervalId === null) {
+        processingIntervalId = setInterval(() => {
+          processPendingItems()
+        }, PendingItemsProcessingInterval)
+      }
+    }
+
+    return itemState ?? UndefinedItemState
+  }
+
+  /* global ProxyHandler:readonly */
+  const handler: ProxyHandler<TrackedItems> = {
+    get(obj: TrackedItems, prop: string | symbol): ItemState {
+      /* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access */
+      if (prop === '_keys') return Array.from(itemStates.value.keys()) as any
+      if (prop === '__ob__') return (obj as any).__ob__
+      if (prop === 'toString') return (() => '[object TrackedItems]') as any
+
+      // to avoid the Vue devtools requesting invalid items in development
+      if (INVALID_PROPS.has(prop.toString())) return {} as any
+      if (typeof prop !== 'string') return {} as any
+      /* eslint-enable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access */
+
+      const itemName = prop
+      return ensureItemTracking(itemName)
+    },
+    set(_target: TrackedItems, prop: string | symbol, value: string, _receiver: TrackedItems): boolean {
+      setItemState(prop.toString(), { state: value, type: '-' })
+      return true
+    }
+  }
+
+  const trackedItems = reactive<TrackedItems>(new Proxy({}, handler))
+  const trackingList = ref<Array<string>>([])
+  let trackerConnectionId: string | null = null
+  let trackerEventSource: SSEConnection | null = null
+  let pendingTrackingListUpdate: boolean = false
+  const keepConnectionOpen = ref<boolean>(false)
+  const sseConnected = ref<boolean>(false)
+  const ready = ref<boolean>(false)
+
+  function startTrackingStates() {
+    console.debug('Start tracking states')
+    if (keepConnectionOpen.value && trackerEventSource) return
+    clearTrackingList()
+    if (trackerEventSource) {
+      console.debug('Closing existing state tracker connection')
+      sse.close(trackerEventSource)
+      clearStateTracker()
+    }
+    const eventSource = sse.connectStateTracker(
+      '/rest/events/states',
+      (connectionId) => {
+        // only one state tracker at any given time!
+        trackerConnectionId = connectionId
+        console.debug(`Setting initial tracking list (${trackingList.value.length} tracked Items): `, trackingList.value)
+        api.updateItemListForStateUpdates({ connectionId, body: trackingList.value }).catch((e) => {
+          console.error('Failed to set initial tracking list for state tracker', e)
+        })
+        sseConnected.value = true
+        ready.value = true
+      },
+      (updates: Record<string, ItemState>) => {
+        for (const [key, value] of Object.entries(updates)) {
+          setItemState(key, value)
+        }
+      },
+      () => {
+        sseConnected.value = false
+      },
+      (healthy: boolean) => {
+        sseConnected.value = healthy
+      }
+    )
+    trackerEventSource = eventSource
+  }
+
+  function stopTrackingStates() {
+    console.debug('Stop tracking states')
+    if (keepConnectionOpen.value) return
+    clearTrackingList()
+    if (trackerEventSource) {
+      sse.close(trackerEventSource)
+    }
+    clearStateTracker()
+  }
+
+  async function sendCommand(itemName: string, command: string, updateState: boolean = false): Promise<any> {
+    if (updateState) {
+      const currentState = itemStates.value.get(itemName)
+      const newState: ItemState = currentState ? { ...currentState, state: command } : { state: command, type: '-' }
+      setItemState(itemName, newState)
+    }
+    // sendItemCommand supports either json/plain text, need to override default json
+    return api
+      .sendItemCommand(
+        { itemName, body: command, 'X-OpenHAB-Source': 'org.openhab.ui' },
+        { headers: { 'Content-Type': 'text/plain' }, bodySerializer: null }
+      )
+      .catch((e) => {
+        console.error(`Failed to send command '${command}' to item '${itemName}'`, e)
+        throw e // rethrow to allow subscribing to command failures
+      })
+  }
+
+  function isItemTracked(itemName: string) {
+    return trackingList.value.includes(itemName)
+  }
+
+  function addToTrackingList(itemName: string) {
+    trackingList.value.push(itemName)
+  }
+
+  /**
+   * Processes pending to be added items to the tracking list.
+   * This function is invoked by an interval to process pending Items in batches.
+   *
+   * When an Item state of an item is requested and not available, the Item needs to be added to the tracking list.
+   * This is done in batches because every modification of the tracking list triggers a lot of reactivity,
+   * causing major performance issues when many items are requested in a short time frame.
+   */
+  function processPendingItems() {
+    if (pendingNewItems.size === 0) {
+      if (processingIntervalId !== null) {
+        clearInterval(processingIntervalId)
+        processingIntervalId = null
+      }
+      return
+    }
+
+    // use Set to allow O(1) lookup for tracking list, Set creation takes O(n) time
+    // overall reduction from O(n * m) (m times O(n) array lookup) to O(n + m) (O(n) Set creation + m times O(1) lookup)
+    const trackedItems = new Set(trackingList.value)
+    for (const itemName of pendingNewItems) {
+      if (!trackedItems.has(itemName)) addToTrackingList(itemName)
+    }
+
+    pendingNewItems.clear()
+    updateTrackingList()
+  }
+
+  function clearTrackingList() {
+    trackingList.value = []
+  }
+
+  function clearStateTracker() {
+    trackingList.value = []
+    trackerConnectionId = null
+    trackerEventSource = null
+    if (processingIntervalId !== null) {
+      clearInterval(processingIntervalId)
+      processingIntervalId = null
+    }
+    pendingNewItems.clear()
+  }
+
+  function updateTrackingList() {
+    if (!trackerConnectionId || pendingTrackingListUpdate) {
+      return
+    }
+
+    pendingTrackingListUpdate = true
+    void nextTick(() => {
+      pendingTrackingListUpdate = false
+      if (!trackerConnectionId) {
+        return
+      }
+      const trackingListJson = JSON.stringify(trackingList.value)
+      console.debug(`Updating tracking list (${trackingList.value.length} tracked Items): `, trackingList.value)
+
+      api.updateItemListForStateUpdates({ connectionId: trackerConnectionId, body: trackingList.value }).catch((e) => {
+        console.error('Failed to update tracking list for state tracker', e)
+      })
+    })
+  }
+
+  function getTrackedItem(itemName: string): ItemState {
+    return ensureItemTracking(itemName)
+  }
+
+  function setItemState(itemName: string, itemState: ItemState) {
+    if (!Object.prototype.hasOwnProperty.call(itemState, 'toString')) {
+      Object.defineProperty(itemState, 'toString', {
+        value: function () {
+          return JSON.stringify(this)
+        },
+        enumerable: false, // Hides it from Object.keys and iterations
+        configurable: false, // Prevent changing its type or deleting it
+        writable: false
+      })
+    }
+    itemStates.value.set(itemName, itemState)
+    return true
+  }
+
+  return {
+    trackedItems,
+    itemStates,
+    keepConnectionOpen,
+    sseConnected,
+    ready,
+
+    startTrackingStates,
+    stopTrackingStates,
+    setItemState,
+    isItemTracked,
+    getTrackedItem,
+    addToTrackingList,
+    updateTrackingList,
+    sendCommand
+  }
+})

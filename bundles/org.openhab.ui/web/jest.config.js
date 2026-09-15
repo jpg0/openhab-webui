@@ -52,9 +52,7 @@ module.exports = {
   },
   transform: {
     '.*\\.(vue)$': '@vue/vue2-jest',
-    '.*\\.js$': 'babel-jest',
-    '.+\\.(css|styl|less|sass|scss|svg|png|jpg|ttf|woff|woff2)$': 'jest-transform-stub',
-    '^.+\\.nearley$': 'jest-transform-nearley'
+    '.+\\.(css|styl|less|sass|scss|svg|png|jpg|ttf|woff|woff2)$': 'jest-transform-stub'
   },
   transformIgnorePatterns: [
     '/node_modules/(?!framework7|framework7-vue|template7|dom7/)'

@@ -6,67 +6,90 @@
       :stunServer="config.stunServer"
       :candidatesTimeout="config.candidatesTimeout"
       :startManually="config.startManually"
+      :startMuted="config.startMuted"
       :hideControls="config.hideControls"
-      :posterURL="config.posterURL" />
+      :posterURL="posterSrc"
+      :sendAudio="config.sendAudio" />
     <oh-video-videojs
       v-else
       :src="src"
       :type="config.type"
       :config="config.videoOptions"
+      :startMuted="config.startMuted"
       :startManually="config.startManually"
       :hideControls="config.hideControls"
-      :posterURL="config.posterURL" />
+      :posterURL="posterSrc" />
   </div>
 </template>
 
 <script>
-import mixin from '../widget-mixin'
+import { computed } from 'vue'
+import { f7 } from 'framework7-vue'
+
 import { OhVideoDefinition } from '@/assets/definitions/widgets/system'
+import { useWidgetContext } from '@/components/widgets/useWidgetContext'
+
+import OhVideoVideojs from './oh-video-videojs.vue'
+import OhVideoWebrtc from './oh-video-webrtc.vue'
 
 export default {
-  mixins: [mixin],
   widget: OhVideoDefinition,
   components: {
-    'oh-video-videojs': () => import(/* webpackChunkName: "oh-video-videojs" */ './oh-video-videojs.vue'),
-    'oh-video-webrtc': () => import(/* webpackChunkName: "oh-video-webrtc" */ './oh-video-webrtc.vue')
+    OhVideoVideojs,
+    OhVideoWebrtc
   },
-  data () {
+  props: {
+    context: Object,
+    sendAudio: { type: Boolean }
+  },
+  setup(props) {
+    const { config } = useWidgetContext(computed(() => props.context))
+    return { config }
+  },
+  data() {
     return {
-      t: this.$utils.id(),
-      src: null
+      t: f7.utils.id(),
+      src: null,
+      posterSrc: null
     }
   },
   watch: {
-    itemState (value) {
+    itemState(value) {
       if (value) {
         this.loadItemURL()
       }
     }
   },
   computed: {
-    itemState () {
+    itemState() {
       if (this.config.item) {
-        return (
-          this.$utils.id() + '|' + this.context.store[this.config.item].state
-        )
+        return f7.utils.id() + '|' + this.context.store[this.config.item].state
       }
       return null
     }
   },
-  mounted () {
+  mounted() {
     if (this.config.item) {
       this.loadItemURL()
     } else {
       this.src = this.config.url
     }
+    if (this.config.posterItem) {
+      this.loadPosterItemURL()
+    } else {
+      this.posterSrc = this.config.posterURL
+    }
   },
   methods: {
-    loadItemURL () {
-      this.$oh.api
-        .getPlain(`/rest/items/${this.config.item}/state`, 'text/plain')
-        .then((data) => {
-          this.src = data
-        })
+    loadItemURL() {
+      this.$oh.api.getPlain(`/rest/items/${this.config.item}/state`, 'text/plain').then((data) => {
+        this.src = data
+      })
+    },
+    loadPosterItemURL() {
+      this.$oh.api.getPlain(`/rest/items/${this.config.posterItem}/state`, 'text/plain').then((data) => {
+        this.posterSrc = data
+      })
     }
   }
 }

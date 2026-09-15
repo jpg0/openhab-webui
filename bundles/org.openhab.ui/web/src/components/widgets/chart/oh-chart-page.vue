@@ -3,8 +3,8 @@
     ref="chart"
     class="oh-chart-page-chart"
     :class="{ 'with-tabbar': context.tab, 'with-toolbar': context.analyzer }"
-    :style="(this.$f7.data.themeOptions.dark === 'dark') ? 'background-color: black;' : 'background-color: white;'"
-    :context="this.context" />
+    :style="uiOptionsStore.darkMode === 'dark' ? 'background-color: black;' : 'background-color: white;'"
+    :context="context" />
 </template>
 
 <style lang="stylus">
@@ -22,33 +22,48 @@
   &.sheet-opened
     height calc(var(--oh-chart-page-height) - var(--f7-sheet-height)) !important
 
+.sheet-modal-inner
+  .oh-chart-page-chart
+    top 0
+    height calc(var(--oh-chart-page-height) + var(--f7-toolbar-height)) !important
+
 .device-ios /* fix chart rendering issues on iOS >= 17.4 */
   .oh-chart-page-chart
     --oh-chart-page-height calc(100dvh - var(--f7-safe-area-top) - var(--f7-safe-area-bottom) - var(--f7-navbar-height)) /* use dvh because with % the height is calculated to 0px and ECharts fails to render */
+  .popup, .popover, .sheet-modal-inner /* do not apply the above fix inside popups, popovers and sheets */
+    .oh-chart-page-chart
+      --oh-chart-page-height calc(100% - var(--f7-safe-area-top) - var(--f7-safe-area-bottom) - var(--f7-navbar-height))
 </style>
 
 <script>
-import mixin from '../widget-mixin'
-import OhChart from '../system/oh-chart.vue'
 import { OhChartPageDefinition } from '@/assets/definitions/widgets/chart/page'
+import { mapStores } from 'pinia'
+
+import { useUIOptionsStore } from '@/js/stores/useUIOptionsStore'
+import { defineAsyncComponent } from 'vue'
 
 export default {
-  mixins: [mixin],
   components: {
-    OhChart
+    'oh-chart': defineAsyncComponent(() => import('@/components/widgets/system/oh-chart.vue'))
+  },
+  props: {
+    context: Object
   },
   widget: OhChartPageDefinition,
+  computed: {
+    ...mapStores(useUIOptionsStore)
+  },
   methods: {
-    onOrientationChange () {
+    onOrientationChange() {
       this.$refs.chart.forceRerender()
     }
   },
-  mounted () {
+  mounted() {
     if (this.$device.ios) {
       window.addEventListener('orientationchange', this.onOrientationChange)
     }
   },
-  beforeUnmount () {
+  beforeUnmount() {
     if (this.$device.ios) {
       window.removeEventListener('orientationchange', this.onOrientationChange)
     }

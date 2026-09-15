@@ -1,0 +1,197 @@
+import { defineConfig } from 'vite'
+import vue from '@vitejs/plugin-vue'
+import vitePluginTopLevelAwait from 'vite-plugin-top-level-await'
+import { compression } from 'vite-plugin-compression2'
+import { VitePWA } from 'vite-plugin-pwa'
+import { resolve } from 'path'
+import vueDevtools from 'vite-plugin-vue-devtools'
+import { visualizer } from 'rollup-plugin-visualizer'
+import webpackStats from 'rollup-plugin-webpack-stats'
+
+const projectRootDir = resolve(import.meta.dirname)
+
+const production: boolean = process.env.NODE_ENV === 'production'
+const apiBaseUrl = process.env.OH_APIBASE || 'http://localhost:8080'
+const maven: boolean = !!(process.env.MAVEN || false)
+const stats: boolean = !!(process.env.STATS || false)
+const sourceMaps: boolean = !!(process.env.SOURCE_MAPS || false)
+const outPath = maven ? '../target/classes/app' : 'www'
+
+if (production) {
+  console.log('Production build enabled.')
+} else {
+  console.log(`Using openHAB API base URL: ${apiBaseUrl}`)
+}
+if (stats) {
+  console.log(`Build will generate webpack stats file: ${outPath}/webpack-stats.json`)
+}
+if (sourceMaps) {
+  console.log('Build will include source maps.')
+}
+
+export default defineConfig({
+  plugins: [
+    vue({
+      template: {
+        compilerOptions: {
+          isCustomElement: (tag : string) => ['field', 'block', 'category', 'xml', 'mutation', 'value', 'sep', 'shadow'].includes(tag) // blockly custom elements
+        }
+      }
+    }),
+    {
+      name: 'html-injector',
+      apply: 'build',
+      transformIndexHtml () {
+        return [
+          {
+            tag: 'meta',
+            injectTo: 'head-prepend',
+            attrs: {
+              'http-equiv': 'Content-Security-Policy',
+              /*
+               * Content-Security Policy Explanation:
+               * - default: allow loading resources from same origin
+               * - scripts: same origin
+               * - styles: same source & inline style (<style> tags and style attributes)
+               * - fonts: same source & data: URIs
+               * - images: any origin & data: URIs
+               * - media: any origin, data:, blob: & media: URIs
+               * - embedding (<iframe> tag): any origin
+               * - connect (fetch, XHR, WebSocket, etc.): same origin, *.openhab.org & raw.githubusercontent.com (add-on logos, READMEs, etc.), Iconify icon sources, and any origin (until we provide a way to set this dynamically)
+               * - web workers: same origin and blob: URIs (required by Video.js)
+               * - objects (browser plugins, Flash, etc.): blocked
+               * - base: only allow same origin to set <base href="...">
+               */
+              content: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src * data:; media-src * data: blob: media:; frame-src *; connect-src 'self' *.openhab.org raw.githubusercontent.com api.iconify.design api.unisvg.com api.simplesvg.com *; worker-src 'self' blob:; object-src 'none'; base-uri 'self';"
+            }
+          }
+        ]
+      }
+    },
+    vitePluginTopLevelAwait(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      workbox: {
+        globPatterns: [
+          // default pattern
+          '**/*.{js,wasm,css,html}',
+          // include static assets
+          'images/*.{png,jpg,jpeg,gif,svg}',
+          'media/*.{mp4,webm,ogg,mp3,wav,flac,aac,m4a}',
+          'fonts/*.{woff,woff2,eot,ttf,otf}'
+        ],
+        // restrict which URLs should be treated as part of Main UI SPA,
+        // thereby controlling which routes are loaded from the service worker cache instead of the server
+        navigateFallbackAllowlist: [
+          /^\/(overview|locations|equipment|properties)\//,
+          /^\/(about|analyzer|profile|setup-wizard)\//,
+          /^\/(addons|developer|page|settings)\/.*/
+        ],
+        maximumFileSizeToCacheInBytes: 100000000,
+        // these options encourage the ServiceWorkers to get in there fast
+        // and not allow any straggling "old" SWs to hang around
+        clientsClaim: true,
+        skipWaiting: true
+      }
+    }),
+    ...(production
+      ? [compression({ algorithms: ['gzip', 'brotliCompress'] })]
+      : [vueDevtools()]),
+    ...(stats ? [visualizer(), webpackStats()] : [])
+  ],
+  define: {
+    // __VUE_I18N_LEGACY_API__: false // tree-shake legacy mode
+  },
+  optimizeDeps: {
+    // ensure these alre always pre-bundled, including esbuild in the dev server
+    include: ['echarts', 'vue-echarts', 'dayjs']
+  },
+  server: {
+    port: 8081,
+    host: '0.0.0.0',
+    proxy: {
+      '/rest': {
+        target: apiBaseUrl,
+        secure: false
+      },
+      '/auth': {
+        target: apiBaseUrl,
+        secure: false
+      },
+      '/chart': {
+        target: apiBaseUrl,
+        secure: false
+      },
+      '/proxy': {
+        target: apiBaseUrl,
+        secure: false
+      },
+      '/icon': {
+        target: apiBaseUrl,
+        secure: false
+      },
+      '/static': {
+        target: apiBaseUrl,
+        secure: false
+      },
+      '/changePassword': {
+        target: apiBaseUrl,
+        secure: false
+      },
+      '/createApiToken': {
+        target: apiBaseUrl,
+        secure: false
+      },
+      '/audio': {
+        target: apiBaseUrl,
+        secure: false
+      },
+      '/ws/logs': {
+        target: apiBaseUrl,
+        ws: true
+      },
+      '/ws/audio-pcm': {
+        target: apiBaseUrl,
+        ws: true
+      },
+      '/ws/events': {
+        target: apiBaseUrl,
+        ws: true
+      }
+    }
+  },
+  build: {
+    outDir: resolve(outPath),
+    emptyOutDir: true,
+    target: ['chrome111', 'edge111', 'firefox114', 'safari15.4'],
+    sourcemap: sourceMaps ? 'hidden' : false,
+    rolldownOptions: {
+      output: {
+        assetFileNames: (assetInfo) => {
+          const name = assetInfo.name || ''
+          const ext = name.split('.').pop()?.toLowerCase() || ''
+          // Move fonts to fonts/ folder
+          if (['woff', 'woff2', 'eot', 'ttf', 'otf'].includes(ext)) {
+            return 'fonts/[name][extname]'
+          }
+          // Move images to images/ folder
+          if (['png', 'jpg', 'jpeg', 'gif', 'svg'].includes(ext)) {
+            return 'images/[name][extname]'
+          }
+          // Move media to media/ folder
+          if (['mp4', 'webm', 'ogg', 'mp3', 'wav', 'flac', 'aac', 'm4a'].includes(ext)) {
+            return 'media/[name][extname]'
+          }
+          // Default fallback for other assets
+          return 'assets/[name]-[hash][extname]'
+        }
+      }
+    }
+  },
+  resolve: {
+    alias: {
+      '@': resolve(projectRootDir, 'src'),
+      '@node_modules': resolve(projectRootDir, 'node_modules')
+    }
+  }
+})

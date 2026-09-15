@@ -1,8 +1,11 @@
 <template>
   <model-card type="property" :context="context" :element="element" header-height="150px">
     <template #glance>
-      <div v-if="context && context.component.slots && context.component.slots.glance" class="display-flex flex-direction-column align-items-flex-start">
-        <generic-widget-component :context="childContext(slotComponent)" v-for="(slotComponent, idx) in context.component.slots.glance" :key="'glance-' + idx" @command="onCommand" />
+      <div v-if="'glance' in slots" class="display-flex flex-direction-column align-items-flex-start">
+        <generic-widget-component
+          v-for="(slotComponent, idx) in slots.glance"
+          :context="childContext(slotComponent)"
+          :key="'glance-' + idx" />
       </div>
       <!-- <div class="property-stats" v-else><small v-if="element.points">{{element.points.length}}</small></div> -->
     </template>
@@ -28,19 +31,35 @@
 </style>
 
 <script>
-import mixin from '@/components/widgets/widget-mixin'
+import { computed } from 'vue'
+import { useWidgetContext } from '@/components/widgets/useWidgetContext'
 import itemDefaultListComponent, { itemPathLabel } from '@/components/widgets/standard/list/default-list-item'
 import CardMixin from './card-mixin'
 import ModelCard from './model-card.vue'
 
+import { useStatesStore } from '@/js/stores/useStatesStore'
+
 export default {
-  mixins: [mixin, CardMixin],
-  props: ['tabContext'],
+  mixins: [CardMixin],
+  props: {
+    context: Object,
+    tabContext: Object,
+    element: Object
+  },
   components: {
     ModelCard
   },
+  data() {
+    return {
+      type: 'property'
+    }
+  },
+  setup(props) {
+    const { config, childContext, slots } = useWidgetContext(computed(() => props.context))
+    return { config, childContext, slots }
+  },
   computed: {
-    listContext () {
+    listContext() {
       const footerDefaults = { contextLabelSource: 'path' }
       let pointsByType = []
       for (let pointType in this.itemsByPointType) {
@@ -57,7 +76,7 @@ export default {
       }
 
       return {
-        store: this.$store.getters.trackedItems,
+        store: useStatesStore().trackedItems,
         component: {
           component: 'oh-list',
           config: {
@@ -69,7 +88,7 @@ export default {
         }
       }
     },
-    itemsByPointType () {
+    itemsByPointType() {
       const points = {}
       this.element.points.forEach((item) => {
         const pointType = item.metadata.semantics.value.replace(/^.*_/g, '')

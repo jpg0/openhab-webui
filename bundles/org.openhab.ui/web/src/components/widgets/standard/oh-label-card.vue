@@ -1,25 +1,38 @@
 <template>
-  <f7-card :no-border="config.noBorder" :no-shadow="config.noShadow" :outline="config.outline">
-    <f7-card-header v-if="config.title">
-      <div>{{ config.title }}</div>
-    </f7-card-header>
-    <f7-card-content ref="cardContent" @click.native="performAction" @taphold.native="onTaphold($event)" @contextmenu.native="onContextMenu($event)" class="label-card-content" :style="{ background: config.background }" :class="{ 'vertical-arrangement': config.vertical }">
-      <oh-trend v-if="config.trendItem" :key="'trend' + config.item" class="trend" :width="($refs.cardContent) ? $refs.cardContent.$el.clientWidth : 0" :context="context" />
-      <f7-list>
-        <f7-list-item :link="config.action ? true : false" no-chevron>
-          <oh-icon slot="media" v-if="config.icon" :icon="config.icon" :height="config.iconSize || 32" :width="config.iconSize || 32" :state="(config.item && config.iconUseState) ? context.store[config.item].state : null" :color="config.iconColor" />
-          <div :class="config.class">
-            <span :style="{ 'font-size': config.fontSize || '24px', 'font-weight': config.fontWeight || 'normal' }">
-              {{ label }}
-            </span>
-          </div>
-        </f7-list-item>
-      </f7-list>
-      <!-- <f7-link class="label-link" v-if="config.action">{{context.store[config.item].displayState || context.store[config.item].state}}</f7-link> -->
-      <!-- <h2>{{context.store[config.item].displayState || context.store[config.item].state}}</h2> -->
-    </f7-card-content>
-    <oh-card-footer v-if="config.footer" :texts="config.footer" />
-  </f7-card>
+  <oh-card :context="context">
+    <template #content-root>
+      <f7-card-content
+        ref="cardContent"
+        @click="performAction"
+        @taphold="onTaphold($event)"
+        @contextmenu="onContextMenu($event)"
+        :class="[
+          'label-card-content',
+          config.vertical ? 'vertical-arrangement' : '',
+          ...(Array.isArray(config.contentClass) ? config.contentClass : [])
+        ]"
+        :style="{ background: config.background, ...config.contentStyle }">
+        <oh-trend v-if="config.trendItem" :key="'trend' + config.item" class="trend" :width="trendWidth" :context="context" />
+        <f7-list>
+          <f7-list-item :link="hasAction ? true : false" no-chevron>
+            <template v-if="config.icon" #media>
+              <oh-icon
+                :icon="config.icon"
+                :height="config.iconSize || 32"
+                :width="config.iconSize || 32"
+                :state="config.item && config.iconUseState ? context.store[config.item].state : null"
+                :color="config.iconColor" />
+            </template>
+            <div v-if="config.label || config.item" :class="config.class">
+              <span :style="{ 'font-size': config.fontSize || '24px', 'font-weight': config.fontWeight || 'normal' }">
+                {{ label }}
+              </span>
+            </div>
+          </f7-list-item>
+        </f7-list>
+      </f7-card-content>
+    </template>
+  </oh-card>
 </template>
 
 <style lang="stylus">
@@ -46,22 +59,38 @@
 </style>
 
 <script>
-import mixin from '../widget-mixin'
-import { actionsMixin } from '../widget-actions'
+import { computed } from 'vue'
+import { useWidgetContext } from '@/components/widgets/useWidgetContext'
+import OhCard from '@/components/widgets/standard/oh-card.vue'
+import OhTrend from '@/components/widgets/system/oh-trend.vue'
 import { OhLabelCardDefinition } from '@/assets/definitions/widgets/standard/cards'
-
-import OhTrend from '../system/oh-trend'
-import OhCardFooter from '../system/oh-card-footer.vue'
+import { useWidgetAction } from '@/components/widgets/useWidgetAction.ts'
 
 export default {
-  mixins: [mixin, actionsMixin],
+  props: {
+    context: Object
+  },
   components: {
-    OhTrend,
-    OhCardFooter
+    OhCard,
+    OhTrend
   },
   widget: OhLabelCardDefinition,
+  setup(props) {
+    const context = computed(() => props.context)
+    const { config, hasAction, evaluateExpression } = useWidgetContext(context)
+    const { performAction, onTaphold, onContextMenu } = useWidgetAction(context, config, evaluateExpression)
+    return { config, hasAction, evaluateExpression, performAction, onTaphold, onContextMenu }
+  },
+  data() {
+    return {
+      trendWidth: 0
+    }
+  },
+  mounted() {
+    this.trendWidth = this.$refs.cardContent ? this.$refs.cardContent.$el.clientWidth : 0
+  },
   computed: {
-    label () {
+    label() {
       return this.config.label || this.context.store[this.config.item].displayState || this.context.store[this.config.item].state
     }
   }

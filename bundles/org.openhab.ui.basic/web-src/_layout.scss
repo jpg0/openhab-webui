@@ -168,7 +168,7 @@
 		@media screen and (max-width: $layout-tablet-size-threshold) {
 			padding-left: $form-row-mobile-padding;
 			html.ui-layout-condensed & {
-				padding-left: $form-row-mobile-padding-condensed;
+				padding-left: 0; // there's already padding in .mdl-form__row
 			}
 		}
 		html:not(.ui-icons-enabled) & {
@@ -212,15 +212,15 @@
 		}
 	}
 	&__label {
+		padding-left: $form-row-desktop-padding;
+		html.ui-layout-condensed & {
+			padding-left: $form-row-desktop-padding-condensed;
+		}
 		@media screen and (max-width: $layout-tablet-size-threshold) {
 			padding-left: $form-row-mobile-padding;
 			html.ui-layout-condensed & {
 				padding-left: $form-row-mobile-padding-condensed;
 			}
-		}
-		padding-left: $form-row-desktop-padding;
-		html.ui-layout-condensed & {
-			padding-left: $form-row-desktop-padding-condensed;
 		}
 		@include flex-shrink(0);
 		@include flex-grow(2);
@@ -232,17 +232,26 @@
 			font-size: 18px;
 		}
 	}
+	&__label:has(+ .mdl-form__text) {
+		// this applies only to labels for sitemap text elements
+		// Set flex-basis to 0 to prioritize __text over __label (see __text below)
+		@include flex-2011(2 0 0);
+	}
+	&__label-multiline {
+		min-width: 3em;
+	}
 	&__control {
-		@media screen and (max-width: $layout-tablet-size-threshold) {
-			padding-right: $form-row-mobile-padding;
-			html.ui-layout-condensed & {
-				padding-left: $form-row-mobile-padding-condensed;
-			}
-		}
 		padding-right: $form-row-desktop-padding;
 		padding-left: 4px;
 		html.ui-layout-condensed & {
-			padding-left: $form-row-desktop-padding-condensed;
+			padding-left: 0;
+			padding-right: $form-row-desktop-padding-condensed;
+		}
+		@media screen and (max-width: $layout-tablet-size-threshold) {
+			padding-right: $form-row-mobile-padding;
+			html.ui-layout-condensed & {
+				padding-right: $form-row-mobile-padding-condensed;
+			}
 		}
 		font-weight: 700;
 		html.ui-capitalize-values & {
@@ -270,7 +279,7 @@
 		.buttongrid-cell {
 			height: 36px;
 			.buttongrid-button {
-				min-width: 100%;
+				min-width: 100% !important;
 				text-transform: none;
 			}
 		}
@@ -279,6 +288,18 @@
 			box-shadow: none;
 			-webkit-box-shadow: none;
 			text-transform: unset;
+			min-width: 54px;
+			html.ui-layout-condensed & {
+				min-width: 40px;
+				padding-left: 4px;
+				padding-right: 4px;
+			}
+			html.ui-button-rounded & {
+				border-radius: 12px;
+			}
+			html.ui-button-fully-rounded & {
+				border-radius: 50px;
+			}
 		}
 		.mdl-button-text {
 			html.ui-bigger-font & {
@@ -341,10 +362,22 @@
 	}
 	&__setpoint,
 	&__colorpicker,
+	&__colortemppicker,
 	&__rollerblind {
 		.mdl-button {
 			min-width: 0;
 			padding-top: 6px;
+		}
+	}
+	&__colorpicker--pick,
+	&__colortemppicker--pick {
+		padding-top: 0px !important;
+		padding-left: 7px;
+		padding-right: 7px;
+		svg {
+			width: 26px;
+			height: 26px;
+			object-fit: contain;
 		}
 	}
 	&__header {
@@ -458,7 +491,8 @@
 			text-transform: uppercase;
 		}
 		&--setpoint,
-		&--rollerblind {
+		&--rollerblind,
+		&--colortemppicker {
 			padding: 0 10px 0 5px;
 		}
 		&--group {
@@ -478,7 +512,10 @@
 			font-size: 18px;
 		}
 		overflow: hidden;
+		// Make the label shrink first before the text (see __label above)
+		// See https://stackoverflow.com/a/67858285/15409057
 		flex-shrink: 2;
+		flex-grow: 0;
 		text-overflow: ellipsis;
 	}
 	&__webview,
@@ -489,16 +526,20 @@
 	}
 	&__buttons {
 		padding-top: 2px;
+		padding-bottom: 2px;
 	}
 	&__buttons-multiline {
-		margin: 6px 0;
+		gap: 4px;
+		padding-top: 2px;
+		padding-bottom: 2px;
 		html.ui-layout-condensed & {
-			margin: 0;
+			gap: 3px;
+			padding-top: 0;
+			padding-bottom: 0;
 		}
-		max-width: 60%;
 		display: flex;
 		flex-wrap: wrap;
-		gap: 4px;
+		justify-content: end;
 	}
 	&__buttongrid {
 		padding: 0;
@@ -755,6 +796,84 @@ $colorpicker-mobile-size: 270px;
 	position: relative;
 }
 
+// Colortemppicker
+$colortemppicker-thumb-width: 20px;
+$colortemppicker-slider-height: 200px;
+$colortemppicker-desktop-size: 500px;
+$colortemppicker-mobile-size: 270px;
+
+@mixin colortemppicker-slider-track() {
+	display: block;
+	height: $colortemppicker-slider-height;
+	border-radius: 0;
+	background: transparent;
+	color: transparent;
+	border: none;
+}
+
+@mixin colortemppicker-slider-thumb() {
+	-webkit-appearance: none;
+	width: $colortemppicker-thumb-width;
+	height: $colortemppicker-slider-height;
+	box-sizing: border-box;
+	-moz-box-sizing: border-box;
+	border-radius: 0;
+	background: transparent;
+	border: 3px solid #aaa;
+}
+
+.colortemppicker {
+	&__input {
+		-webkit-appearance: none;
+		position: relative;
+		padding: 0;
+		margin: 0;
+		border: 1px solid $item-separator-color;
+		width: $colortemppicker-desktop-size - 30px;
+		@media screen and (max-width: $layout-mobile-size-threshold) {
+			width: $colortemppicker-mobile-size - 30px;
+		}
+		height: $colortemppicker-slider-height;
+		&::-ms-track {
+			@include colortemppicker-slider-track();
+		}
+		&::-webkit-slider-runnable-track {
+			@include colortemppicker-slider-track();
+		}
+		&::-moz-range-track {
+			@include colortemppicker-slider-track();
+		}
+		&::-moz-range-thumb {
+			@include colortemppicker-slider-thumb();
+		}
+		&::-webkit-slider-thumb {
+			@include colortemppicker-slider-thumb();
+		}
+		&::-ms-thumb {
+			@include colortemppicker-slider-thumb();
+		}
+		&::-ms-fill-upper {
+			background: none;
+		}
+		&::-ms-fill-lower {
+			background: none;
+		}
+		&::-ms-ticks {
+			background: none;
+			display: none;
+		}
+	}
+	&__controls {
+		position: relative;
+		padding: 15px;
+		border-bottom: 1px solid $item-separator-color;
+	}
+	&__buttons {
+		padding: 5px;
+	}
+	position: relative;
+}
+
 h4 {
 	html.ui-bigger-font & {
 		font-size: 28px;
@@ -803,6 +922,12 @@ h5 {
 		max-width: $colorpicker-desktop-size;
 		@media screen and (max-width: $layout-mobile-size-threshold) {
 			max-width: $colorpicker-mobile-size;
+		}
+	}
+	&--colortemppicker {
+		max-width: $colortemppicker-desktop-size;
+		@media screen and (max-width: $layout-mobile-size-threshold) {
+			max-width: $colortemppicker-mobile-size;
 		}
 	}
 }
@@ -882,4 +1007,49 @@ input::-webkit-calendar-picker-indicator {
 		height: 32px;
 		margin: 0;
 	}
+}
+
+// Question mark when UNDEF or NULL
+.unknown-state .mdl-switch__thumb::after {
+	content: "?";
+	color: var(--state-unknown-color);
+	font-size: 14px;
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+}
+.mdl-slider__container.unknown-state {
+	position: relative;
+	overflow: visible !important;
+}
+.mdl-slider__container.unknown-state::after {
+	content: "?";
+	color: var(--state-unknown-color);
+	font-size: 14px;
+	position: absolute;
+	top: 50%;
+	left: 0;
+	transform: translate(-20%, -50%);
+	pointer-events: none;
+	z-index: 10;
+	// mimic the look of a switch to have enough space to put the question mark
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	box-shadow: 0 2px 2px 0 rgba(0,0,0,.14), 0 3px 1px -2px rgba(0,0,0,.2), 0 1px 5px 0 rgba(0,0,0,.12);
+	background: #fafafa;
+	text-align: center;
+}
+.mdl-form__colorpicker--pick.unknown-state::after,
+.mdl-form__colortemppicker--pick.unknown-state::after {
+	content: "?";
+	color: var(--state-unknown-color);
+	font-size: 14px;
+	font-weight: bold;
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	pointer-events: none;
 }

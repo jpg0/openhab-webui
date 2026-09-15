@@ -3,11 +3,11 @@
    in the "widget" metadata namespace of the item
  */
 
-import store from '@/js/store'
+import { useSemanticsStore } from '@/js/stores/useSemanticsStore'
 
-export default function itemDefaultStandaloneComponent (item) {
+export default function itemDefaultStandaloneComponent(item) {
   const stateDescription = item.stateDescription || {}
-  const metadata = (item.metadata && item.metadata.widget) ? item.metadata.widget : {}
+  const metadata = item.metadata && item.metadata.widget ? item.metadata.widget : {}
   let component = null
   let semanticClass = {}
   let semanticProperty = {}
@@ -19,10 +19,10 @@ export default function itemDefaultStandaloneComponent (item) {
     }
   } else {
     item.tags.forEach((tag) => {
-      if (store.getters.semanticClasses.Points.indexOf(tag) >= 0) {
+      if (useSemanticsStore().Points.indexOf(tag) >= 0) {
         semanticClass = tag
       }
-      if (store.getters.semanticClasses.Properties.indexOf(tag) >= 0) {
+      if (useSemanticsStore().Properties.indexOf(tag) >= 0) {
         semanticProperty = tag
       }
     })
@@ -145,7 +145,10 @@ export default function itemDefaultStandaloneComponent (item) {
       component: 'oh-label-card'
     }
 
-    if (item.type.indexOf('Number') === 0 && (!item.commandDescription || !item.commandDescription.commandOptions || stateDescription.readOnly)) {
+    if (
+      item.type.indexOf('Number') === 0 &&
+      (!item.commandDescription || !item.commandDescription.commandOptions || stateDescription.readOnly)
+    ) {
       component.config = {
         trendItem: item.name,
         action: 'analyzer',

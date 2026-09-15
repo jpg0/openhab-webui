@@ -12,13 +12,11 @@
         <block type="logic_null" />
         <block type="oh_logic_undefined" />
         <block type="logic_ternary" />
+        <block type="oh_logic_multiple" />
       </category>
 
       <category name="Loops" colour="%{BKY_LOOPS_HUE}">
-        <button
-          helpUrl="configuration/blockly/rules-blockly-standard-ext.html#loops"
-          text="Help"
-          callbackKey="ohBlocklyHelp" />
+        <button helpUrl="configuration/blockly/rules-blockly-standard-ext.html#loops" text="Help" callbackKey="ohBlocklyHelp" />
         <block type="controls_repeat_ext">
           <value name="TIMES">
             <shadow type="math_number">
@@ -50,10 +48,7 @@
       </category>
 
       <category name="Math" colour="%{BKY_MATH_HUE}">
-        <button
-          helpUrl="configuration/blockly/rules-blockly-standard-ext.html#math"
-          text="Help"
-          callbackKey="ohBlocklyHelp" />
+        <button helpUrl="configuration/blockly/rules-blockly-standard-ext.html#math" text="Help" callbackKey="ohBlocklyHelp" />
         <block type="math_number">
           <field name="NUM">123</field>
         </block>
@@ -194,10 +189,7 @@
       </category>
 
       <category name="Text" colour="%{BKY_TEXTS_HUE}">
-        <button
-          helpUrl="configuration/blockly/rules-blockly-standard-ext.html#text"
-          text="Help"
-          callbackKey="ohBlocklyHelp" />
+        <button helpUrl="configuration/blockly/rules-blockly-standard-ext.html#text" text="Help" callbackKey="ohBlocklyHelp" />
         <block type="text" />
         <block type="text_join">
           <mutation items="0" />
@@ -282,10 +274,7 @@
       </category>
 
       <category name="Lists" colour="%{BKY_LISTS_HUE}">
-        <button
-          helpUrl="configuration/blockly/rules-blockly-standard-ext.html#lists"
-          text="Help"
-          callbackKey="ohBlocklyHelp" />
+        <button helpUrl="configuration/blockly/rules-blockly-standard-ext.html#lists" text="Help" callbackKey="ohBlocklyHelp" />
         <block type="lists_create_with">
           <mutation items="0" />
         </block>
@@ -345,13 +334,21 @@
             </shadow>
           </value>
         </block>
+        <block type="dicts_set">
+          <value name="key">
+            <shadow type="text" />
+          </value>
+          <value name="value">
+            <shadow type="text" />
+          </value>
+          <value name="dictionary">
+            <shadow type="text" />
+          </value>
+        </block>
       </category>
 
       <category name="Color" colour="%{BKY_COLOUR_HUE}">
-        <button
-          helpUrl="configuration/blockly/rules-blockly-standard-ext.html#colors"
-          text="Help"
-          callbackKey="ohBlocklyHelp" />
+        <button helpUrl="configuration/blockly/rules-blockly-standard-ext.html#colors" text="Help" callbackKey="ohBlocklyHelp" />
         <block type="colour_picker" />
         <block type="colour_random" />
         <block type="colour_rgb">
@@ -406,12 +403,9 @@
         </block>
       </category>
 
-      <category name="openHAB" colour="0" :expanded="$f7.device.desktop">
+      <category name="openHAB" colour="0" :expanded="$device.desktop">
         <category name="Items &amp; Things">
-          <button
-            helpUrl="configuration/blockly/rules-blockly-items-things.html"
-            text="Help"
-            callbackKey="ohBlocklyHelp" />
+          <button helpUrl="configuration/blockly/rules-blockly-items-things.html" text="Help" callbackKey="ohBlocklyHelp" />
           <block type="oh_getitem_state">
             <value name="itemName">
               <shadow type="oh_item" />
@@ -451,7 +445,7 @@
               <shadow type="oh_item" />
             </value>
           </block>
-          <block type="oh_get_meta_value" v-if="isGraalJs">
+          <block type="oh_get_meta_value">
             <value name="theItem">
               <shadow type="oh_item" />
             </value>
@@ -459,7 +453,7 @@
               <shadow type="text" />
             </value>
           </block>
-          <block type="oh_get_meta_config" v-if="isGraalJs">
+          <block type="oh_get_meta_config">
             <value name="configKey">
               <shadow type="text" />
             </value>
@@ -470,7 +464,7 @@
               <shadow type="text" />
             </value>
           </block>
-          <block type="oh_store_meta_value" v-if="isGraalJs">
+          <block type="oh_store_meta_value">
             <value name="value">
               <shadow type="text" />
             </value>
@@ -481,7 +475,7 @@
               <shadow type="text" />
             </value>
           </block>
-          <block type="oh_store_meta_config" v-if="isGraalJs">
+          <block type="oh_store_meta_config">
             <value name="value">
               <shadow type="text" />
             </value>
@@ -500,6 +494,21 @@
           <block type="oh_getthing_state">
             <value name="thingUid">
               <shadow type="oh_thing" />
+            </value>
+          </block>
+          <block type="oh_getthing_isenabled">
+            <value name="thingUid">
+              <shadow type="oh_thing" />
+            </value>
+          </block>
+          <block type="oh_setthing_enabled">
+            <value name="thingUid">
+              <shadow type="oh_thing" />
+            </value>
+            <value name="enabledState">
+              <shadow type="logic_boolean">
+                <field name="BOOL">TRUE</field>
+              </shadow>
             </value>
           </block>
           <block type="oh_getthing_attribute">
@@ -521,10 +530,7 @@
         </category>
 
         <category name="Timers &amp; Delays">
-          <button
-            helpUrl="configuration/blockly/rules-blockly-timers-and-delays.html"
-            text="Help"
-            callbackKey="ohBlocklyHelp" />
+          <button helpUrl="configuration/blockly/rules-blockly-timers-and-delays.html" text="Help" callbackKey="ohBlocklyHelp" />
           <block type="oh_sleep" />
           <sep gap="48" />
           <block type="oh_timer">
@@ -551,7 +557,7 @@
               </shadow>
             </value>
           </block>
-          <block type="oh_timer_context" v-if="isGraalJs" />
+          <block type="oh_timer_context" />
           <block type="oh_timer_cancel">
             <value name="timerName">
               <shadow type="text">
@@ -595,10 +601,7 @@
         </category>
 
         <category name="Voice &amp; Multimedia">
-          <button
-            helpUrl="configuration/blockly/rules-blockly-voice-and-multimedia.html"
-            text="Help"
-            callbackKey="ohBlocklyHelp" />
+          <button helpUrl="configuration/blockly/rules-blockly-voice-and-multimedia.html" text="Help" callbackKey="ohBlocklyHelp" />
           <block type="oh_playmedia_sink">
             <value name="fileName">
               <shadow type="text">
@@ -654,11 +657,8 @@
             </value>
           </block>
         </category>
-        <category name="Units of Measurement" v-if="isGraalJs">
-          <button
-            helpUrl="configuration/blockly/rules-blockly-uom.html"
-            text="Help"
-            callbackKey="ohBlocklyHelp" />
+        <category name="Units of Measurement">
+          <button helpUrl="configuration/blockly/rules-blockly-uom.html" text="Help" callbackKey="ohBlocklyHelp" />
           <block type="oh_quantity">
             <value name="quantity">
               <shadow type="text">
@@ -706,10 +706,7 @@
           </block>
         </category>
         <category name="Dates &amp; Times">
-          <button
-            helpUrl="configuration/blockly/rules-blockly-date-handling.html"
-            text="Help"
-            callbackKey="ohBlocklyHelp" />
+          <button helpUrl="configuration/blockly/rules-blockly-date-handling.html" text="Help" callbackKey="ohBlocklyHelp" />
           <block type="oh_zdt_now" />
           <block type="oh_zdt_plusminus">
             <value name="offset">
@@ -816,19 +813,14 @@
           <block type="oh_dayoffset">
             <value name="offset">
               <shadow type="math_number">
-                <field name="NUM">
-                  0
-                </field>
+                <field name="NUM"> 0 </field>
               </shadow>
             </value>
           </block>
         </category>
 
         <category name="Ephemeris">
-          <button
-            helpUrl="configuration/blockly/rules-blockly-ephemeris.html"
-            text="Help"
-            callbackKey="ohBlocklyHelp" />
+          <button helpUrl="configuration/blockly/rules-blockly-ephemeris.html" text="Help" callbackKey="ohBlocklyHelp" />
           <block type="oh_ephemeris_check">
             <value name="dayInfo">
               <shadow type="oh_dayoffset_today" />
@@ -849,10 +841,7 @@
         </category>
 
         <category name="Notifications">
-          <button
-            helpUrl="configuration/blockly/rules-blockly-notifications.html"
-            text="Help"
-            callbackKey="ohBlocklyHelp" />
+          <button helpUrl="configuration/blockly/rules-blockly-notifications.html" text="Help" callbackKey="ohBlocklyHelp" />
           <block type="oh_sendCloudNotification">
             <value name="message">
               <shadow type="text">
@@ -923,10 +912,7 @@
         </category>
 
         <category name="Persistence">
-          <button
-            helpUrl="configuration/blockly/rules-blockly-persistence.html"
-            text="Help"
-            callbackKey="ohBlocklyHelp" />
+          <button helpUrl="configuration/blockly/rules-blockly-persistence.html" text="Help" callbackKey="ohBlocklyHelp" />
           <block type="oh_zdt_plusminus">
             <value name="offset">
               <shadow type="math_number">
@@ -1009,10 +995,7 @@
         </category>
 
         <category name="Value Storage">
-          <button
-            helpUrl="configuration/blockly/rules-blockly-value-storage.html"
-            text="Help"
-            callbackKey="ohBlocklyHelp" />
+          <button helpUrl="configuration/blockly/rules-blockly-value-storage.html" text="Help" callbackKey="ohBlocklyHelp" />
           <block type="oh_store_value">
             <value name="value">
               <shadow type="text">
@@ -1040,11 +1023,8 @@
             </value>
           </block>
         </category>
-        <category name="HTTP" v-if="isGraalJs">
-          <button
-            helpUrl="configuration/blockly/rules-blockly-http.html"
-            text="Help"
-            callbackKey="ohBlocklyHelp" />
+        <category name="HTTP">
+          <button helpUrl="configuration/blockly/rules-blockly-http.html" text="Help" callbackKey="ohBlocklyHelp" />
           <block type="oh_httprequest">
             <value name="url">
               <shadow type="text">
@@ -1054,10 +1034,7 @@
           </block>
         </category>
         <category name="Run &amp; Process">
-          <button
-            helpUrl="configuration/blockly/rules-blockly-run-and-process.html"
-            text="Help"
-            callbackKey="ohBlocklyHelp" />
+          <button helpUrl="configuration/blockly/rules-blockly-run-and-process.html" text="Help" callbackKey="ohBlocklyHelp" />
           <block type="oh_callscriptfile">
             <value name="scriptfile">
               <shadow type="text">
@@ -1072,9 +1049,9 @@
               </shadow>
             </value>
             <value name="parameters">
-              <block type="dicts_create_with">
+              <shadow type="dicts_create_with">
                 <mutation items="0" />
-              </block>
+              </shadow>
             </value>
           </block>
           <sep gap="48" />
@@ -1101,13 +1078,29 @@
           </block>
           <sep gap="48" />
           <block type="oh_script_inline" />
+          <block type="oh_rule_enable">
+            <value name="ruleUID">
+              <shadow type="text">
+                <field name="TEXT">ruleUID</field>
+              </shadow>
+            </value>
+            <value name="enable">
+              <shadow type="logic_boolean">
+                <field name="BOOL">TRUE</field>
+              </shadow>
+            </value>
+          </block>
+          <block type="oh_rule_return">
+            <value name="value">
+              <shadow type="logic_boolean">
+                <field name="BOOL">TRUE</field>
+              </shadow>
+            </value>
+          </block>
         </category>
 
         <category name="Logging &amp; Output">
-          <button
-            helpUrl="configuration/blockly/rules-blockly-logging.html"
-            text="Help"
-            callbackKey="ohBlocklyHelp" />
+          <button helpUrl="configuration/blockly/rules-blockly-logging.html" text="Help" callbackKey="ohBlocklyHelp" />
           <block type="oh_log">
             <value name="message">
               <shadow type="text">
@@ -1162,74 +1155,88 @@
 textarea.blocklyHtmlTextAreaInput
   background #ffffff
   color #000000
+
+.blocklyComment .blocklyCommentPreview.blocklyText
+  fill black
+
+.blocklyComment .blocklyText
+  color black
+
+.blocklyTextInputBubble .blocklyTextarea
+  color black
 </style>
 
 <script>
-import Blockly from 'blockly'
+import { f7 } from 'framework7-vue'
+import { mapStores } from 'pinia'
+
+import * as Blockly from 'blockly'
 import { WorkspaceSearch } from '@blockly/plugin-workspace-search'
-import { javascriptGenerator } from 'blockly/javascript.js'
+import { javascriptGenerator } from 'blockly/javascript'
 import DarkTheme from '@blockly/theme-dark'
 import { ZoomToFitControl } from '@blockly/zoom-to-fit'
 import { shadowBlockConversionChangeListener } from '@blockly/shadow-block-converter'
-import { Multiselect, MultiselectBlockDragger } from '@mit-app-inventor/blockly-plugin-workspace-multiselect'
+import { Multiselect } from '@mit-app-inventor/blockly-plugin-workspace-multiselect'
 import { TypedVariableModal } from '@blockly/plugin-typed-variable-modal'
-
-import Vue from 'vue'
+import { installAllBlocks } from '@blockly/field-colour'
 
 import defineOHBlocks from '@/assets/definitions/blockly'
 import { defineLibraryToolboxCategory } from '@/assets/definitions/blockly/libraries'
+import { useUIOptionsStore } from '@/js/stores/useUIOptionsStore'
+import { useRuntimeStore } from '@/js/stores/useRuntimeStore'
 
-Vue.config.ignoredElements = [
-  'field',
-  'block',
-  'category',
-  'xml',
-  'mutation',
-  'value',
-  'sep'
-]
+import * as api from '@/api'
+
+let workspace = null
+
+Blockly.ContextMenuItems.registerCommentOptions()
+
+// Vue is configured to treat these elements as custom elements: ['field', 'block', 'category', 'xml', 'mutation', 'value', 'sep']
 
 export default {
-  props: ['blocks', 'libraryDefinitions', 'isGraalJs'],
-  data () {
+  props: {
+    blocks: String,
+    libraryDefinitions: Array
+  },
+  emits: ['mounted', 'ready', 'change'],
+  data() {
     return {
       blockLibraries: null,
-      workspace: null,
       sinks: [],
       voices: [],
       scripts: [],
       rules: [],
       persistenceServices: [],
+      transformationServices: [],
       loading: true,
       ready: false
     }
   },
-  watch: {
-    isGraalJs: function () {
-      this.initBlockly(this.blockLibraries)
-    }
-  },
   computed: {
-    cssVars () {
+    cssVars() {
       return {
-        '--blockly-ws-search-bg-color': this.$f7.data.themeOptions.dark === 'dark' ? '#1e1e1e' : 'white',
-        '--blockly-ws-search-border-color': this.$f7.data.themeOptions.dark === 'dark' ? 'lightgrey' : 'grey',
-        '--blockly-ws-search-text-color': this.$f7.data.themeOptions.dark === 'dark' ? 'white' : 'black'
+        '--blockly-ws-search-bg-color': useUIOptionsStore().darkMode === 'dark' ? '#1e1e1e' : 'white',
+        '--blockly-ws-search-border-color': useUIOptionsStore().darkMode === 'dark' ? 'lightgrey' : 'grey',
+        '--blockly-ws-search-text-color': useUIOptionsStore().darkMode === 'dark' ? 'white' : 'black'
       }
-    }
+    },
+    ...mapStores(useUIOptionsStore)
   },
-  mounted () {
+  mounted() {
     this.load()
     this.$emit('mounted')
   },
   methods: {
-    load () {
+    async load() {
       const dataPromises = [
-        this.$oh.api.get('/rest/rules?summary=true'),
-        this.$oh.api.get('/rest/audio/sinks'),
-        this.$oh.api.get('/rest/voice/voices'),
-        this.libraryDefinitions ? Promise.resolve(this.libraryDefinitions) : this.$oh.api.get('/rest/ui/components/ui:blocks'),
-        this.$oh.api.get('/rest/persistence')
+        api.getRules({ summary: true }),
+        api.getAudioSinks(),
+        api.getVoices(),
+        this.libraryDefinitions
+          ? Promise.resolve(this.libraryDefinitions)
+          : api.getRegisteredUiComponentsInNamespace({ namespace: 'ui:blocks' }),
+        api.getPersistenceServices(),
+        api.getTransformationServices()
       ]
       Promise.all(dataPromises)
         .then((data) => {
@@ -1239,12 +1246,8 @@ export default {
             const labelB = b.name
             return labelA.localeCompare(labelB)
           })
-          this.rules = rules.filter(
-            (r) => !r.tags || r.tags.indexOf('Script') < 0
-          )
-          this.scripts = rules.filter(
-            (r) => r.tags && r.tags.indexOf('Script') >= 0
-          )
+          this.rules = rules.filter((r) => !r.tags || r.tags.indexOf('Script') < 0)
+          this.scripts = rules.filter((r) => r.tags && r.tags.indexOf('Script') >= 0)
 
           this.sinks = data[1].sort((a, b) => {
             const labelA = a.label
@@ -1266,27 +1269,36 @@ export default {
             return labelA.localeCompare(labelB)
           })
 
+          this.transformationServices = data[5].sort((a, b) => {
+            const labelA = a
+            const labelB = b
+            return labelA.localeCompare(labelB)
+          })
+
           this.initBlockly(this.blockLibraries)
         })
         .catch((err, status) => {
           console.error('Error while retrieving Blockly data - ' + err + ':' + status)
         })
     },
-    initBlockly (libraryDefinitions) {
-      defineOHBlocks(this.$f7, libraryDefinitions, {
+    initBlockly(libraryDefinitions) {
+      defineOHBlocks(f7, libraryDefinitions, {
         sinks: this.sinks,
         voices: this.voices,
-        persistenceServices: this.persistenceServices
-      }, this.isGraalJs)
+        persistenceServices: this.persistenceServices,
+        transformationServices: this.transformationServices
+      })
+
+      installAllBlocks({
+        javascript: javascriptGenerator
+      })
+
       this.addLibraryToToolbox(libraryDefinitions || [])
 
       const options = {
         toolbox: this.$refs.toolbox,
-        plugins: {
-          'blockDragger': MultiselectBlockDragger
-        },
         horizontalLayout: !this.$device.desktop,
-        theme: this.$f7.data.themeOptions.dark === 'dark' ? DarkTheme : undefined,
+        theme: useUIOptionsStore().darkMode === 'dark' ? DarkTheme : undefined,
         zoom: {
           controls: true,
           wheel: true,
@@ -1315,9 +1327,10 @@ export default {
 
         renderer: this.getCurrentRenderer()
       }
-      this.workspace = Blockly.inject(this.$refs.blocklyEditor, options)
-      this.workspace.addChangeListener(shadowBlockConversionChangeListener)
-      const workspaceSearch = new WorkspaceSearch(this.workspace)
+
+      workspace = Blockly.inject(this.$refs.blocklyEditor, options)
+      workspace.addChangeListener(shadowBlockConversionChangeListener)
+      const workspaceSearch = new WorkspaceSearch(workspace)
       workspaceSearch.init()
 
       const createFlyout = function (workspace) {
@@ -1331,17 +1344,16 @@ export default {
         xmlList = xmlList.concat(blockList)
         return xmlList
       }
-      this.workspace.registerToolboxCategoryCallback(
-        'CREATE_TYPED_VARIABLE',
-        createFlyout
-      )
-      const typedVarModal = new TypedVariableModal(this.workspace, 'callbackName', [
+
+      workspace.registerToolboxCategoryCallback('CREATE_TYPED_VARIABLE', createFlyout)
+      const typedVarModal = new TypedVariableModal(workspace, 'callbackName', [
         ['Item name', 'oh_item'],
         ['Item object', 'oh_itemtype'],
         ['Thing name', 'oh_thing'],
         ['Thing object', 'oh_thingtype'],
         ['Quantity', 'oh_quantity'],
         ['String', 'String'],
+        ['Boolean', 'Boolean'],
         ['Number', 'Number'],
         ['Dictionary', 'Dictionary'],
         ['Colour', 'Colour']
@@ -1352,19 +1364,19 @@ export default {
       Blockly.utils.colour.setHsvSaturation(0.45) // default
       Blockly.utils.colour.setHsvValue(0.65) // a little bit more contrast for the different colors
 
-      const zoomToFit = new ZoomToFitControl(this.workspace)
+      const zoomToFit = new ZoomToFitControl(workspace)
       zoomToFit.init()
 
-      const multiselectPlugin = new Multiselect(this.workspace)
+      const multiselectPlugin = new Multiselect(workspace)
       multiselectPlugin.init(options)
 
       this.registerLibraryCallbacks(libraryDefinitions)
       const xml = Blockly.utils.xml.textToDom(this.blocks)
-      Blockly.Xml.domToWorkspace(xml, this.workspace)
-      this.workspace.addChangeListener(this.onChange)
+      Blockly.Xml.domToWorkspace(xml, workspace)
+      workspace.addChangeListener(this.onChange)
 
-      this.workspace.helpurlPrefix = (this.$store.state.runtimeInfo.buildString === 'Release Build') ? 'next' : 'www'
-      this.workspace.registerButtonCallback('ohBlocklyHelp', function (button) {
+      workspace.helpurlPrefix = useRuntimeStore().runtimeInfo.buildString === 'Release Build' ? 'next' : 'www'
+      workspace.registerButtonCallback('ohBlocklyHelp', function (button) {
         window.open(`https://${button.targetWorkspace.helpurlPrefix}.openhab.org/docs/${button.info.helpurl}`, '_blank')
       })
       Blockly.Workspace.prototype.refresh = function () {
@@ -1374,55 +1386,70 @@ export default {
         this.refreshToolboxSelection()
       }
     },
-    addLibraryToToolbox (definitions) {
+    addLibraryToToolbox(definitions) {
       const library = this.$refs.libraryCategory
-      definitions.sort((a, b) => (a.config.name || a.uid).localeCompare(b.config.name || b.uid)).forEach((definition) => {
-        const category = document.createElement('category')
-        category.setAttribute('name', definition.config.name)
-        category.setAttribute('custom', 'LIBRARY_' + definition.uid)
-        library.appendChild(category)
-      })
+      definitions
+        .sort((a, b) => (a.config.name || a.uid).localeCompare(b.config.name || b.uid))
+        .forEach((definition) => {
+          const category = document.createElement('category')
+          category.setAttribute('name', definition.config.name)
+          category.setAttribute('custom', 'LIBRARY_' + definition.uid)
+          library.appendChild(category)
+        })
     },
-    registerLibraryCallbacks (definitions) {
+    registerLibraryCallbacks(definitions) {
       definitions.forEach((definition) => {
-        this.workspace.registerToolboxCategoryCallback('LIBRARY_' + definition.uid, defineLibraryToolboxCategory(definition, this.$f7))
+        workspace.registerToolboxCategoryCallback('LIBRARY_' + definition.uid, defineLibraryToolboxCategory(definition, f7))
       })
     },
-    showHideLabels (showLabels) {
-      this.workspace.showLabels = showLabels
-      this.workspace.refresh()
+    showHideLabels(showLabels) {
+      workspace.showLabels = showLabels
+      workspace.refresh()
     },
-    getBlocks () {
-      const xml = Blockly.Xml.workspaceToDom(this.workspace)
+    getBlocks() {
+      const xml = Blockly.Xml.workspaceToDom(workspace)
       return Blockly.Xml.domToText(xml)
     },
-    getCode () {
-      return javascriptGenerator.workspaceToCode(this.workspace)
+    getCode() {
+      let code = javascriptGenerator.workspaceToCode(workspace)
+      // Extracts all lines that contain a directive and moves them to the top
+      const lines = code.split(/\r?\n/)
+      const matches = []
+      const nonMatches = []
+      lines.forEach((line) => {
+        console.log(line)
+        if (line.startsWith('"use ') || line.startsWith("'use ")) {
+          matches.push(line)
+        } else {
+          nonMatches.push(line)
+        }
+      })
+      return [...matches, ...nonMatches].join('\n')
     },
-    getRenderers () {
+    getRenderers() {
       const excludedRenderers = ['minimalist']
       const renderers = Object.keys(Blockly.registry.getAllItems('renderer'))
-        .filter(r => !excludedRenderers.includes(r))
+        .filter((r) => !excludedRenderers.includes(r))
         .sort()
       return renderers
     },
-    getCurrentRenderer () {
-      return this.$f7.data.themeOptions.blocklyRenderer
+    getCurrentRenderer() {
+      return this.uiOptionsStore.blocklyRenderer
     },
-    changeRenderer (newRenderer) {
-      this.$f7.data.themeOptions.blocklyRenderer = newRenderer
-      localStorage.setItem('openhab.ui:blockly.renderer', newRenderer)
+    changeRenderer(newRenderer) {
+      this.uiOptionsStore.blocklyRenderer = newRenderer
 
-      const dom = Blockly.Xml.workspaceToDom(this.workspace)
-      this.workspace.dispose()
+      const dom = Blockly.Xml.workspaceToDom(workspace)
+      workspace.dispose()
       this.initBlockly(this.blockLibraries)
-      this.workspace.clear()
-      Blockly.Xml.domToWorkspace(dom, this.workspace)
-      this.workspace.refreshToolboxSelection()
+      workspace.clear()
+      Blockly.Xml.domToWorkspace(dom, workspace)
+      workspace.refreshToolboxSelection()
     },
-    onChange (event) {
+    onChange(event) {
       if (event.type === Blockly.Events.FINISHED_LOADING) {
         this.loading = false
+        this.$emit('ready')
       } else if (!this.loading && !event.isUiEvent) {
         this.$emit('change')
       }

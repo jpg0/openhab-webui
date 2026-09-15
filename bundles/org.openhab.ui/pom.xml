@@ -1,12 +1,12 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
 
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>org.openhab.ui.bundles</groupId>
     <artifactId>org.openhab.ui.reactor.bundles</artifactId>
-    <version>4.3.0-SNAPSHOT</version>
+    <version>5.3.0-SNAPSHOT</version>
   </parent>
 
   <artifactId>org.openhab.ui</artifactId>
@@ -32,62 +32,59 @@
 
   <build>
     <plugins>
+      <!-- Delete web/node_modules in Maven clean goal -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-clean-plugin</artifactId>
+        <configuration>
+          <filesets>
+            <fileset>
+              <directory>web/node_modules</directory>
+            </fileset>
+          </filesets>
+        </configuration>
+      </plugin>
+      <!-- Build Main UI -->
       <plugin>
         <groupId>com.github.eirslett</groupId>
         <artifactId>frontend-maven-plugin</artifactId>
 
         <configuration>
-          <nodeVersion>v20.12.2</nodeVersion>
-          <npmVersion>10.5.0</npmVersion>
+          <nodeVersion>v24.11.0</nodeVersion>
+          <npmVersion>11.6.1</npmVersion>
           <workingDirectory>web</workingDirectory>
         </configuration>
 
+        <!-- run all executions in the prepare-package phase, to build the UI at the latest possible time and avoid building it when only compiling Java code -->
+        <!-- this helps Eclipse IDE to compile Java code faster -->
         <executions>
           <execution>
             <id>Install node and npm</id>
             <goals>
               <goal>install-node-and-npm</goal>
             </goals>
-            <phase>generate-resources</phase>
+            <phase>prepare-package</phase>
           </execution>
 
           <execution>
-            <id>npm ci</id>
+            <id>npm install</id>
             <goals>
               <goal>npm</goal>
             </goals>
+            <phase>prepare-package</phase>
             <configuration>
-              <arguments>ci</arguments>
+              <arguments>install --save false</arguments>
             </configuration>
           </execution>
 
           <execution>
-            <id>npm run build-prod</id>
+            <id>npm run build:mvn</id>
             <goals>
               <goal>npm</goal>
             </goals>
+            <phase>prepare-package</phase>
             <configuration>
-              <arguments>run build-prod</arguments>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>build-helper-maven-plugin</artifactId>
-        <executions>
-          <execution>
-            <goals>
-              <goal>add-resource</goal>
-            </goals>
-            <phase>generate-resources</phase>
-            <configuration>
-              <resources>
-                <resource>
-                  <directory>web/www</directory>
-                  <targetPath>app</targetPath>
-                </resource>
-              </resources>
+              <arguments>run build:mvn ${project.version}</arguments>
             </configuration>
           </execution>
         </executions>

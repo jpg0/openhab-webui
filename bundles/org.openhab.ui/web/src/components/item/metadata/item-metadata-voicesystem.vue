@@ -1,26 +1,67 @@
 <template>
-  <div>
+  <group-box title="Voice System">
     <f7-list>
-      <f7-list-input ref="input" type="textarea" :floating-label="$theme.md" :label="'Custom Rules'" name="custom-rules"
-                     :value="customRules" @input="updateValue" />
-      <f7-block-footer class="param-description" slot="after-list">
-        <small>Enter each rule on a separate line. Available placeholders: $name$, $cmd$ and $*$</small>
-      </f7-block-footer>
+      <f7-list-input
+        ref="input"
+        type="textarea"
+        :floating-label="theme.md"
+        :label="'Custom Rules'"
+        name="custom-rules"
+        :value="customRules"
+        :disabled="!editable ? true : null"
+        @input="updateValue" />
+      <template #after-list>
+        <f7-block-footer class="param-description">
+          <small>Enter each rule on a separate line. Available placeholders: $name$, $cmd$ and $*$</small>
+        </f7-block-footer>
+      </template>
     </f7-list>
-    <config-sheet :parameterGroups="[]" :parameters="ruleOptionParameters" :configuration="metadata.config" />
-  </div>
+  </group-box>
+  <config-sheet :parameterGroups="[]" :parameters="ruleOptionParameters" :configuration="metadata.config" :read-only="!editable" />
 </template>
 
 <script>
+import { theme } from 'framework7-vue'
+
 import ConfigSheet from '@/components/config/config-sheet.vue'
+import ItemMetadataMixin from '@/components/item/metadata/item-metadata-mixin'
+
 export default {
-  props: ['itemName', 'metadata', 'namespace'],
+  props: {
+    itemName: String,
+    metadata: Object
+  },
+  mixins: [ItemMetadataMixin],
   components: {
     ConfigSheet
+  },
+  setup() {
+    return { theme }
   },
   data: () => {
     return {
       ruleOptionParameters: [
+        {
+          type: 'STRING',
+          name: 'permission',
+          label: 'Permission',
+          description: 'Control whether and how this Item is accessible by the voice system. Leave empty to inherit from parent.',
+          limitToOptions: true,
+          options: [
+            {
+              label: 'No Access',
+              value: 'NO_ACCESS'
+            },
+            {
+              label: 'Read Only',
+              value: 'READ_ONLY'
+            },
+            {
+              label: 'Read & Write',
+              value: 'READ_WRITE'
+            }
+          ]
+        },
         { type: 'BOOLEAN', name: 'isForced', label: 'Is Forced', description: 'Send command without check current Item state' },
         { type: 'BOOLEAN', name: 'isSilent', label: 'Is Silent', description: 'Disable success confirmation message' },
         { type: 'BOOLEAN', name: 'isTemplate', label: 'Is Template', description: 'Target similar Items instead of the current one' }
@@ -28,14 +69,20 @@ export default {
     }
   },
   computed: {
-    customRules () {
+    customRules() {
       if (!this.metadata.value) return []
-      return this.metadata.value.split('\n').map((s) => s.trim()).join('\n')
+      return this.metadata.value
+        .split('\n')
+        .map((s) => s.trim())
+        .join('\n')
     }
   },
   methods: {
-    updateValue (ev) {
-      this.metadata.value = ev.target.value.split('\n').map((s) => s.trim()).join('\n')
+    updateValue(ev) {
+      this.metadata.value = ev.target.value
+        .split('\n')
+        .map((s) => s.trim())
+        .join('\n')
     }
   }
 }

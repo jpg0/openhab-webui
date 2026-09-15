@@ -1,12 +1,12 @@
-import Blockly from 'blockly'
-import { javascriptGenerator } from 'blockly/javascript.js'
-import { addOSGiService } from './utils.js'
+import * as Blockly from 'blockly'
+import { javascriptGenerator } from 'blockly/javascript'
+import { addOSGiService, statementToCode, valueToCode } from './utils.js'
 
 const generateCodeForBlock = (block) => {
   const blockTypeId = block.openhab.blockTypeId
   const definition = block.openhab.definition
   const library = block.openhab.library
-  const codeComponent = (definition.slots && definition.slots.code && definition.slots.code[0]) ? definition.slots.code[0] : null
+  const codeComponent = definition.slots && definition.slots.code && definition.slots.code[0] ? definition.slots.code[0] : null
 
   const context = {
     fields: {},
@@ -19,7 +19,7 @@ const generateCodeForBlock = (block) => {
   const provideUtility = (utilityName) => {
     let utilityCode = [`function ${javascriptGenerator.FUNCTION_NAME_PLACEHOLDER_}() { /* error! */ }`]
     if (library.slots.utilities) {
-      const utilityComponent = library.slots.utilities.find(c => c.config && c.config.name === utilityName)
+      const utilityComponent = library.slots.utilities.find((c) => c.config && c.config.name === utilityName)
       if (!utilityComponent) {
       } else {
         switch (utilityComponent.component) {
@@ -48,7 +48,11 @@ const generateCodeForBlock = (block) => {
   }
 
   const processPlaceholder = (code, placeholder) => {
-    const placeholderFields = placeholder.replace('{{', '').replace('}}', '').split(':').map((f) => f.trim())
+    const placeholderFields = placeholder
+      .replace('{{', '')
+      .replace('}}', '')
+      .split(':')
+      .map((f) => f.trim())
     if (placeholderFields.length >= 2) {
       const [placeholderType, placeholderName, placeholderOption] = placeholderFields
       switch (placeholderType) {
@@ -56,8 +60,10 @@ const generateCodeForBlock = (block) => {
           context.fields[placeholderName] = block.getFieldValue(placeholderName)
           return code.replace(placeholder, context.fields[placeholderName])
         case 'input':
-          const order = placeholderOption ? javascriptGenerator.forBlock['ORDER_' + placeholderOption.replace('ORDER_', '')] : javascriptGenerator.ORDER_NONE
-          context.inputs[placeholderName] = javascriptGenerator.valueToCode(block, placeholderName, order)
+          const order = placeholderOption
+            ? javascriptGenerator.forBlock['ORDER_' + placeholderOption.replace('ORDER_', '')]
+            : javascriptGenerator.ORDER_NONE
+          context.inputs[placeholderName] = valueToCode(block, placeholderName, order)
           return code.replace(placeholder, context.inputs[placeholderName])
         case 'utility':
           if (!context.utilities[placeholderName]) {
@@ -66,13 +72,13 @@ const generateCodeForBlock = (block) => {
           return code.replace(placeholder, context.utilities[placeholderName])
         case 'temp_name':
           if (!context.uniqueIdentifiers[placeholderName]) {
-            const realm = placeholderOption ? Blockly.Variables[placeholderOption] : Blockly.Variables.NAME_TYPE
+            const realm = placeholderOption ? Blockly.Names[placeholderOption] : Blockly.Names.NameType
             context.uniqueIdentifiers[placeholderName] = javascriptGenerator.variableDB_.getDistinctName(placeholderName, realm)
           }
           return code.replace(placeholder, context.uniqueIdentifiers[placeholderName])
         case 'statements':
           if (!context.statements[placeholderName]) {
-            context.statements[placeholderName] = javascriptGenerator.statementToCode(block, placeholderName)
+            context.statements[placeholderName] = statementToCode(block, placeholderName)
           }
           return code.replace(placeholder, context.statements[placeholderName].replace(/^ {2}/, '').trim())
         default:
@@ -118,14 +124,14 @@ export const defineLibraryToolboxCategory = (library, f7) => (workspace) => {
               switch (b.component) {
                 case 'PresetInput':
                   xml += `<value name="${b.config.name}">`
-                  xml += (b.config.shadow) ? '<shadow ' : '<block '
+                  xml += b.config.shadow ? '<shadow ' : '<block '
                   xml += 'type="' + b.config.type + '">'
                   if (b.config.fields) {
                     for (const fieldName in b.config.fields) {
                       xml += `<field name="${fieldName}">${b.config.fields[fieldName]}</field>`
                     }
                   }
-                  xml += (b.config.shadow) ? '</shadow>' : '</block>'
+                  xml += b.config.shadow ? '</shadow>' : '</block>'
                   xml += '</value>'
                   break
                 case 'PresetField':

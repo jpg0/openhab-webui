@@ -1,32 +1,30 @@
 <template>
-  <f7-card :no-border="config.noBorder" :no-shadow="config.noShadow" :outline="config.outline">
-    <f7-card-header v-if="config.title">
-      <div>{{ config.title }}</div>
-    </f7-card-header>
-    <f7-card-content :class="{ 'slider-card-vertical': config.vertical }">
-      <oh-swiper :context="childContext(context.component)" v-on="$listeners" />
-    </f7-card-content>
-    <oh-card-footer v-if="config.footer" :texts="config.footer" />
-  </f7-card>
+  <oh-card :context="context" :content-class="['no-padding']">
+    <template #content>
+      <oh-swiper :context="cardChildContext(context.component)" />
+    </template>
+  </oh-card>
 </template>
 
-<style lang="stylus">
-.slider-card-vertical
-  height 300px
-</style>
-
 <script>
-import mixin from '../widget-mixin'
+import { computed } from 'vue'
+import { useWidgetContext } from '@/components/widgets/useWidgetContext'
+import OhCard from '@/components/widgets/standard/oh-card.vue'
 import OhSwiper from '../system/oh-swiper.vue'
-import OhCardFooter from '../system/oh-card-footer.vue'
 import { OhSwiperCardDefinition } from '@/assets/definitions/widgets/standard/cards'
 
 export default {
-  mixins: [mixin],
-  components: {
-    OhSwiper,
-    OhCardFooter
+  props: {
+    context: Object
   },
-  widget: OhSwiperCardDefinition
+  components: {
+    OhCard,
+    OhSwiper
+  },
+  widget: OhSwiperCardDefinition,
+  setup(props) {
+    const { cardChildContext } = useWidgetContext(computed(() => props.context))
+    return { cardChildContext }
+  }
 }
 </script>

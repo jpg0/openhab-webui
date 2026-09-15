@@ -1,83 +1,105 @@
 <template>
   <f7-page name="about" class="page-about" @page:beforein="beforePageIn">
-    <f7-navbar large :title-large="$t('about.title')" :title="$t('about.title')" :back-link="$t('dialogs.back')">
-      <f7-nav-right>
-        <developer-dock-icon />
-      </f7-nav-right>
+    <f7-navbar large>
+      <oh-nav-content :title="t('about.title')" :large="true" :f7router />
     </f7-navbar>
     <f7-block class="block-narrow after-big-title">
       <f7-row>
         <f7-col>
           <!-- <f7-block-title>About openHAB</f7-block-title> -->
           <f7-block>
-            <img src="../res/icons/favicon.svg" type="image/svg+xml" width="96" class="padding float-right">
-            <h2 v-if="$store.state.runtimeInfo" class="block-title-medium">
-              openHAB {{ $store.state.runtimeInfo.version }}<br><small>{{ $store.state.runtimeInfo.buildString }}</small>
+            <img src="/res/icons/favicon.svg" type="image/svg+xml" width="96" class="padding float-right" />
+            <h2 v-if="runtimeStore.runtimeInfo" class="block-title-medium">
+              openHAB {{ runtimeStore.runtimeInfo.version }}<br />
+              <small>{{ runtimeStore.runtimeInfo.buildString }}</small>
             </h2>
-            <p><f7-link external target="_blank" href="https://www.openhab.org/" v-t="'about.homePage'" /></p>
-            <p><f7-link external target="_blank" href="https://www.openhab.org/docs/" v-t="'about.documentation'" /></p>
-            <p><f7-link external target="_blank" href="https://community.openhab.org/" v-t="'about.communityForum'" /></p>
+            <p v-if="runtimeStore.uiInfo.commit">
+              Main UI Commit
+              <a :href="'https://github.com/openhab/openhab-webui/commit/' + runtimeStore.uiInfo.commit" class="external" target="_blank">{{
+                runtimeStore.uiInfo.commit
+              }}</a>
+            </p>
+            <p>
+              <f7-link external target="_blank" href="https://www.openhab.org/" :text="t('about.homePage')" />
+              &nbsp;
+              <f7-link external target="_blank" href="https://www.openhab.org/docs/" :text="t('about.documentation')" />
+              &nbsp;
+              <f7-link external target="_blank" href="https://community.openhab.org/" :text="t('about.communityForum')" />
+            </p>
           </f7-block>
         </f7-col>
       </f7-row>
-      <f7-row v-if="systemInfo">
-        <f7-col>
-          <f7-list accordion-list>
-            <f7-list-item :title="$t('about.technicalInformation')" accordion-item>
-              <f7-accordion-content>
-                <f7-list>
-                  <f7-list-item :title="$t('about.technicalInformation.configurationFolder')" :after="systemInfo.configFolder" />
-                  <f7-list-item :title="$t('about.technicalInformation.userdataFolder')" :after="systemInfo.userdataFolder" />
-                  <f7-list-item :title="$t('about.technicalInformation.logsFolder')" :after="systemInfo.logFolder" />
-                  <f7-list-item :title="$t('about.technicalInformation.operatingSystem')" :after="`${systemInfo.osName}/${systemInfo.osVersion} (${systemInfo.osArchitecture})`" />
-                  <f7-list-item :title="$t('about.technicalInformation.javaRuntime')" :footer="systemInfo.javaVendor" :after="`${systemInfo.javaVersion} (${systemInfo.javaVendorVersion})`">
-                    <div slot="root-end" class="item-content" style="flex-direction: column">
-                      <f7-progressbar class="margin-top" style="width: 90%" color="blue" :progress="systemInfo.freeMemory * 100 / systemInfo.totalMemory" />
-                      <small class="margin-bottom text-color-gray">
-                        {{ $t('about.technicalInformation.resourceStats', { nbproc: systemInfo.availableProcessors, ram: Math.round(systemInfo.freeMemory / 1024 / 1024) + '/' + Math.round(systemInfo.totalMemory / 1024 / 1024) + 'MB' }) }}
-                      </small>
-                    </div>
-                  </f7-list-item>
-                  <f7-list-button color="blue" @click="textualSystemInfoOpened = true">
-                    {{ $t('about.technicalInformation.viewDetails') }}
-                  </f7-list-button>
-                </f7-list>
-              </f7-accordion-content>
-            </f7-list-item>
-          </f7-list>
-        </f7-col>
-      </f7-row>
 
-      <f7-block-title><h4 v-t="'about.appearanceOptions'" /></f7-block-title>
-      <theme-switcher />
+      <f7-block v-if="systemInfo" class="block-narrow">
+        <group-box :title="t('about.technicalInformation')" accordion>
+          <f7-list class="no-margin-top no-margin-bottom">
+            <f7-list-item :title="t('about.technicalInformation.configurationFolder')" :after="systemInfo.configFolder" />
+            <f7-list-item :title="t('about.technicalInformation.userdataFolder')" :after="systemInfo.userdataFolder" />
+            <f7-list-item :title="t('about.technicalInformation.logsFolder')" :after="systemInfo.logFolder" />
+            <f7-list-item
+              :title="t('about.technicalInformation.operatingSystem')"
+              :after="`${systemInfo.osName}/${systemInfo.osVersion} (${systemInfo.osArchitecture})`" />
+            <f7-list-item
+              :title="t('about.technicalInformation.javaRuntime')"
+              :footer="systemInfo.javaVendor"
+              :after="
+                systemInfo.javaVendorVersion ? `${systemInfo.javaVersion} (${systemInfo.javaVendorVersion})` : systemInfo.javaVersion
+              ">
+              <template #root-end>
+                <div class="item-content padding-bottom flex-direction-column">
+                  <f7-progressbar
+                    class="margin-top"
+                    style="width: 90%"
+                    color="theme-alt"
+                    :progress="(systemInfo.freeMemory * 100) / systemInfo.totalMemory" />
+                  <div class="item-footer margin-top-half text-align-center">
+                    {{
+                      t('about.technicalInformation.resourceStats', {
+                        nbproc: systemInfo.availableProcessors,
+                        ram: Math.round(systemInfo.freeMemory / 1024 / 1024) + '/' + Math.round(systemInfo.totalMemory / 1024 / 1024) + 'MB'
+                      })
+                    }}
+                  </div>
+                </div>
+              </template>
+            </f7-list-item>
+
+            <f7-list-button color="theme-alt" @click="textualSystemInfoOpened = true">
+              {{ t('about.technicalInformation.viewDetails') }}
+            </f7-list-button>
+          </f7-list>
+        </group-box>
+      </f7-block>
 
       <f7-block-title>
-        <h4 v-t="'about.reload'">
-          Reload
-        </h4>
+        <h4>{{ t('about.appearanceOptions') }}</h4>
       </f7-block-title>
-      <f7-col v-if="showCachePurgeOption">
-        <p class="padding-horizontal" v-t="'about.reload.purgeExplanation1'" />
-        <p class="padding-horizontal" v-t="'about.reload.purgeExplanation2'" />
-      </f7-col>
-      <f7-col>
-        <f7-list>
-          <f7-list-button v-if="showCachePurgeOption" color="red" @click="purgeServiceWorkerAndCaches()">
-            {{ $t('about.reload.purgeCachesAndRefresh') }}
-          </f7-list-button>
-          <f7-list-button color="blue" @click="reload">
-            {{ $t('about.reload.reloadApp') }}
-          </f7-list-button>
-        </f7-list>
-      </f7-col>
+
+      <theme-switcher />
+
+      <f7-block class="block-narrow">
+        <group-box :title="t('about.reload')" :description="cachePurgeDescription">
+          <f7-list>
+            <f7-list-button v-if="showCachePurgeOption" color="red" @click="purgeServiceWorkerAndCaches()">
+              {{ t('about.reload.purgeCachesAndRefresh') }}
+            </f7-list-button>
+            <f7-list-button color="theme-alt" @click="reload">
+              {{ t('about.reload.reloadApp') }}
+            </f7-list-button>
+            <f7-list-button color="theme-alt" href="/setup-wizard/">
+              {{ t('about.reload.setupWizard') }}
+            </f7-list-button>
+          </f7-list>
+        </group-box>
+      </f7-block>
     </f7-block>
     <f7-popup :opened="textualSystemInfoOpened" close-on-escape @popup:closed="textualSystemInfoOpened = false">
       <f7-navbar>
         <div class="left">
-          <f7-link @click="copyTextualSystemInfo" v-t="'dialogs.copy'" />
+          <f7-link @click="copyTextualSystemInfo" :text="t('dialogs.copy')" />
         </div>
         <div class="right">
-          <f7-link popup-close v-t="'dialogs.close'" />
+          <f7-link popup-close :text="t('dialogs.close')" />
         </div>
       </f7-navbar>
       <!-- <pre class="textual-definition" v-html="textualDefinition"></pre> -->
@@ -107,40 +129,56 @@ textarea.textual-systeminfo
 </style>
 
 <script>
+import { f7 } from 'framework7-vue'
+import { mapStores } from 'pinia'
+
 import ThemeSwitcher from '../components/theme-switcher.vue'
 import YAML from 'yaml'
-import { loadLocaleMessages } from '@/js/i18n'
+
+import { useUIOptionsStore } from '@/js/stores/useUIOptionsStore'
+import { useUserStore } from '@/js/stores/useUserStore'
+import { useRuntimeStore } from '@/js/stores/useRuntimeStore'
 
 import reloadMixin from '../components/reload-mixin.js'
+
+import { loadLocaleMessages } from '@/js/i18n'
+import { useI18n } from 'vue-i18n'
+import * as api from '@/api'
+import { showToast } from '@/js/dialog-promises.js'
 
 export default {
   mixins: [reloadMixin],
   components: {
     ThemeSwitcher
   },
-  data () {
+  props: {
+    f7router: Object
+  },
+  setup() {
+    const { t, mergeLocaleMessage } = useI18n({ useScope: 'local' })
+    loadLocaleMessages('about', mergeLocaleMessage)
+    return { t, mergeLocaleMessage }
+  },
+  data() {
     return {
       systemInfo: null,
       textualSystemInfoOpened: false,
       bindings: null
     }
   },
-  i18n: {
-    messages: loadLocaleMessages(require.context('@/assets/i18n/about'))
-  },
   computed: {
-    textualSystemInfo () {
+    textualSystemInfo() {
       if (!this.textualSystemInfoOpened) return ''
       return YAML.stringify({
-        runtimeInfo: this.$store.state.runtimeInfo,
-        locale: this.$store.getters.locale,
+        runtimeInfo: useRuntimeStore().runtimeInfo,
+        locale: useRuntimeStore().locale,
         systemInfo: this.systemInfo,
         addons: this.addons,
         clientInfo: {
           device: Object.assign({}, this.$device, { prefersColorScheme: this.$device.prefersColorScheme() }),
           isSecureContext: window.isSecureContext,
-          locationbarVisible: (window.locationbar) ? window.locationbar.visible : 'N/A',
-          menubarVisible: (window.menubar) ? window.menubar.visible : 'N/A',
+          locationbarVisible: window.locationbar ? window.locationbar.visible : 'N/A',
+          menubarVisible: window.menubar ? window.menubar.visible : 'N/A',
           navigator: {
             cookieEnabled: navigator.cookieEnabled,
             deviceMemory: navigator.deviceMemory || 'N/A',
@@ -151,31 +189,40 @@ export default {
             platform: navigator.platform
           },
           screen: { width: window.screen.width, height: window.screen.height, colorDepth: window.screen.colorDepth },
-          support: this.$f7.support,
-          themeOptions: this.$f7.data.themeOptions,
+          support: f7.support,
+          themeOptions: useUIOptionsStore().themeOptions(),
           userAgent: window.navigator.userAgent
         },
         timestamp: new Date()
       })
-    }
+    },
+    cachePurgeDescription() {
+      if (!this.showCachePurgeOption) return ''
+
+      return '<p>' + this.t('about.reload.purgeExplanation1') + '</p><p>' + this.t('about.reload.purgeExplanation2') + '</p>'
+    },
+    ...mapStores(useUIOptionsStore, useRuntimeStore)
   },
   methods: {
-    beforePageIn () {
-      if (this.$store.getters.isAdmin) {
-        this.$oh.api.get('/rest/systeminfo').then((data) => { this.systemInfo = data.systemInfo })
-        this.$oh.api.get('/rest/addons').then((data) => { this.addons = data.filter((a) => a.installed).map((a) => a.uid).sort() })
+    beforePageIn() {
+      if (useUserStore().isAdmin()) {
+        api.getSystemInformation().then((data) => {
+          this.systemInfo = data.systemInfo
+        })
+        api.getAddons().then((data) => {
+          this.addons = data
+            .filter((a) => a.installed)
+            .map((a) => a.uid)
+            .sort()
+        })
       }
       this.checkPurgeServiceWorkerAndCachesAvailable()
     },
-    copyTextualSystemInfo () {
+    copyTextualSystemInfo() {
       let el = document.getElementById('textual-systeminfo')
       el.select()
       document.execCommand('copy')
-      this.$f7.toast.create({
-        text: 'Copied to clipboard',
-        destroyOnClose: true,
-        closeTimeout: 2000
-      }).open()
+      showToast('Copied to clipboard')
     }
   }
 }

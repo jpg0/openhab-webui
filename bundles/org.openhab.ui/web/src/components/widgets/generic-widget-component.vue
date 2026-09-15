@@ -1,50 +1,110 @@
 <template>
-  <component v-if="componentType && componentType.startsWith('f7-') && visible" :is="componentType" v-bind="config" @command="onCommand">
-    <!-- eslint-disable-next-line vue/no-unused-vars -->
-    <template v-for="(slotComponents, slotName) in context.component.slots" #[slotName]>
-      <ul :key="slotName" v-if="componentType === 'f7-list'">
-        <generic-widget-component :context="childContext(slotComponent)" v-for="(slotComponent, idx) in slotComponents" :slot="slotName" :key="slotName + '-' + idx" @command="onCommand" />
-      </ul>
-      <generic-widget-component v-else :context="childContext(slotComponent)" v-for="(slotComponent, idx) in slotComponents" :slot="slotName" :key="slotName + '-' + idx" @command="onCommand" />
+  <template v-if="visible">
+    <!-- Render oh-swiper instead of f7-swiper as f7-swiper changes from F7 v5 -> v7 would require changing widgets,
+    oh-swiper does the necessary adjustments so existing widgets continue to work fine -->
+    <oh-swiper v-if="componentType === 'f7-swiper'" v-bind="$attrs" :context="context" :class="scopedCssUid" ref="component" />
+
+    <component
+      :is="componentType"
+      v-else-if="componentType && componentType.startsWith('f7-')"
+      ref="component"
+      v-bind="{ ...$attrs, ...config }"
+      :class="scopedCssUid">
+      <!-- eslint-disable-next-line vue/no-unused-vars -->
+      <template v-for="(slotComponents, slotName) in slots" :key="slotName" #[slotName]>
+        <ul v-if="componentType === 'f7-list'" v-bind="$attrs">
+          <generic-widget-component
+            v-for="(slotComponent, idx) in slotComponents"
+            :context="childContext(slotComponent)"
+            :key="slotName + '-' + idx" />
+        </ul>
+        <template v-else>
+          <generic-widget-component
+            v-for="(slotComponent, idx) in slotComponents"
+            :context="childContext(slotComponent)"
+            :key="slotName + '-' + idx" />
+        </template>
+      </template>
+    </component>
+    <oh-card
+      v-else-if="componentType && componentType === 'oh-card'"
+      ref="component"
+      v-bind="$attrs"
+      :context="context"
+      :class="scopedCssUid">
+      <template v-for="(slotComponents, slotName) in slots" :key="slotName" #[slotName]>
+        <generic-widget-component
+          v-for="(slotComponent, idx) in slotComponents"
+          :context="childContext(slotComponent)"
+          :key="slotName + '-' + idx" />
+      </template>
+    </oh-card>
+    <template v-else-if="componentType && componentType.startsWith('widget:')">
+      <generic-widget-component
+        v-if="childWidgetContext"
+        ref="component"
+        v-bind="isChild ? null : $attrs"
+        :is-child="true"
+        :context="childWidgetContext"
+        :class="scopedCssUid" />
+      <span v-else style="color: red">Widget not found: {{ componentType }}</span>
     </template>
-  </component>
-  <generic-widget-component v-else-if="componentType && componentType.startsWith('widget:') && visible" :context="childWidgetContext()" @command="onCommand" />
-  <component v-else-if="componentType && componentType.startsWith('oh-') && visible" :is="componentType" :context="context" @command="onCommand" />
-  <div v-else-if="componentType && componentType === 'Label' && visible" :class="config.class" :style="config.style">
-    {{ config.text }}
-  </div>
-  <fragment v-else-if="componentType && componentType === 'Content'">
-    {{ config.text }}
-  </fragment>
-  <pre v-else-if="componentType && componentType === 'Error' && visible" class="text-color-red" style="white-space: pre-wrap">{{ config.error }}</pre>
-  <component v-else-if="visible" :is="componentType" v-bind="config">
-    {{ config.content }}
-    <template v-if="context.component.slots && context.component.slots.default">
-      <generic-widget-component :context="childContext(slotComponent)" v-for="(slotComponent, idx) in context.component.slots.default" :key="'default-' + idx" />
+    <component
+      v-bind="$attrs"
+      :is="componentType"
+      v-else-if="componentType && componentType.startsWith('oh-')"
+      ref="component"
+      :context="context"
+      :class="scopedCssUid" />
+    <!-- Label renders text inside <div> element -->
+    <Label
+      v-else-if="componentType && componentType === 'Label'"
+      ref="component"
+      v-bind="$attrs"
+      :context="context"
+      :class="scopedCssUid" />
+    <!-- Content renders text without any additional container -->
+    <template v-else-if="componentType && componentType === 'Content'">
+      {{ config.text }}
     </template>
-  </component>
+    <!-- Error renders red text inside <pre> element -->
+    <pre v-else-if="componentType && componentType === 'Error'" class="text-color-red" style="white-space: pre-wrap">{{
+      config.error
+    }}</pre>
+    <component :is="componentType" v-else ref="component" v-bind="{ ...$attrs, ...config }" :class="scopedCssUid">
+      {{ config.content }}
+      <template v-if="defaultSlots.length > 0">
+        <generic-widget-component
+          v-for="(slotComponent, idx) in defaultSlots"
+          :context="childContext(slotComponent)"
+          :key="'default-' + idx" />
+      </template>
+    </component>
+  </template>
 </template>
 
-<script>
-import { Fragment } from 'vue-fragment'
+<script setup lang="ts">
+import { defineAsyncComponent, computed } from 'vue'
+import { useWidgetContext } from '@/components/widgets/useWidgetContext'
+import type { WidgetContext } from '@/components/widgets/types'
+import Label from '@/components/widgets/Label.vue'
 
-import mixin from './widget-mixin'
+const OhSwiper = defineAsyncComponent(() => import('@/components/widgets/system/oh-swiper.vue'))
+const OhCard = defineAsyncComponent(() => import('@/components/widgets/standard/oh-card.vue'))
 
-import * as SystemWidgets from './system/index'
-import * as StandardWidgets from './standard/index'
-import * as StandardListWidgets from './standard/list'
-import * as StandardCellWidgets from './standard/cell'
-import * as LayoutWidgets from './layout/index'
+defineOptions({
+  inheritAttrs: false
+})
 
-export default {
-  mixins: [mixin],
-  components: {
-    Fragment,
-    ...SystemWidgets,
-    ...StandardWidgets,
-    ...StandardListWidgets,
-    ...StandardCellWidgets,
-    ...LayoutWidgets
-  }
-}
+const props = withDefaults(
+  defineProps<{
+    context: WidgetContext
+    isChild?: boolean
+  }>(),
+  { isChild: false }
+)
+
+const { config, childContext, childWidgetContext, scopedCssUid, visible, componentType, slots, defaultSlots } = useWidgetContext(
+  computed(() => props.context)
+)
 </script>

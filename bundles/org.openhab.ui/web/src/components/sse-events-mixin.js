@@ -1,9 +1,13 @@
+import { f7 } from 'framework7-vue'
+
 import OhPopup from '@/components/widgets/modals/oh-popup.vue'
 import OhSheet from '@/components/widgets/modals/oh-sheet.vue'
 import OhPopover from '@/components/widgets/modals/oh-popover.vue'
 
+import { useUIOptionsStore } from '@/js/stores/useUIOptionsStore'
+
 export default {
-  data () {
+  data() {
     return {
       eventSource: null,
       audioContext: null,
@@ -11,13 +15,12 @@ export default {
     }
   },
   methods: {
-    startEventSource () {
-      const topicItems = 'openhab/items/*/added,openhab/items/*/removed,openhab/items/*/updated'
+    startEventSource() {
       const topicAudio = 'openhab/webaudio/playurl'
       const commandItem = localStorage.getItem('openhab.ui:commandItem')
       const topicCommand = `openhab/items/${commandItem || ''}/command`
-      let topics = topicItems
-      if (localStorage.getItem('openhab.ui:webaudio.enable') === 'enabled') {
+      let topics = null
+      if (useUIOptionsStore().webAudio) {
         topics = topicAudio
       }
       if (commandItem) {
@@ -40,20 +43,15 @@ export default {
             this.handleCommand(payload.value)
             break
           default:
-            if (event.topic.startsWith('openhab/items/')) {
-              console.info('Item SSE event received, reloading semantic model ...')
-              this.$store.dispatch('loadSemanticModel')
-              break
-            }
             console.warn('Unhandled SSE event: ' + JSON.stringify(event))
         }
       })
     },
-    stopEventSource () {
+    stopEventSource() {
       this.$oh.sse.close(this.eventSource)
       this.eventSource = null
     },
-    playAudioUrl (audioUrl) {
+    playAudioUrl(audioUrl) {
       try {
         if (audioUrl === '') {
           this.audioSources.forEach(function (value, key) {
@@ -64,7 +62,7 @@ export default {
         }
         if (!this.audioContext) {
           window.AudioContext = window.AudioContext || window.webkitAudioContext
-          if (typeof (window.AudioContext) !== 'undefined') {
+          if (typeof window.AudioContext !== 'undefined') {
             this.audioContext = new AudioContext()
             unlockAudioContext(this.audioContext)
           }
@@ -89,36 +87,40 @@ export default {
       }
       // Safari requires a touch event after the stream has started, hence this workaround
       // Credit: https://www.mattmontag.com/web/unlock-web-audio-in-safari-for-ios-and-macos
-      function unlockAudioContext (audioContext) {
+      function unlockAudioContext(audioContext) {
         if (audioContext.state !== 'suspended') return
         const b = document.body
         const events = ['touchstart', 'touchend', 'mousedown', 'keydown']
-        events.forEach(e => b.addEventListener(e, unlock, false))
-        function unlock () { audioContext.resume().then(clean) }
-        function clean () { events.forEach(e => b.removeEventListener(e, unlock)) }
+        events.forEach((e) => b.addEventListener(e, unlock, false))
+        function unlock() {
+          audioContext.resume().then(clean)
+        }
+        function clean() {
+          events.forEach((e) => b.removeEventListener(e, unlock))
+        }
       }
     },
-    closePopups () {
+    closePopups() {
       const popupEl = this.$el.querySelector('.popup')
       if (popupEl) {
-        this.$f7.popup.close(popupEl)
+        f7.popup.close(popupEl)
       }
       const popoverEl = this.$el.querySelector('.popover')
       if (popoverEl) {
-        this.$f7.popover.close(popoverEl)
+        f7.popover.close(popoverEl)
       }
       const sheetEl = this.$el.querySelector('.sheet-modal')
       if (sheetEl) {
-        this.$f7.sheet.close(sheetEl)
+        f7.sheet.close(sheetEl)
       }
     },
-    handleCommand (commandString) {
+    handleCommand(commandString) {
       console.log('Handling command: ' + commandString)
       const [command, ...segments] = commandString.trim().split(':') // NOT use a RegEx lookbehind assertions here, because they are unsupported on Safari < 16.4, i.e. iOS 15.x
       const combined = segments.join(':')
       switch (command) {
         case 'navigate':
-          this.$f7.views.main.router.navigate(combined)
+          f7.views.main.router.navigate(combined)
           break
         case 'popup':
         case 'popover':
@@ -130,8 +132,7 @@ export default {
           console.debug(`Opening ${combined} in ${command} modal`)
           const modalRoute = {
             url: combined + '/' + command,
-            route: {
-            }
+            route: {}
           }
           if (command === 'popup') modalRoute.route.popup = { component: OhPopup }
           if (command === 'popover') modalRoute.route.popup = { component: OhPopover }
@@ -143,13 +144,13 @@ export default {
             }
           }
           this.closePopups()
-          this.$f7.views.main.router.navigate(modalRoute, modalProps)
+          f7.views.main.router.navigate(modalRoute, modalProps)
           break
         case 'close':
           this.closePopups()
           break
         case 'back':
-          this.$f7.views.main.router.back()
+          f7.views.main.router.back()
           break
         case 'reload':
           window.location.reload()
@@ -173,7 +174,7 @@ export default {
           if (segments.length > 4) {
             payload.closeTimeout = parseInt(segments[4])
           }
-          this.$f7.notification.create(payload).open()
+          f7.notification.create(payload).open()
           break
       }
     }

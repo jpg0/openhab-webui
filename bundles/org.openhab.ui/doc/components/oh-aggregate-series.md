@@ -43,6 +43,21 @@ prev: /docs/ui/components/
     The identifier of the persistence service to retrieve the data from. Leave blank to the use the default.
   </PropDescription>
 </PropBlock>
+<PropBlock type="BOOLEAN" name="noBoundary" label="Don't Include Boundary">
+  <PropDescription>
+    Do not get one value before and after the requested period and move them to the start and end of the period
+  </PropDescription>
+</PropBlock>
+<PropBlock type="BOOLEAN" name="noItemState" label="Don't Include Item State">
+  <PropDescription>
+    Do not add the current Item state into the requested period (the item state will be before or at the end time)
+  </PropDescription>
+</PropBlock>
+<PropBlock type="BOOLEAN" name="displayState" label="Use Display State">
+  <PropDescription>
+    If set to true, formatting from the state description is applied to the values. For QuantityType states, the unit from the state description is respected, but no formatting is applied.
+  </PropDescription>
+</PropBlock>
 <PropBlock type="INTEGER" name="offsetAmount" label="Offset Amount">
   <PropDescription>
     Offset to <em>subtract</em> from the displayed period, use if you want to do period comparisons (see also Offset Unit).
@@ -61,6 +76,16 @@ prev: /docs/ui/components/
     <PropOption value="year" label="Year" />
   </PropOptions>
 </PropBlock>
+<PropBlock type="TEXT" name="markers" label="Markers">
+  <PropDescription>
+    The markers to display for the series
+  </PropDescription>
+  <PropOptions multiple="true">
+    <PropOption value="avg" label="Average" />
+    <PropOption value="min" label="Minimum" />
+    <PropOption value="max" label="Maximum" />
+  </PropOptions>
+</PropBlock>
 <PropBlock type="TEXT" name="type" label="Type">
   <PropDescription>
     The type of the series.<br/><em>Note: <code>heatmap</code> needs a configured visual map or uses the default and is not supported for time series!</em>
@@ -71,6 +96,41 @@ prev: /docs/ui/components/
     <PropOption value="heatmap" label="Heatmap" />
     <PropOption value="scatter" label="Scatter" />
   </PropOptions>
+</PropBlock>
+<PropBlock type="TEXT" name="labelPosition" label="Label Position">
+  <PropDescription>
+    The position of the labels on the series
+  </PropDescription>
+  <PropOptions>
+    <PropOption value="top" label="Top" />
+    <PropOption value="left" label="Left" />
+    <PropOption value="right" label="Right" />
+    <PropOption value="bottom" label="Bottom" />
+    <PropOption value="inside" label="Inside" />
+    <PropOption value="insideLeft" label="Inside - Left" />
+    <PropOption value="insideRight" label="Inside - Right" />
+    <PropOption value="insideTop" label="Inside - Top" />
+    <PropOption value="insideBottom" label="Inside - Bottom" />
+    <PropOption value="insideTopLeft" label="Inside - Top Left" />
+    <PropOption value="insideBottomLeft" label="Inside - Bottom Left" />
+    <PropOption value="insideTopRight" label="Inside - Top Right" />
+    <PropOption value="insideBottomRight" label="Inside - Bottom Right" />
+  </PropOptions>
+</PropBlock>
+<PropBlock type="TEXT" name="color" label="Color" context="color">
+  <PropDescription>
+    The color of the series
+  </PropDescription>
+</PropBlock>
+<PropBlock type="BOOLEAN" name="showSymbol" label="Show Symbol">
+  <PropDescription>
+    Whether to always show the datapoint symbol. It will always be shown during tooltip hover.
+  </PropDescription>
+</PropBlock>
+<PropBlock type="INTEGER" name="barBorderRadius" label="Bar Border Radius">
+  <PropDescription>
+    The radius of the border of the bar.
+  </PropDescription>
 </PropBlock>
 <PropBlock type="TEXT" name="dimension1" label="First Dimension">
   <PropDescription>
@@ -83,6 +143,7 @@ prev: /docs/ui/components/
     <PropOption value="weekday" label="Day of Week (starting on Sunday)" />
     <PropOption value="date" label="Day of Month" />
     <PropOption value="month" label="Month of Year" />
+    <PropOption value="year" label="Year" />
   </PropOptions>
 </PropBlock>
 <PropBlock type="TEXT" name="dimension2" label="Second Dimension">
@@ -96,6 +157,7 @@ prev: /docs/ui/components/
     <PropOption value="weekday" label="Day of Week (starting on Sunday)" />
     <PropOption value="date" label="Day of Month" />
     <PropOption value="month" label="Month of Year" />
+    <PropOption value="year" label="Year" />
   </PropOptions>
 </PropBlock>
 <PropBlock type="BOOLEAN" name="transpose" label="Transpose">
@@ -145,7 +207,7 @@ prev: /docs/ui/components/
   <PropDescription>
     Type of action to perform
   </PropDescription>
-  <PropOptions>
+  <PropOptions multiple="true">
     <PropOption value="navigate" label="Navigate to page" />
     <PropOption value="command" label="Send command" />
     <PropOption value="toggle" label="Toggle Item" />
@@ -195,7 +257,7 @@ prev: /docs/ui/components/
 </PropBlock>
 <PropBlock type="TEXT" name="actionCommand" label="Action Command">
   <PropDescription>
-    Command to send to the Item. If "Toogle Item" is selected as the action, only send the command when the state is different
+    Command to send to the Item. If "Toggle Item" is selected as the action, only send the command when the state is different
   </PropDescription>
 </PropBlock>
 <PropBlock type="TEXT" name="actionCommandAlt" label="Action Toggle Command">
@@ -221,6 +283,11 @@ prev: /docs/ui/components/
 <PropBlock type="TEXT" name="actionPage" label="Page" context="page">
   <PropDescription>
     Page to navigate to
+  </PropDescription>
+</PropBlock>
+<PropBlock type="TEXT" name="actionPageDefineVars" label="Define Page Variables">
+  <PropDescription>
+    An object <code>{ [variableName]: [variableValue] }</code> where <code>variableValue</code> also supports expressions
   </PropDescription>
 </PropBlock>
 <PropBlock type="TEXT" name="actionPageTransition" label="Transition Effect">
@@ -288,6 +355,21 @@ prev: /docs/ui/components/
     <PropOption value="time" label="Time" />
     <PropOption value="aggregate" label="Aggregate" />
     <PropOption value="calendar" label="Calendar" />
+  </PropOptions>
+</PropBlock>
+<PropBlock type="TEXT" name="actionAnalyzerAggregation" label="Initial Aggregation">
+  <PropDescription>
+    The initial aggregation of the analyzer - 
+  </PropDescription>
+  <PropOptions>
+    <PropOption value="average" label="Average" />
+    <PropOption value="sum" label="Sum" />
+    <PropOption value="min" label="Minimum" />
+    <PropOption value="max" label="Maximum" />
+    <PropOption value="first" label="First (earliest)" />
+    <PropOption value="last" label="Last (latest)" />
+    <PropOption value="diff_first" label="Difference of firsts" />
+    <PropOption value="diff_last" label="Difference of lasts" />
   </PropOptions>
 </PropBlock>
 <PropBlock type="TEXT" name="actionConfirmation" label="Action Confirmation">

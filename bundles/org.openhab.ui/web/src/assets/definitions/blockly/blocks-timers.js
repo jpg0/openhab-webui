@@ -3,21 +3,19 @@
  * supports jsscripting
  */
 
-import Blockly from 'blockly'
-import { javascriptGenerator } from 'blockly/javascript.js'
+import * as Blockly from 'blockly'
+import { javascriptGenerator } from 'blockly/javascript'
+import { statementToCode, valueToCode } from '@/assets/definitions/blockly/utils.js'
 
-export default function defineOHBlocks_Timers (f7, isGraalJs) {
+export default function defineOHBlocks_Timers(f7) {
   /*
-  * Sleeps for the number of milliseconds
-  *
-  * Block type definition
-  */
+   * Sleeps for the number of milliseconds
+   *
+   * Block type definition
+   */
   Blockly.Blocks['oh_sleep'] = {
     init: function () {
-      this.appendDummyInput()
-        .appendField('wait for')
-        .appendField(new Blockly.FieldNumber(1000), 'milliseconds')
-        .appendField('ms')
+      this.appendDummyInput().appendField('wait for').appendField(new Blockly.FieldNumber(1000), 'milliseconds').appendField('ms')
       this.setPreviousStatement(true, null)
       this.setNextStatement(true, null)
       this.setColour(0)
@@ -27,14 +25,14 @@ export default function defineOHBlocks_Timers (f7, isGraalJs) {
   }
 
   /*
-  * Sleeps for the number of milliseconds
-  *
-  * Code generation
-  */
+   * Sleeps for the number of milliseconds
+   *
+   * Code generation
+   */
   javascriptGenerator.forBlock['oh_sleep'] = function (block) {
-    const thread = javascriptGenerator.provideFunction_(
-      'thread',
-      ['var ' + javascriptGenerator.FUNCTION_NAME_PLACEHOLDER_ + ' = Java.type(\'java.lang.Thread\')'])
+    const thread = javascriptGenerator.provideFunction_('thread', [
+      'var ' + javascriptGenerator.FUNCTION_NAME_PLACEHOLDER_ + " = Java.type('java.lang.Thread')"
+    ])
     let milliseconds = block.getFieldValue('milliseconds')
 
     let code = `${thread}.sleep(${milliseconds});\n`
@@ -42,80 +40,79 @@ export default function defineOHBlocks_Timers (f7, isGraalJs) {
   }
 
   /*
-  * Creates a named timer that starts after the defined delay provided my the number and the unit of time
-  *
-  * Block type definition
-  */
+   * Creates a named timer that starts after the defined delay provided my the number and the unit of time
+   *
+   * Block type definition
+   */
   Blockly.Blocks['oh_timer'] = {
     init: function () {
-      this.appendValueInput('delay')
-        .setCheck('Number')
-        .appendField('after')
-      this.appendDummyInput()
-        .appendField(new Blockly.FieldDropdown([['seconds', 'plusSeconds'], ['minutes', 'plusMinutes'], ['hours', 'plusHours'], ['days', 'plusDays'], ['weeks', 'plusWeeks'], ['months', 'plusMonths']]), 'delayUnits')
-      const tn = this.appendValueInput('timerName')
+      this.appendValueInput('delay').setCheck('Number').appendField('after')
+      this.appendDummyInput().appendField(
+        new Blockly.FieldDropdown([
+          ['seconds', 'plusSeconds'],
+          ['minutes', 'plusMinutes'],
+          ['hours', 'plusHours'],
+          ['days', 'plusDays'],
+          ['weeks', 'plusWeeks'],
+          ['months', 'plusMonths']
+        ]),
+        'delayUnits'
+      )
+      this.appendValueInput('timerName')
         .setCheck(null)
-      if (isGraalJs) {
-        tn
-          .appendField('do with')
-          .appendField(new Blockly.FieldDropdown([['private', 'private'], ['shared', 'shared']]), 'cache')
-          .appendField('timer')
-        this.appendValueInput('context')
-          .appendField('with context')
-      } else {
-        tn.appendField('do with timer')
-      }
+        .appendField('do with')
+        .appendField(
+          new Blockly.FieldDropdown([
+            ['private', 'private'],
+            ['shared', 'shared']
+          ]),
+          'cache'
+        )
+        .appendField('timer')
+      this.appendValueInput('context').appendField('with context')
+      this.getInput('context').setShadowDom(
+        Blockly.utils.xml.textToDom(`<shadow type="oh_logic_undefined">
+        </shadow>`)
+      )
       this.setColour(0)
-      this.appendStatementInput('timerCode')
-        .setCheck(null)
+      this.appendStatementInput('timerCode').setCheck(null)
       this.setPreviousStatement(true, null)
       this.setNextStatement(true, null)
       this.setTooltip('Create a named timer.\nUse the timer-context block to access the provided context.')
-      this.setHelpUrl('https://www.openhab.org/docs/configuration/blockly/rules-blockly-timers-and-delays.html#after-period-of-time-do-with-timer')
+      this.setHelpUrl(
+        'https://www.openhab.org/docs/configuration/blockly/rules-blockly-timers-and-delays.html#after-period-of-time-do-with-timer'
+      )
     }
   }
 
   /*
-  * Creates a named timer that starts after the defined delay provided my the number and the unit of time
-  *
-  * Code generation
-  */
+   * Creates a named timer that starts after the defined delay provided my the number and the unit of time
+   *
+   * Code generation
+   */
   javascriptGenerator.forBlock['oh_timer'] = function (block) {
     const delayUnits = block.getFieldValue('delayUnits')
-    const delay = javascriptGenerator.valueToCode(block, 'delay', javascriptGenerator.ORDER_ATOMIC)
-    const timerName = javascriptGenerator.valueToCode(block, 'timerName', javascriptGenerator.ORDER_ATOMIC)
-    const timerCode = javascriptGenerator.statementToCode(block, 'timerCode')
-    const context = javascriptGenerator.valueToCode(block, 'context', javascriptGenerator.ORDER_ATOMIC)
+    const delay = valueToCode(block, 'delay', javascriptGenerator.ORDER_ATOMIC)
+    const timerName = valueToCode(block, 'timerName', javascriptGenerator.ORDER_ATOMIC)
+    const timerCode = statementToCode(block, 'timerCode')
+    const context = valueToCode(block, 'context', javascriptGenerator.ORDER_ATOMIC)
+    const cacheType = getCacheType(this)
 
-    if (isGraalJs) {
-      const cacheType = getCacheType(this)
-      let code = `if (cache.${cacheType}.exists(${timerName}) === false || cache.${cacheType}.get(${timerName}).hasTerminated()) {\n`
-      code += `  cache.${cacheType}.put(${timerName}, actions.ScriptExecution.createTimer(${timerName}, time.ZonedDateTime.now().${delayUnits}(${delay}), function (timer_context) {\n`
-      code += timerCode.replace(/^/gm, '  ')
-      code += `  }, ${context}));\n`
-      code += '};\n'
-      return code
-    } else {
-      addGlobalTimer()
-      const scriptExecution = addScriptExecution()
-      const zdt = addZonedDateTime()
-      let code = `if (typeof this.timers[${timerName}] === 'undefined' || this.timers[${timerName}].hasTerminated()) {\n`
-      code += `  this.timers[${timerName}] = ${scriptExecution}.createTimer(${zdt}.now().${delayUnits}(${delay}), function () {\n`
-      code += timerCode.replace(/^/gm, '  ')
-      code += '  })\n'
-      code += '}\n'
-      return code
-    }
+    let code = `if (cache.${cacheType}.exists(${timerName}) === false || cache.${cacheType}.get(${timerName}).hasTerminated()) {\n`
+    code += `  cache.${cacheType}.put(${timerName}, actions.ScriptExecution.createTimer(${timerName}, time.ZonedDateTime.now().${delayUnits}(${delay}), function (timer_context) {\n`
+    code += timerCode.replace(/^/gm, '  ')
+    code += `  }, ${context}));\n`
+    code += '};\n'
+    return code
   }
 
   /*
-  * Provided timer-context
-  * Blockly part
-  */
+   * Provided timer-context
+   * Blockly part
+   */
   Blockly.Blocks['oh_timer_context'] = {
     init: function () {
-      this.appendDummyInput()
-        .appendField('timer context')
+      this.appendDummyInput().appendField('timer context')
       this.setOutput(true)
       this.setColour(0)
       this.setTooltip('Returns the provided context of the timer to be used within the timer statement block.')
@@ -124,131 +121,125 @@ export default function defineOHBlocks_Timers (f7, isGraalJs) {
   }
 
   /*
-  * Provided timer-context
-  * Code part
-  */
+   * Provided timer-context
+   * Code part
+   */
   javascriptGenerator.forBlock['oh_timer_context'] = function (block) {
     return ['timer_context', javascriptGenerator.ORDER_NONE]
   }
 
   /*
-  * Simple Timer creation with cancel & reschedule on rule retriggering
-  *
-  * Block type definition
-  */
+   * Simple Timer creation with cancel & reschedule on rule retriggering
+   *
+   * Block type definition
+   */
   Blockly.Blocks['oh_timer_ext'] = {
     init: function () {
-      this.appendValueInput('delay')
-        .setCheck('Number')
-        .appendField('after')
-      this.appendDummyInput()
-        .appendField(new Blockly.FieldDropdown([['seconds', 'plusSeconds'], ['minutes', 'plusMinutes'], ['hours', 'plusHours'], ['days', 'plusDays'], ['weeks', 'plusWeeks'], ['months', 'plusMonths']]), 'delayUnits')
-      const tn = this.appendValueInput('timerName')
+      this.appendValueInput('delay').setCheck('Number').appendField('after')
+      this.appendDummyInput().appendField(
+        new Blockly.FieldDropdown([
+          ['seconds', 'plusSeconds'],
+          ['minutes', 'plusMinutes'],
+          ['hours', 'plusHours'],
+          ['days', 'plusDays'],
+          ['weeks', 'plusWeeks'],
+          ['months', 'plusMonths']
+        ]),
+        'delayUnits'
+      )
+      this.appendValueInput('timerName')
         .setCheck(null)
-      if (isGraalJs) {
-        tn
-          .appendField('do with')
-          .appendField(new Blockly.FieldDropdown([['private', 'private'], ['shared', 'shared']]), 'cache')
-          .appendField('timer')
-        this.appendValueInput('context')
-          .appendField('with context')
-      } else {
-        tn.appendField('do with timer')
-      }
+        .appendField('do with')
+        .appendField(
+          new Blockly.FieldDropdown([
+            ['private', 'private'],
+            ['shared', 'shared']
+          ]),
+          'cache'
+        )
+        .appendField('timer')
+      this.appendValueInput('context').appendField('with context')
+      this.getInput('context').setShadowDom(
+        Blockly.utils.xml.textToDom(`<shadow type="oh_logic_undefined">
+        </shadow>`)
+      )
       this.appendStatementInput('timerCode')
       this.appendDummyInput()
-        .appendField(new Blockly.FieldDropdown([['reschedule', 'reschedule'], ['cancel', 'cancel'], ['do nothing', 'nothing']]), 'retrigger')
+        .appendField(
+          new Blockly.FieldDropdown([
+            ['reschedule', 'reschedule'],
+            ['cancel', 'cancel'],
+            ['do nothing', 'nothing']
+          ]),
+          'retrigger'
+        )
         .appendField('if retriggered')
       this.setPreviousStatement(true, null)
       this.setNextStatement(true, null)
       this.setColour(0)
-      this.setTooltip('Simple Timer creation with control over rule retriggering action.\nUse the timer-context block to access the provided context.')
-      this.setHelpUrl('https://www.openhab.org/docs/configuration/blockly/rules-blockly-timers-and-delays.html#after-period-of-time-do-with-timer-with-options-on-retriggering-rule')
+      this.setTooltip(
+        'Simple Timer creation with control over rule retriggering action.\nUse the timer-context block to access the provided context.'
+      )
+      this.setHelpUrl(
+        'https://www.openhab.org/docs/configuration/blockly/rules-blockly-timers-and-delays.html#after-period-of-time-do-with-timer-with-options-on-retriggering-rule'
+      )
     }
   }
 
   /*
-  * Simple Timer creation with cancel & reschedule on rule retriggering
-  *
-  * Code generation
-  */
+   * Simple Timer creation with cancel & reschedule on rule retriggering
+   *
+   * Code generation
+   */
   javascriptGenerator.forBlock['oh_timer_ext'] = function (block) {
     const delayUnits = block.getFieldValue('delayUnits')
-    const delay = javascriptGenerator.valueToCode(block, 'delay', javascriptGenerator.ORDER_ATOMIC)
-    const timerName = javascriptGenerator.valueToCode(block, 'timerName', javascriptGenerator.ORDER_ATOMIC)
-    const timerCode = javascriptGenerator.statementToCode(block, 'timerCode')
+    const delay = valueToCode(block, 'delay', javascriptGenerator.ORDER_ATOMIC)
+    const timerName = valueToCode(block, 'timerName', javascriptGenerator.ORDER_ATOMIC)
+    const timerCode = statementToCode(block, 'timerCode')
     const retrigger = block.getFieldValue('retrigger')
-    const context = javascriptGenerator.valueToCode(block, 'context', javascriptGenerator.ORDER_ATOMIC)
+    const context = valueToCode(block, 'context', javascriptGenerator.ORDER_ATOMIC)
+    const cacheType = getCacheType(this)
 
-    if (isGraalJs) {
-      const cacheType = getCacheType(this)
-      let code = `if (cache.${cacheType}.exists(${timerName}) === false || cache.${cacheType}.get(${timerName}).hasTerminated()) {\n`
-      code += `  cache.${cacheType}.put(${timerName}, actions.ScriptExecution.createTimer(${timerName}, time.ZonedDateTime.now().${delayUnits}(${delay}), function (timer_context) {\n`
-      code += timerCode.replace(/^/gm, '  ')
-      code += `  }, ${context}));\n`
-      code += '} else {\n'
-      switch (retrigger) {
-        case 'reschedule':
-          code += `  cache.${cacheType}.get(${timerName}).reschedule(time.ZonedDateTime.now().${delayUnits}(${delay}));\n`
-          break
+    let code = `if (cache.${cacheType}.exists(${timerName}) === false || cache.${cacheType}.get(${timerName}).hasTerminated()) {\n`
+    code += `  cache.${cacheType}.put(${timerName}, actions.ScriptExecution.createTimer(${timerName}, time.ZonedDateTime.now().${delayUnits}(${delay}), function (timer_context) {\n`
+    code += timerCode.replace(/^/gm, '  ')
+    code += `  }, ${context}));\n`
+    code += '} else {\n'
+    switch (retrigger) {
+      case 'reschedule':
+        code += `  cache.${cacheType}.get(${timerName}).reschedule(time.ZonedDateTime.now().${delayUnits}(${delay}));\n`
+        break
 
-        case 'cancel':
-          code += `  cache.${cacheType}.remove(${timerName}).cancel();\n`
-          break
+      case 'cancel':
+        code += `  cache.${cacheType}.remove(${timerName}).cancel();\n`
+        break
 
-        case 'nothing':
-          code += '  // do nothing\n'
-          break
-      }
-      code += '};\n'
-      return code
-    } else {
-      addGlobalTimer()
-      const scriptExecution = addScriptExecution()
-      const zdt = addZonedDateTime()
-      let code = `if (typeof this.timers[${timerName}] === 'undefined' || this.timers[${timerName}].hasTerminated()) {\n`
-      code += `  this.timers[${timerName}] = ${scriptExecution}.createTimer(${zdt}.now().${delayUnits}(${delay}), function () {\n`
-      code += timerCode.replace(/^/gm, '  ')
-      code += '  })\n'
-      code += '} else {\n'
-      switch (retrigger) {
-        case 'reschedule':
-          code += `  this.timers[${timerName}].reschedule(${zdt}.now().${delayUnits}(${delay}));\n`
-          break
-
-        case 'cancel':
-          code += `  this.timers[${timerName}].cancel();\n`
-          code += `  this.timers[${timerName}] = undefined;\n`
-          break
-
-        case 'nothing':
-          code += '  // do nothing\n'
-          break
-      }
-      code += '}\n'
-      return code
+      case 'nothing':
+        code += '  // do nothing\n'
+        break
     }
+    code += '};\n'
+    return code
   }
 
   /*
-  * Checks if the named timer is active
-  *
-  * Block type definition
-  */
+   * Checks if the named timer is active
+   *
+   * Block type definition
+   */
   Blockly.Blocks['oh_timer_isActive'] = {
     init: function () {
-      if (isGraalJs) {
-        this.appendDummyInput()
-          .appendField(new Blockly.FieldDropdown([['private', 'private'], ['shared', 'shared']]), 'cache')
-          .appendField('timer')
-      } else {
-        this.appendDummyInput()
-          .appendField('timer')
-      }
-      this.appendValueInput('timerName')
-        .setCheck('String')
       this.appendDummyInput()
-        .appendField('is active')
+        .appendField(
+          new Blockly.FieldDropdown([
+            ['private', 'private'],
+            ['shared', 'shared']
+          ]),
+          'cache'
+        )
+        .appendField('timer')
+      this.appendValueInput('timerName').setCheck('String')
+      this.appendDummyInput().appendField('is active')
       this.setOutput(true, 'Boolean')
       this.setColour(0)
       this.setTooltip('returns true if the timer will be executed as scheduled, i.e. it has not been cancelled or completed')
@@ -257,42 +248,34 @@ export default function defineOHBlocks_Timers (f7, isGraalJs) {
   }
 
   /*
-  * Checks if the named timer is active
-  *
-  * Code generation
-  */
+   * Checks if the named timer is active
+   *
+   * Code generation
+   */
   javascriptGenerator.forBlock['oh_timer_isActive'] = function (block) {
-    const timerName = javascriptGenerator.valueToCode(block, 'timerName', javascriptGenerator.ORDER_ATOMIC)
-    if (isGraalJs) {
-      const cacheType = getCacheType(this)
-      return [`cache.${cacheType}.exists(${timerName}) && cache.${cacheType}.get(${timerName}).isActive()`, javascriptGenerator.ORDER_NONE]
-    } else {
-      addGlobalTimer()
-
-      let code = `typeof this.timers[${timerName}] !== 'undefined' && this.timers[${timerName}].isActive()`
-      return [code, javascriptGenerator.ORDER_NONE]
-    }
+    const timerName = valueToCode(block, 'timerName', javascriptGenerator.ORDER_ATOMIC)
+    const cacheType = getCacheType(this)
+    return [`cache.${cacheType}.exists(${timerName}) && cache.${cacheType}.get(${timerName}).isActive()`, javascriptGenerator.ORDER_NONE]
   }
 
   /*
-  * Checks if the named timer is running
-  *
-  * Block type definition
-  */
+   * Checks if the named timer is running
+   *
+   * Block type definition
+   */
   Blockly.Blocks['oh_timer_isRunning'] = {
     init: function () {
-      if (isGraalJs) {
-        this.appendDummyInput()
-          .appendField(new Blockly.FieldDropdown([['private', 'private'], ['shared', 'shared']]), 'cache')
-          .appendField('timer')
-      } else {
-        this.appendDummyInput()
-          .appendField('timer')
-      }
-      this.appendValueInput('timerName')
-        .setCheck('String')
       this.appendDummyInput()
-        .appendField('is running')
+        .appendField(
+          new Blockly.FieldDropdown([
+            ['private', 'private'],
+            ['shared', 'shared']
+          ]),
+          'cache'
+        )
+        .appendField('timer')
+      this.appendValueInput('timerName').setCheck('String')
+      this.appendDummyInput().appendField('is running')
       this.setOutput(true, 'Boolean')
       this.setColour(0)
       this.setTooltip('returns true if the code is currently executing (i.e. the timer activated the code but it is not done running)')
@@ -301,44 +284,35 @@ export default function defineOHBlocks_Timers (f7, isGraalJs) {
   }
 
   /*
-  * Checks if the named timer is running
-  *
-  * Code generation
-  */
+   * Checks if the named timer is running
+   *
+   * Code generation
+   */
   javascriptGenerator.forBlock['oh_timer_isRunning'] = function (block) {
-    const timerName = javascriptGenerator.valueToCode(block, 'timerName', javascriptGenerator.ORDER_ATOMIC)
-    if (isGraalJs) {
-      // Keep the isRunning block although it doesn't make sense because in GraalJS access to the context is synchronized and therefore it is not possible to run some code the same time a timer is running
-      const cacheType = getCacheType(this)
-      return [`cache.${cacheType}.exists(${timerName}) && cache.${cacheType}.get(${timerName}).isRunning()`, javascriptGenerator.ORDER_NONE]
-    } else {
-      addGlobalTimer()
-
-      let code = `typeof this.timers[${timerName}] !== 'undefined' && this.timers[${timerName}].isRunning()`
-      return [code, javascriptGenerator.ORDER_NONE]
-    }
+    // Keep the isRunning block although it doesn't make sense because in GraalJS access to the context is synchronized and therefore it is not possible to run some code the same time a timer is running
+    const timerName = valueToCode(block, 'timerName', javascriptGenerator.ORDER_ATOMIC)
+    const cacheType = getCacheType(this)
+    return [`cache.${cacheType}.exists(${timerName}) && cache.${cacheType}.get(${timerName}).isRunning()`, javascriptGenerator.ORDER_NONE]
   }
 
   /*
-  * Checks if the named timer has terminated
-  *
-  * Block type definition
-  */
+   * Checks if the named timer has terminated
+   *
+   * Block type definition
+   */
   Blockly.Blocks['oh_timer_hasTerminated'] = {
     init: function () {
-      if (isGraalJs) {
-        this.appendDummyInput()
-          .appendField(new Blockly.FieldDropdown([['private', 'private'], ['shared', 'shared']]), 'cache')
-          .appendField('timer')
-      } else {
-        this.appendDummyInput()
-          .appendField('timer')
-      }
-
-      this.appendValueInput('timerName')
-        .setCheck('String')
       this.appendDummyInput()
-        .appendField('has terminated')
+        .appendField(
+          new Blockly.FieldDropdown([
+            ['private', 'private'],
+            ['shared', 'shared']
+          ]),
+          'cache'
+        )
+        .appendField('timer')
+      this.appendValueInput('timerName').setCheck('String')
+      this.appendDummyInput().appendField('has terminated')
       this.setOutput(true, 'Boolean')
       this.setColour(0)
       this.setTooltip('returns true if the code has run and completed.')
@@ -347,38 +321,37 @@ export default function defineOHBlocks_Timers (f7, isGraalJs) {
   }
 
   /*
-  * Checks if the named timer has terminated
-  *
-  * Code generation
-  */
+   * Checks if the named timer has terminated
+   *
+   * Code generation
+   */
   javascriptGenerator.forBlock['oh_timer_hasTerminated'] = function (block) {
-    const timerName = javascriptGenerator.valueToCode(block, 'timerName', javascriptGenerator.ORDER_ATOMIC)
-    if (isGraalJs) {
-      const cacheType = getCacheType(this)
-      return [`cache.${cacheType}.exists(${timerName}) && cache.${cacheType}.get(${timerName}).hasTerminated()`, javascriptGenerator.ORDER_NONE]
-    } else {
-      addGlobalTimer()
-
-      let code = `typeof this.timers[${timerName}] !== 'undefined' && this.timers[${timerName}].hasTerminated()`
-      return [code, javascriptGenerator.ORDER_NONE]
-    }
+    const timerName = valueToCode(block, 'timerName', javascriptGenerator.ORDER_ATOMIC)
+    const cacheType = getCacheType(this)
+    return [
+      `cache.${cacheType}.exists(${timerName}) && cache.${cacheType}.get(${timerName}).hasTerminated()`,
+      javascriptGenerator.ORDER_NONE
+    ]
   }
 
   /*
-  * Cancels a named timer
-  *
-  * Block type definition
-  */
+   * Cancels a named timer
+   *
+   * Block type definition
+   */
   Blockly.Blocks['oh_timer_cancel'] = {
     init: function () {
-      let tn = this.appendValueInput('timerName')
+      this.appendValueInput('timerName')
         .setCheck('String')
         .appendField('cancel')
-      if (isGraalJs) {
-        tn.appendField(new Blockly.FieldDropdown([['private', 'private'], ['shared', 'shared']]), 'cache')
-      }
-      tn.appendField('timer')
-
+        .appendField(
+          new Blockly.FieldDropdown([
+            ['private', 'private'],
+            ['shared', 'shared']
+          ]),
+          'cache'
+        )
+        .appendField('timer')
       this.setPreviousStatement(true, null)
       this.setNextStatement(true, null)
       this.setColour(0)
@@ -388,44 +361,46 @@ export default function defineOHBlocks_Timers (f7, isGraalJs) {
   }
 
   /*
-  * Cancels a named timer
-  *
-  * Code generation
-  */
+   * Cancels a named timer
+   *
+   * Code generation
+   */
   javascriptGenerator.forBlock['oh_timer_cancel'] = function (block) {
-    const timerName = javascriptGenerator.valueToCode(block, 'timerName', javascriptGenerator.ORDER_ATOMIC)
-    if (isGraalJs) {
-      const cacheType = getCacheType(this)
-      return `if (cache.${cacheType}.exists(${timerName})) { cache.${cacheType}.remove(${timerName}).cancel(); };\n`
-    } else {
-      addGlobalTimer()
-      let code = `if (typeof this.timers[${timerName}] !== 'undefined') {\n`
-      code += `  this.timers[${timerName}].cancel();\n`
-      code += `  this.timers[${timerName}] = undefined;\n`
-      code += '}\n'
-      return code
-    }
+    const timerName = valueToCode(block, 'timerName', javascriptGenerator.ORDER_ATOMIC)
+    const cacheType = getCacheType(this)
+    return `if (cache.${cacheType}.exists(${timerName})) { cache.${cacheType}.remove(${timerName}).cancel(); };\n`
   }
 
   /*
-  * Reschedules a timer with the given name
-  *
-  * Block type definition
-  */
+   * Reschedules a timer with the given name
+   *
+   * Block type definition
+   */
   Blockly.Blocks['oh_timer_reschedule'] = {
     init: function () {
-      this.appendValueInput('delay')
-        .appendField('after')
-        .setCheck('Number')
-      this.appendDummyInput()
-        .appendField(new Blockly.FieldDropdown([['seconds', 'plusSeconds'], ['minutes', 'plusMinutes'], ['hours', 'plusHours'], ['days', 'plusDays'], ['weeks', 'plusWeeks'], ['months', 'plusMonths']]), 'delayUnits')
-      let tn = this.appendValueInput('timerName')
+      this.appendValueInput('delay').appendField('after').setCheck('Number')
+      this.appendDummyInput().appendField(
+        new Blockly.FieldDropdown([
+          ['seconds', 'plusSeconds'],
+          ['minutes', 'plusMinutes'],
+          ['hours', 'plusHours'],
+          ['days', 'plusDays'],
+          ['weeks', 'plusWeeks'],
+          ['months', 'plusMonths']
+        ]),
+        'delayUnits'
+      )
+      this.appendValueInput('timerName')
         .setCheck('String')
         .appendField('reschedule')
-      if (isGraalJs) {
-        tn.appendField(new Blockly.FieldDropdown([['private', 'private'], ['shared', 'shared']]), 'cache')
-      }
-      tn.appendField('timer')
+        .appendField(
+          new Blockly.FieldDropdown([
+            ['private', 'private'],
+            ['shared', 'shared']
+          ]),
+          'cache'
+        )
+        .appendField('timer')
 
       this.setInputsInline(true)
       this.setPreviousStatement(true, null)
@@ -437,44 +412,19 @@ export default function defineOHBlocks_Timers (f7, isGraalJs) {
   }
 
   /*
-  * Reschedules a timer with the given name
-  *
-  * Code generation
-  */
+   * Reschedules a timer with the given name
+   *
+   * Code generation
+   */
   javascriptGenerator.forBlock['oh_timer_reschedule'] = function (block) {
     const delayUnits = block.getFieldValue('delayUnits')
-    const delay = javascriptGenerator.valueToCode(block, 'delay', javascriptGenerator.ORDER_ATOMIC)
-    const timerName = javascriptGenerator.valueToCode(block, 'timerName', javascriptGenerator.ORDER_ATOMIC)
-    if (isGraalJs) {
-      const cacheType = getCacheType(this)
-      return `if (cache.${cacheType}.exists(${timerName})) { cache.${cacheType}.get(${timerName}).reschedule(time.ZonedDateTime.now().${delayUnits}(${delay})); };\n`
-    } else {
-      const zdt = addZonedDateTime()
-      addGlobalTimer()
-
-      let code = `if (typeof this.timers[${timerName}] !== 'undefined') { this.timers[${timerName}].reschedule(${zdt}.now().${delayUnits}(${delay})); }\n`
-      return code
-    }
+    const delay = valueToCode(block, 'delay', javascriptGenerator.ORDER_ATOMIC)
+    const timerName = valueToCode(block, 'timerName', javascriptGenerator.ORDER_ATOMIC)
+    const cacheType = getCacheType(this)
+    return `if (cache.${cacheType}.exists(${timerName})) { cache.${cacheType}.get(${timerName}).reschedule(time.ZonedDateTime.now().${delayUnits}(${delay})); };\n`
   }
 
-  function addScriptExecution () {
-    return javascriptGenerator.provideFunction_(
-      'scriptExecution',
-      ['var ' + javascriptGenerator.FUNCTION_NAME_PLACEHOLDER_ + ' = Java.type(\'org.openhab.core.model.script.actions.ScriptExecution\');'])
-  }
-
-  function addZonedDateTime () {
-    return javascriptGenerator.provideFunction_(
-      'zdt',
-      ['var ' + javascriptGenerator.FUNCTION_NAME_PLACEHOLDER_ + ' = Java.type(\'java.time.ZonedDateTime\');'])
-  }
-
-  function addGlobalTimer () {
-    let globaltimervars = 'if (typeof this.timers === \'undefined\') {\n  this.timers = [];\n}'
-    javascriptGenerator.provideFunction_('globaltimervars', [globaltimervars])
-  }
-
-  function getCacheType (block) {
-    return (block.getField('cache')) ? block.getFieldValue('cache') : 'private'
+  function getCacheType(block) {
+    return block.getField('cache') ? block.getFieldValue('cache') : 'private'
   }
 }

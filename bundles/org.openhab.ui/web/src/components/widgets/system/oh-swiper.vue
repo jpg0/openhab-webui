@@ -1,46 +1,112 @@
 <template>
-  <f7-swiper v-bind="config" :params="{ observer: true, observeParents: true }">
-    <oh-swiper-slide :context="childContext(slide)" v-for="(slide, idx) in slides" :key="idx" v-on="$listeners" />
+  <f7-swiper v-bind="mergedConfig" observer observe-parents>
+    <!-- renders slides added through the add slide component below -->
+    <f7-swiper-slide
+      v-for="(slide, idx) in slides"
+      :key="'editmode-' + idx"
+      class="oh-swiper-slide"
+      :class="{ 'unset-width': mergedConfig.slidesPerView === 'auto', 'edit-mode': context.editmode }">
+      <f7-menu v-if="context.editmode" class="configure-layout-menu padding-horizontal">
+        <f7-menu-item style="margin-left: auto" icon-f7="rectangle_on_rectangle" dropdown>
+          <f7-menu-dropdown right>
+            <f7-menu-dropdown-item
+              @click="childContext(slide).editmode.configureWidget(childContext(slide).component, childContext(slide).parent)"
+              href="#"
+              text="Widget Settings" />
+            <f7-menu-dropdown-item
+              @click="childContext(slide).editmode.editWidgetCode(childContext(slide).component, childContext(slide).parent)"
+              href="#"
+              :text="childContext(slide).editmode.isEditable ? 'Edit YAML' : 'View YAML'" />
+            <template v-if="childContext(slide).editmode.isEditable">
+              <f7-menu-dropdown-item divider />
+              <f7-menu-dropdown-item
+                @click="childContext(slide).editmode.cutWidget(childContext(slide).component, childContext(slide).parent)"
+                href="#"
+                text="Cut" />
+              <f7-menu-dropdown-item
+                @click="childContext(slide).editmode.copyWidget(childContext(slide).component, childContext(slide).parent)"
+                href="#"
+                text="Copy" />
+              <f7-menu-dropdown-item divider />
+              <f7-menu-dropdown-item
+                @click="childContext(slide).editmode.moveWidgetUp(childContext(slide).component, childContext(slide).parent)"
+                href="#"
+                text="Move Before" />
+              <f7-menu-dropdown-item
+                @click="childContext(slide).editmode.moveWidgetDown(childContext(slide).component, childContext(slide).parent)"
+                href="#"
+                text="Move After" />
+              <f7-menu-dropdown-item divider />
+              <f7-menu-dropdown-item
+                @click="childContext(slide).editmode.removeWidget(childContext(slide).component, childContext(slide).parent)"
+                href="#"
+                text="Remove Slide" />
+            </template>
+          </f7-menu-dropdown>
+        </f7-menu-item>
+      </f7-menu>
+      <generic-widget-component class="slide" :context="childContext(slide)" />
+    </f7-swiper-slide>
 
-    <template v-if="context.component.slots && context.component.slots.slides && Array.isArray(context.component.slots.slides)">
-      <generic-widget-component :context="childContext(slide)" v-for="(slide, idx) in context.component.slots.slides" :key="idx" v-on="$listeners" />
+    <!-- renders slides defined in the slides slot -->
+    <template v-if="'slides' in slots && Array.isArray(slots.slides)">
+      <f7-swiper-slide v-for="(slide, idx) in slots.slides" :key="idx">
+        <generic-widget-component :context="childContext(slide)" />
+      </f7-swiper-slide>
     </template>
 
-    <f7-swiper-slide v-if="context.editmode">
+    <!-- TODO-V3.1: Refactor oh-repeater logic to a mixin so we can replicate oh-repeater's handling here directly??? -->
+    <!-- special rendering for oh-repeater so its children properly render directly inside f7-swiper-slide -->
+    <generic-widget-component v-for="(repeater, idx) in repeater" :key="'gwc-repeater-' + idx" :context="childContext(repeater)" />
+
+    <!-- add slide component to add slides in the page editor -->
+    <f7-swiper-slide v-if="context.editmode?.isEditable">
       <oh-placeholder-widget @click="context.editmode.addWidget(context.component, null, context.parent)" />
     </f7-swiper-slide>
-    <!-- <f7-menu v-if="context.editmode" slot="before-list" class="configure-layout-menu margin-vertical padding-left">
-      <f7-menu-item @click="context.editmode.addWidget(context.component, 'oh-list-item')" icon-f7="plus" />
-      <f7-menu-item style="margin-left: auto" icon-f7="square_list" dropdown>
-        <f7-menu-dropdown right>
-          <f7-menu-dropdown-item @click="context.editmode.configureWidget(context.component, context.parent, 'oh-list')" href="#" text="Configure List"></f7-menu-dropdown-item>
-          <f7-menu-dropdown-item v-if="context.clipboardtype" divider></f7-menu-dropdown-item>
-          <f7-menu-dropdown-item v-if="context.clipboardtype" @click="context.editmode.pasteWidget(context.component, context.parent)" href="#" text="Paste Item"></f7-menu-dropdown-item>
-        </f7-menu-dropdown>
-      </f7-menu-item>
-    </f7-menu> -->
   </f7-swiper>
 </template>
 
+<style lang="stylus">
+.oh-swiper-slide.unset-width
+    width unset !important
+</style>
+
 <script>
+import { defineAsyncComponent, computed } from 'vue'
 
-import mixin from '../widget-mixin'
+import { useWidgetContext } from '@/components/widgets/useWidgetContext'
 import { OhSwiperDefinition } from '@/assets/definitions/widgets/system'
-
-import OhSwiperSlide from './oh-swiper-slide.vue'
-import OhPlaceholderWidget from '../layout/oh-placeholder-widget.vue'
+import OhPlaceholderWidget from '@/components/widgets/layout/oh-placeholder-widget.vue'
 
 export default {
-  mixins: [mixin],
+  props: {
+    context: Object
+  },
   components: {
-    OhSwiperSlide,
+    // without the async import, we define a circular reference
+    GenericWidgetComponent: defineAsyncComponent(() => import('../generic-widget-component.vue')),
     OhPlaceholderWidget
   },
   widget: OhSwiperDefinition,
+  setup(props) {
+    const { config, childContext, slots, defaultSlots } = useWidgetContext(computed(() => props.context))
+    return { config, childContext, slots, defaultSlots }
+  },
   computed: {
-    slides () {
-      if (!this.context.component.slots || !this.context.component.slots.default) return []
-      return this.context.component.slots.default
+    slides() {
+      return this.defaultSlots.filter((c) => c.component !== 'oh-repeater')
+    },
+    repeater() {
+      return this.defaultSlots.filter((c) => c.component === 'oh-repeater')
+    },
+    mergedConfig() {
+      const config = Object.assign({}, this.config)
+      // provide backwards compatibility for the params object as passed to f7-swiper in F7 v5
+      if (config.params) {
+        Object.assign(config, this.config.params)
+        delete config.params
+      }
+      return config
     }
   }
 }

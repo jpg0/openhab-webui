@@ -53,14 +53,24 @@ Displays a video player from a URL or an item
     Does not start playing the video automatically
   </PropDescription>
 </PropBlock>
+<PropBlock type="BOOLEAN" name="startMuted" label="Start Muted">
+  <PropDescription>
+    Mute audio output by default
+  </PropDescription>
+</PropBlock>
+<PropBlock type="TEXT" name="posterItem" label="Poster Item" context="item">
+  <PropDescription>
+    Image item or String item containing the URL of an image to use as a poster before the video loads
+  </PropDescription>
+</PropBlock>
 <PropBlock type="TEXT" name="posterURL" label="Poster URL">
   <PropDescription>
-    URL of an image to use as a poster before the video loads
+    URL of an image to use as a poster before the video loads (if item if not specified)
   </PropDescription>
 </PropBlock>
 <PropBlock type="TEXT" name="playerType" label="Player Type">
   <PropDescription>
-    Select the player type (optional), defualts to Video.js
+    Select the player type (optional), defaults to Video.js
   </PropDescription>
   <PropOptions>
     <PropOption value="videojs" label="Video.js (Dash, HLS, Others)" />
@@ -77,6 +87,11 @@ Displays a video player from a URL or an item
     WebRTC ICE candidates discovery timeout length in milliseconds (optional), defaults to '2000', '0' to disable
   </PropDescription>
 </PropBlock>
+<PropBlock type="BOOLEAN" name="sendAudio" label="Two Way Audio">
+  <PropDescription>
+    Send audio to the WebRTC connection if supported (requires WebRTC player type)
+  </PropDescription>
+</PropBlock>
 </PropGroup>
 </div>
 
@@ -88,7 +103,7 @@ Displays a video player from a URL or an item
   <PropDescription>
     Type of action to perform
   </PropDescription>
-  <PropOptions>
+  <PropOptions multiple="true">
     <PropOption value="navigate" label="Navigate to page" />
     <PropOption value="command" label="Send command" />
     <PropOption value="toggle" label="Toggle Item" />
@@ -138,7 +153,7 @@ Displays a video player from a URL or an item
 </PropBlock>
 <PropBlock type="TEXT" name="actionCommand" label="Action Command">
   <PropDescription>
-    Command to send to the Item. If "Toogle Item" is selected as the action, only send the command when the state is different
+    Command to send to the Item. If "Toggle Item" is selected as the action, only send the command when the state is different
   </PropDescription>
 </PropBlock>
 <PropBlock type="TEXT" name="actionCommandAlt" label="Action Toggle Command">
@@ -164,6 +179,11 @@ Displays a video player from a URL or an item
 <PropBlock type="TEXT" name="actionPage" label="Page" context="page">
   <PropDescription>
     Page to navigate to
+  </PropDescription>
+</PropBlock>
+<PropBlock type="TEXT" name="actionPageDefineVars" label="Define Page Variables">
+  <PropDescription>
+    An object <code>{ [variableName]: [variableValue] }</code> where <code>variableValue</code> also supports expressions
   </PropDescription>
 </PropBlock>
 <PropBlock type="TEXT" name="actionPageTransition" label="Transition Effect">
@@ -231,6 +251,21 @@ Displays a video player from a URL or an item
     <PropOption value="time" label="Time" />
     <PropOption value="aggregate" label="Aggregate" />
     <PropOption value="calendar" label="Calendar" />
+  </PropOptions>
+</PropBlock>
+<PropBlock type="TEXT" name="actionAnalyzerAggregation" label="Initial Aggregation">
+  <PropDescription>
+    The initial aggregation of the analyzer - 
+  </PropDescription>
+  <PropOptions>
+    <PropOption value="average" label="Average" />
+    <PropOption value="sum" label="Sum" />
+    <PropOption value="min" label="Minimum" />
+    <PropOption value="max" label="Maximum" />
+    <PropOption value="first" label="First (earliest)" />
+    <PropOption value="last" label="Last (latest)" />
+    <PropOption value="diff_first" label="Difference of firsts" />
+    <PropOption value="diff_last" label="Difference of lasts" />
   </PropOptions>
 </PropBlock>
 <PropBlock type="TEXT" name="actionConfirmation" label="Action Confirmation">

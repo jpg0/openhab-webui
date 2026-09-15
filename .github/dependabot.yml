@@ -1,0 +1,119 @@
+# To get started with Dependabot version updates, you'll need to specify which
+# package ecosystems to update and where the package manifests are located.
+# Please see the documentation for all configuration options:
+# https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference
+
+version: 2
+
+# this would enable querying all packages from our repo first,
+# disabled for now as we do not want to use it. Kept for reference.
+#registries:
+#  openhab-jfrog:
+#    type: "maven-repository"
+#    url: "https://openhab.jfrog.io/artifactory/libs-all/"
+
+updates:
+  - package-ecosystem: "github-actions" # See documentation for possible values
+    directory: "/" # Location of package manifests
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+
+  - package-ecosystem: "maven" # See documentation for possible values
+    directory: "/" # Location of package manifests
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 15
+    labels:
+      - dependencies
+    groups:
+      jacoco:
+        patterns:
+          - "*jacoco*"
+    allow:
+      - dependency-name: "org.apache.maven.plugins:*"
+      - dependency-name: "org.codehaus.mojo:*"
+      - dependency-name: "*jacoco*" # code coverage tool, both tool and plugin
+      - dependency-name: "*plugin*"
+      - dependency-name: "org.eclipse.jdt:ecj" # eclipse compiler
+    ignore:
+      - dependency-name: "com.github.jaxb-xew-plugin:jaxb-xew-plugin" # updated with core
+      - dependency-name: "com.diffplug.spotless:spotless-maven-plugin" # updated together with SAT
+      - dependency-name: "*graalvm*" # do not touch graalvm related stuff
+      - dependency-name: "org.openapitools:openapi*" # updated togeter with openapi generator
+      - dependency-name: "org.apache.openjpa:openjpa*" # should be done with openjpa upgrades"
+
+  # Main UI:
+  - package-ecosystem: "npm"
+    directory: "/bundles/org.openhab.ui/web/" # Location of package manifests
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 15
+    labels:
+      - "main ui"
+      - dependencies
+    cooldown: # Delay Dependabot updates
+      default-days: 14
+      semver-major-days: 28
+    versioning-strategy: increase # Always update the version in package.json
+    groups: # Groups Dependabot updates
+      # Core Vue & State Management
+      vue-ecosystem:
+        patterns:
+          - "vue"
+          - "pinia"
+          - "@vue/*"
+          - "@vitejs/plugin-vue"
+      # Framework7
+      framework7-ecosystem:
+        patterns:
+          - "framework7*"
+          - "template7"
+          - "dom7"
+      # Blockly
+      blockly-ecosystem:
+        patterns:
+          - "blockly"
+          - "@blockly/*"
+          - "@mit-app-inventor/blockly-plugin-*"
+      # CodeMirror Code Editor
+      codemirror-ecosystem:
+        patterns:
+          - "codemirror"
+          - "vue-codemirror"
+          - "@codemirror/*"
+          - "@uiw/codemirror-*"
+          - "@replit/codemirror-*"
+      # Echarts
+      echarts-ecosystem:
+        patterns:
+          - "*echarts*"
+      # Leaflet
+      leaflet-ecosystem:
+        patterns:
+          - "*leaflet*"
+      # Vite and related Build tooling
+      build-vite:
+        patterns:
+          - "vite*"
+          - "rollup*"
+          - "esbuild"
+          - "typescript"
+          - "vue-tsc"
+      # Linting & Formatting
+      linting-formatting:
+        patterns:
+          - "eslint*"
+          - "@eslint/*"
+          - "*eslint-plugin*"
+          - "oxfmt"
+          - "typescript-eslint"
+          - "@typescript-eslint/*"
+          - "vue-eslint-parser"
+    ignore:
+      - dependency-name: "pkce-challenge" # Newer versions don't work in insecure contexts
+      - dependency-name: "@types/node" # Upgrade manually when switching Node.js version
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]

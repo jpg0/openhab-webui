@@ -1,14 +1,36 @@
+import { defineAsyncComponent } from 'vue'
+
+import { useUserStore } from '@/js/stores/useUserStore'
+import { useComponentsStore } from '@/js/stores/useComponentsStore'
+import { useStatesStore } from '@/js/stores/useStatesStore'
+
 import OhLayoutPage from '@/components/widgets/layout/oh-layout-page.vue'
+const OhMapPage = defineAsyncComponent(() => import('@/components/widgets/map/oh-map-page.vue'))
+const OhPlanPage = defineAsyncComponent(() => import('@/components/widgets/plan/oh-plan-page.vue'))
+const OhChartPage = defineAsyncComponent(() => import('@/components/widgets/chart/oh-chart-page.vue'))
+
+function pageComponent(page) {
+  if (!page.component) return null
+  switch (page.component) {
+    case 'oh-layout-page':
+      return OhLayoutPage
+    case 'oh-map-page':
+      return OhMapPage
+    case 'oh-plan-page':
+      return OhPlanPage
+    case 'oh-chart-page':
+      return OhChartPage
+  }
+  return null
+}
 
 export default {
-  components: {
-    'oh-layout-page': OhLayoutPage,
-    'oh-map-page': () => import('@/components/widgets/map/oh-map-page.vue'),
-    'oh-plan-page': () => import('@/components/widgets/plan/oh-plan-page.vue'),
-    'oh-chart-page': () => import('@/components/widgets/chart/oh-chart-page.vue')
+  props: {
+    uid: String,
+    el: Object,
+    modalConfig: Object
   },
-  props: ['uid', 'el', 'modalConfig'],
-  data () {
+  data() {
     return {
       currentTab: 0,
       vars: {},
@@ -17,73 +39,76 @@ export default {
     }
   },
   computed: {
-    context () {
+    context() {
       const component = this.page || this.widget || this.standard
       return {
         component,
         root: component,
-        store: this.$store.getters.trackedItems,
+        store: useStatesStore().trackedItems,
         props: this.modalConfig,
         vars: this.vars,
         ctxVars: this.ctxVars,
         modalConfig: this.modalConfig // For configuration of oh- components
       }
     },
-    modalStyle () {
+    modalStyle() {
       if (!this.context) return null
-      const pageComponent = (this.context.component === 'oh-tabs-page') ? this.tabContext(this.context.component.slots.default[this.currentTab]).component : this.context.component
+      const pageComponent =
+        this.context.component === 'oh-tabs-page'
+          ? this.tabContext(this.context.component.slots.default[this.currentTab]).component
+          : this.context.component
       if (!pageComponent || !pageComponent.config || !pageComponent.config.style) return null
       return pageComponent.config.style
     },
-    page () {
-      return (this.uid.indexOf('page:') === 0) ? this.$store.getters.page(this.uid.substring(5)) : null
+    page() {
+      return this.uid.indexOf('page:') === 0 ? useComponentsStore().page(this.uid.substring(5)) : null
     },
-    widget () {
-      return (this.uid.indexOf('widget:') === 0) ? this.$store.getters.widget(this.uid.substring(7)) : null
+    widget() {
+      return this.uid.indexOf('widget:') === 0 ? useComponentsStore().widget(this.uid.substring(7)) : null
     },
-    standard () {
-      return (this.uid.indexOf('oh-') === 0) ? { component: this.uid } : null
+    standard() {
+      return this.uid.indexOf('oh-') === 0 ? { component: this.uid } : null
     },
-    ready () {
+    ready() {
       return this.page || this.widget || this.standard
     },
-    componentType () {
+    componentType() {
       if (this.page) {
-        return this.page.component
+        return pageComponent(this.page)
       } else if (this.widget || this.standard) {
         return 'generic-widget-component'
       }
       return null
     },
-    visibleToCurrentUser () {
+    visibleToCurrentUser() {
       // widgets in modals cannot be restricted (this is by design)
       if (!this.page || !this.page.config || !this.page.config.visibleTo) return true
-      const user = this.$store.getters.user
+      const user = useUserStore().user
       if (!user) return false
-      if (user.roles && user.roles.some(r => this.page.config.visibleTo.indexOf('role:' + r) >= 0)) return true
+      if (user.roles && user.roles.some((r) => this.page.config.visibleTo.indexOf('role:' + r) >= 0)) return true
       if (this.page.config.visibleTo.indexOf('user:' + user.name) >= 0) return true
       return false
     }
   },
   methods: {
-    onTabChange (idx) {
+    onTabChange(idx) {
       this.currentTab = idx
-      this.$set(this, 'vars', {})
-      this.$set(this, 'ctxVars', {})
+      this.vars = {}
+      this.ctxVars = {}
     },
-    tabContext (tab) {
-      const page = this.$store.getters.page(tab.config.page.replace('page:', ''))
+    tabContext(tab) {
+      const page = useComponentsStore().page(tab.config.page.replace('page:', ''))
       return {
         component: page,
         root: page,
         tab,
         props: tab.config.pageConfig,
-        store: this.$store.getters.trackedItems
+        store: useStatesStore().trackedItems
       }
     },
-    tabComponent (tab) {
-      const page = this.$store.getters.page(tab.config.page.replace('page:', ''))
-      return page.component
+    tabComponent(tab) {
+      const page = useComponentsStore().page(tab.config.page.replace('page:', ''))
+      return pageComponent(page)
     }
   }
 }

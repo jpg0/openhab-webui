@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2024 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2026 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -15,7 +15,6 @@ package org.openhab.ui.habot.nlp.internal.skill;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -77,7 +76,7 @@ public class ActivateObjectSkill extends AbstractItemIntentInterpreter {
             // filter out the items which can't receive an ON command
             List<Item> filteredItems = matchedItems.stream()
                     .filter(i -> !(i instanceof GroupItem) && i.getAcceptedCommandTypes().contains(OnOffType.class))
-                    .collect(Collectors.toList());
+                    .toList();
 
             interpretation.setCard(cardBuilder.buildCard(intent, filteredItems));
 

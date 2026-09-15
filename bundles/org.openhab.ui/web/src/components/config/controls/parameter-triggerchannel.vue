@@ -1,17 +1,26 @@
 <template>
-  <trigger-channel-picker :title="configDescription.label" :value="value" @input="updateValue" :multiple="configDescription.multiple" :required="configDescription.required" />
+  <trigger-channel-picker
+    :title="configDescription.label"
+    :value="value"
+    @input="updateValue"
+    :multiple="configDescription.multiple"
+    :required="configDescription.required" />
 </template>
 
 <script>
 import TriggerChannelPicker from './triggerchannel-picker.vue'
 
 export default {
-  props: ['configDescription', 'value'],
+  props: {
+    configDescription: Object,
+    value: [String, Array]
+  },
+  emits: ['input'],
   components: {
     TriggerChannelPicker
   },
   methods: {
-    updateValue (value) {
+    updateValue(value) {
       this.$emit('input', value)
     }
   }

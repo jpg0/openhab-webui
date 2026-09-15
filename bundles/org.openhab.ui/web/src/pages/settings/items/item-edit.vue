@@ -1,109 +1,126 @@
 <template>
-  <f7-page @page:afterin="onPageAfterIn">
-    <f7-navbar :back-link="editable ? 'Cancel': 'Back'">
-      <template slot="title">
-        {{ pageTitle }}
-        {{ dirtyIndicator }}
-      </template>
-      <f7-nav-right v-show="ready">
-        <f7-link v-if="!editable" icon-f7="lock_fill" icon-only :tooltip="notEditableMsg" />
-        <f7-link v-else-if="$theme.md" icon-md="material:save" icon-only @click="save()" />
-        <f7-link v-else @click="save()">
-          Save<span v-if="$device.desktop">&nbsp;(Ctrl-S)</span>
-        </f7-link>
-      </f7-nav-right>
+  <f7-page ref="item-edit-page" @page:afterin="onPageAfterIn" @page:beforeout="onPageBeforeOut">
+    <f7-navbar>
+      <oh-nav-content
+        :title="pageTitle + dirtyIndicator"
+        :back-link="editable ? 'Cancel' : 'Back'"
+        :editable
+        :save-link="`Save${$device.desktop ? ' (Ctrl-S)' : ''}`"
+        @save="save()"
+        :f7router />
     </f7-navbar>
     <f7-toolbar tabbar position="top">
-      <f7-link @click="switchTab('design', fromYaml)" :tab-link-active="currentTab === 'design'" class="tab-link">
-        Design
-      </f7-link>
-      <f7-link @click="switchTab('code', toYaml)" :tab-link-active="currentTab === 'code'" class="tab-link">
-        Code
-      </f7-link>
+      <f7-link @click="switchTab('design')" :tab-link-active="currentTab === 'design'" tab-link="#design"> Design </f7-link>
+      <f7-link @click="switchTab('code')" :tab-link-active="currentTab === 'code'" tab-link="#code"> Code </f7-link>
     </f7-toolbar>
 
     <f7-tabs v-if="ready">
-      <f7-tab id="design" @tab:show="() => this.currentTab = 'design'" :tab-active="currentTab === 'design'">
-        <f7-block class="block-narrow" v-if="item.name || item.created === false">
+      <f7-tab id="design" :tab-active="currentTab === 'design'">
+        <f7-block v-if="item.name || item.created === false" class="block-narrow">
           <f7-col v-if="!editable">
-            <div class="padding-left">
-              Note: {{ notEditableMsg }}
-            </div>
+            <not-editable-notice subject="Item" />
           </f7-col>
           <f7-col>
             <item-form ref="itemForm" :item="item" :items="items" :createMode="createMode" />
           </f7-col>
 
           <div class="flex-shrink-0 if-aurora display-flex justify-content-center">
-            <f7-button text="Create" v-if="createMode" style="width: 150px" class="margin-horizontal" color="blue" raised fill @click="save" />
-            <f7-button text="Save" v-else-if="editable" style="width: 150px" class="margin-horizontal" color="blue" raised fill @click="save" />
-            <f7-button :text="editable ? 'Cancel' : 'Back'" color="blue" @click="$f7router.back()" />
+            <f7-button
+              v-if="createMode"
+              text="Create"
+              style="width: 150px"
+              class="margin-horizontal"
+              color="theme-alt"
+              raised
+              fill
+              @click="save" />
+            <f7-button
+              v-else-if="editable"
+              text="Save"
+              style="width: 150px"
+              class="margin-horizontal"
+              color="theme-alt"
+              raised
+              fill
+              @click="save" />
+            <f7-button :text="editable ? 'Cancel' : 'Back'" color="theme-alt" @click="f7router.back()" />
           </div>
         </f7-block>
       </f7-tab>
 
-      <f7-tab id="code" @tab:show="() => { this.currentTab = 'code'; toYaml() }" :tab-active="currentTab === 'code'">
-        <f7-icon v-if="!editable" f7="lock" class="float-right margin" style="opacity:0.5; z-index: 4000; user-select: none;" size="50" color="gray" :tooltip="notEditableMsg" />
-        <editor class="item-code-editor" mode="application/vnd.openhab.item+yaml" :value="itemYaml" @input="onEditorInput" :readOnly="!editable" />
+      <f7-tab id="code" :tab-active="currentTab === 'code'">
+        <code-editor
+          v-if="ready"
+          ref="codeEditor"
+          object-type="items"
+          :object="item"
+          :object-id="item.name"
+          :read-only="!editable"
+          read-only-msg="This Item is not editable because it has been provisioned from a file."
+          @save="save()"
+          @parsed="updateItem"
+          @changed="onCodeChanged" />
       </f7-tab>
     </f7-tabs>
   </f7-page>
 </template>
 
-<style lang="stylus">
-.item-code-editor.vue-codemirror
-  display block
-  top calc(var(--f7-navbar-height) + var(--f7-tabbar-height))
-  height calc(100% - 2*var(--f7-navbar-height))
-  width 100%
-.yaml-message
-  display block
-  position absolute
-  top 80%
-  white-space pre-wrap
-</style>
-
 <script>
+import { nextTick, defineAsyncComponent } from 'vue'
+import { f7 } from 'framework7-vue'
+
 import cloneDeep from 'lodash/cloneDeep'
 import fastDeepEqual from 'fast-deep-equal/es6'
 
 import * as Types from '@/assets/item-types.js'
-import YAML from 'yaml'
 
 import ItemForm from '@/components/item/item-form.vue'
+import NotEditableNotice from '@/components/util/not-editable-notice.vue'
 
-import DirtyMixin from '../dirty-mixin'
 import ItemMixin from '@/components/item/item-mixin'
+import { showToast } from '@/js/dialog-promises'
+
+import { useDirty } from '@/pages/useDirty'
 
 export default {
-  mixins: [DirtyMixin, ItemMixin],
-  props: ['itemName', 'createMode'],
+  mixins: [ItemMixin],
+  props: {
+    itemName: String,
+    createMode: Boolean,
+    itemCopy: Object,
+    f7router: Object
+  },
   components: {
     ItemForm,
-    'editor': () => import(/* webpackChunkName: "script-editor" */ '@/components/config/controls/script-editor.vue')
+    NotEditableNotice,
+    CodeEditor: defineAsyncComponent(() => import(/* webpackChunkName: "code-editor" */ '@/components/config/controls/code-editor.vue'))
   },
-  data () {
+  setup() {
+    const { dirty, dirtyIndicator } = useDirty('item-edit-page')
+
+    return { dirty, dirtyIndicator }
+  },
+  data() {
     return {
       ready: false,
       loading: false,
       item: {},
       savedItem: {},
-      itemYaml: '',
+      itemDirty: false,
+      codeDirty: false,
       items: [],
       types: Types,
-      semanticClasses: this.$store.getters.semanticClasses,
       semanticClass: '',
       semanticProperty: '',
       pendingTag: '',
-      currentTab: 'design',
-      notEditableMsg: 'This Item is not editable because it has been provisioned from a file.'
+      currentTab: 'design'
     }
   },
   computed: {
-    editable () {
+    editable() {
       return this.createMode || (this.item && this.item.editable)
     },
-    pageTitle () {
+    pageTitle() {
       if (this.createMode) {
         return 'Create New Item'
       }
@@ -114,41 +131,79 @@ export default {
     }
   },
   watch: {
+    itemDirty: function () {
+      this.dirty = this.itemDirty || this.codeDirty
+    },
+    codeDirty: function () {
+      this.dirty = this.itemDirty || this.codeDirty
+    },
     item: {
       handler: function () {
-        if (!this.loading) { // ignore changes during loading
+        if (!this.loading) {
+          // ignore changes during loading
           const itemClone = cloneDeep(this.item)
           delete itemClone.functionKey
-          this.dirty = !fastDeepEqual(itemClone, this.savedItem)
+          this.itemDirty = !fastDeepEqual(itemClone, this.savedItem)
         }
       },
       deep: true
     }
   },
   methods: {
-    onPageAfterIn () {
+    onPageAfterIn() {
       this.load()
       if (window) {
         window.addEventListener('keydown', this.keyDown)
       }
     },
-    onPageBeforeOut () {
+    onPageBeforeOut() {
       if (window) {
         window.removeEventListener('keydown', this.keyDown)
       }
     },
-    keyDown (ev) {
+    keyDown(ev) {
       if (ev.keyCode === 83 && (ev.ctrlKey || ev.metaKey) && !(ev.altKey || ev.shiftKey)) {
         this.save()
         ev.stopPropagation()
         ev.preventDefault()
       }
     },
-    load () {
+    switchTab(newTab) {
+      if (this.currentTab === newTab) return
+
+      // We can't prevent the tab switch here. Instead, we'll switch back if parsing fails
+      this.currentTab = newTab
+
+      if (newTab === 'code') {
+        if (this.item.unit && this.item.unit !== this.savedItem.unit) {
+          this.item.metadata = this.item.metadata || {}
+          this.item.metadata.unit = { value: this.item.unit }
+        }
+        if (this.createMode && !this.item.name) {
+          // code generation fails without a Item name, instead present empty code tab
+          return
+        }
+        this.$refs.codeEditor.generateCode()
+      } else if (this.codeDirty) {
+        this.$refs.codeEditor.parseCode(
+          () => {
+            this.codeDirty = false
+          },
+          () => {
+            this.currentTab = 'code'
+            f7.tab.show('#code')
+          }
+        )
+      }
+    },
+    onCodeChanged(codeDirty) {
+      this.codeDirty = codeDirty
+    },
+    load() {
       if (this.loading) return
       this.loading = true
       if (this.createMode) {
-        const newItem = {
+        const newItem = this.itemCopy || {
           name: '',
           label: '',
           category: '',
@@ -157,7 +212,7 @@ export default {
           tags: [],
           created: false
         }
-        this.$set(this, 'item', newItem)
+        this.item = newItem
         this.savedItem = cloneDeep(this.item)
         this.$oh.api.get('/rest/items?staticDataOnly=true').then((items) => {
           this.items = items
@@ -168,104 +223,132 @@ export default {
         this.$oh.api.get('/rest/items/' + this.itemName + '?metadata=.*').then((data) => {
           this.item = data
           this.savedItem = cloneDeep(this.item)
-          this.$nextTick(() => {
+          nextTick(() => {
             this.ready = true
             this.loading = false
           })
         })
       }
     },
-    save () {
+    save() {
       if (!this.editable) return
-      if (this.currentTab === 'code') {
-        if (!this.fromYaml()) return
+
+      if (this.currentTab === 'code' && this.codeDirty) {
+        this.$refs.codeEditor.parseCode(() => {
+          this.codeDirty = false
+          this.save()
+          this.$refs.codeEditor.generateCode()
+        })
+        return
       }
-      if (this.validateItemName(this.item.name) !== '') return this.$f7.dialog.alert('Please give the Item a valid name: ' + this.validateItemName(this.item.name)).open()
-      if (!this.item.type || !this.types.ItemTypes.includes(this.item.type.split(':')[0])) return this.$f7.dialog.alert('Please give Item a valid type').open()
+
+      if (this.validateItemName(this.item.name) !== '')
+        return f7.dialog.alert('Please give the Item a valid name: ' + this.validateItemName(this.item.name)).open()
+      if (!this.item.type || !this.types.ItemTypes.includes(this.item.type.split(':')[0]))
+        return f7.dialog.alert('Please give Item a valid type').open()
 
       const typeChange = this.$refs.itemForm.typeChanged()
       const dimensionChange = this.$refs.itemForm.dimensionChanged()
       const unitChange = this.$refs.itemForm.unitChanged()
       if (typeChange || dimensionChange || unitChange) {
-        const title = 'WARNING: ' + (typeChange ? 'Type' : (dimensionChange ? 'Dimension' : 'Unit')) + ' Changed'
-        const text = (typeChange || dimensionChange) ? `Existing links to channels ${dimensionChange ? 'with dimensions ' : ''}may no longer be valid!` : 'Changing the internal unit can corrupt your persisted data and affect rules!'
-        return this.$f7.dialog.create({
-          title,
-          text,
-          buttons: [
-            { text: 'Cancel', color: 'gray', close: true, onClick: () => this.$refs.itemForm.revertChange() },
-            { text: 'Save Anyway', color: 'red', close: true, onClick: () => this.doSave() }
-          ],
-          destroyOnClose: true
-        }).open()
+        const title = 'WARNING: ' + (typeChange ? 'Type' : dimensionChange ? 'Dimension' : 'Unit') + ' Changed'
+        const text =
+          typeChange || dimensionChange
+            ? `Existing links to channels ${dimensionChange ? 'with dimensions ' : ''}may no longer be valid!`
+            : 'Changing the internal unit can corrupt your persisted data and affect rules!'
+        return f7.dialog
+          .create({
+            title,
+            text,
+            buttons: [
+              { text: 'Cancel', color: 'gray', close: true, onClick: () => this.$refs.itemForm.revertChange() },
+              { text: 'Save Anyway', color: 'red', close: true, onClick: () => this.doSave() }
+            ],
+            destroyOnClose: true
+          })
+          .open()
       } else {
         this.doSave()
       }
     },
-    doSave () {
-      this.saveItem(this.item).then(() => {
-        if (this.createMode) {
-          this.$f7.toast.create({
-            text: 'Item created',
-            destroyOnClose: true,
-            closeTimeout: 2000
-          }).open()
-          this.item.created = true
-          this.item.editable = true
-        } else {
-          this.$f7.toast.create({
-            text: 'Item updated',
-            destroyOnClose: true,
-            closeTimeout: 2000
-          }).open()
-        }
+    doSave() {
+      this.saveItem(this.item)
+        .then(() => {
+          if (this.createMode) {
+            showToast('Item created')
+            this.item.created = true
+            this.item.editable = true
+          } else {
+            showToast('Item updated')
+          }
 
-        this.dirty = false
-        this.$f7router.back()
-      }).catch((err) => {
-        this.$f7.toast.create({
-          text: 'Item not saved: ' + err,
-          destroyOnClose: true,
-          closeTimeout: 2000
-        }).open()
-      })
+          this.doSaveMetadata()
+
+          this.dirty = this.itemDirty = this.codeDirty = false
+          if (this.createMode) {
+            this.f7router.navigate('/settings/items/' + this.item.name)
+          } else {
+            this.f7router.back()
+          }
+        })
+        .catch((err) => {
+          showToast('Error while saving item: ' + err)
+        })
     },
-    onEditorInput (value) {
-      this.itemYaml = value
+    doSaveMetadata() {
+      const newNamespaces = new Set(Object.keys(this.item.metadata || {}))
+
+      // remove deleted metadata
+      const deletionPromises = Object.entries(this.savedItem.metadata || {})
+        .filter(([namespace, savedMetadata]) => savedMetadata.editable && !newNamespaces.has(namespace))
+        .map(([namespace, _]) => this.deleteMetadata(this.item, namespace))
+
+      // create/update new/changed metadata
+      const updatePromises = Object.entries(this.item.metadata || {})
+        .filter(([namespace, metadata]) => {
+          const savedMetadata = this.savedItem.metadata?.[namespace] || {}
+          if (savedMetadata.editable === false) return false // don't touch non-editable metadata
+
+          // remove editable flag from comparison, because the generated code doesn't have it
+          delete savedMetadata.editable
+
+          metadata = metadata || {}
+          const newMetadata = { ...metadata }
+          // the editable flag may exist in the original loaded item (not from generated code)
+          delete newMetadata.editable
+
+          return !fastDeepEqual(newMetadata, savedMetadata)
+        })
+        .map(([namespace, metadata]) => {
+          return this.saveMetadata(this.item, namespace, metadata)
+        })
+
+      Promise.all([...deletionPromises, ...updatePromises])
+        .then(() => {
+          showToast('Metadata updated successfully')
+        })
+        .catch((err) => {
+          showToast('Error while saving metadata: ' + err)
+        })
     },
-    toYaml () {
-      const yamlObj = {
-        label: this.item.label,
-        type: this.item.type,
-        category: this.item.category || '',
-        groupNames: this.item.groupNames || [],
-        tags: this.item.tags
-        // metadata: this.item.metadata
-      }
-      if (this.item.type === 'Group') {
-        yamlObj.groupType = this.item.groupType || 'None'
-        yamlObj.function = this.item.function || 'None'
-      }
-      this.itemYaml = YAML.stringify(yamlObj)
-    },
-    fromYaml () {
+    updateItem(updatedItem) {
       if (!this.editable) return false
       try {
-        const updatedItem = YAML.parse(this.itemYaml)
         if (updatedItem === null) return false
         if (updatedItem.groupNames == null) updatedItem.groupNames = []
         if (updatedItem.tags == null) updatedItem.tags = []
-        this.$set(this.item, 'label', updatedItem.label)
-        this.$set(this.item, 'type', updatedItem.type)
-        this.$set(this.item, 'category', updatedItem.category)
-        this.$set(this.item, 'groupNames', updatedItem.groupNames)
-        this.$set(this.item, 'groupType', updatedItem.groupType)
-        this.$set(this.item, 'function', updatedItem.function)
-        this.$set(this.item, 'tags', updatedItem.tags)
-        // this.$set(this.item, 'metadata', updatedItem.metadata)
+        this.item.label = updatedItem.label
+        this.item.type = updatedItem.type
+        this.item.category = updatedItem.category
+        this.item.groupNames = updatedItem.groupNames
+        this.item.groupType = updatedItem.groupType
+        this.item.function = updatedItem.function
+        this.item.tags = updatedItem.tags
+        this.item.metadata = updatedItem.metadata
+        this.item.unit = updatedItem.metadata?.unit?.value || ''
         return true
       } catch (e) {
-        this.$f7.dialog.alert(e).open()
+        f7.dialog.alert(e).open()
         return false
       }
     }

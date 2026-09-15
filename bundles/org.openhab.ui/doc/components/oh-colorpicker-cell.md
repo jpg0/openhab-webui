@@ -104,7 +104,7 @@ A cell expanding to a color picker
   <PropDescription>
     Type of action to perform
   </PropDescription>
-  <PropOptions>
+  <PropOptions multiple="true">
     <PropOption value="navigate" label="Navigate to page" />
     <PropOption value="command" label="Send command" />
     <PropOption value="toggle" label="Toggle Item" />
@@ -154,7 +154,7 @@ A cell expanding to a color picker
 </PropBlock>
 <PropBlock type="TEXT" name="actionCommand" label="Action Command">
   <PropDescription>
-    Command to send to the Item. If "Toogle Item" is selected as the action, only send the command when the state is different
+    Command to send to the Item. If "Toggle Item" is selected as the action, only send the command when the state is different
   </PropDescription>
 </PropBlock>
 <PropBlock type="TEXT" name="actionCommandAlt" label="Action Toggle Command">
@@ -180,6 +180,11 @@ A cell expanding to a color picker
 <PropBlock type="TEXT" name="actionPage" label="Page" context="page">
   <PropDescription>
     Page to navigate to
+  </PropDescription>
+</PropBlock>
+<PropBlock type="TEXT" name="actionPageDefineVars" label="Define Page Variables">
+  <PropDescription>
+    An object <code>{ [variableName]: [variableValue] }</code> where <code>variableValue</code> also supports expressions
   </PropDescription>
 </PropBlock>
 <PropBlock type="TEXT" name="actionPageTransition" label="Transition Effect">
@@ -247,6 +252,21 @@ A cell expanding to a color picker
     <PropOption value="time" label="Time" />
     <PropOption value="aggregate" label="Aggregate" />
     <PropOption value="calendar" label="Calendar" />
+  </PropOptions>
+</PropBlock>
+<PropBlock type="TEXT" name="actionAnalyzerAggregation" label="Initial Aggregation">
+  <PropDescription>
+    The initial aggregation of the analyzer - 
+  </PropDescription>
+  <PropOptions>
+    <PropOption value="average" label="Average" />
+    <PropOption value="sum" label="Sum" />
+    <PropOption value="min" label="Minimum" />
+    <PropOption value="max" label="Maximum" />
+    <PropOption value="first" label="First (earliest)" />
+    <PropOption value="last" label="Last (latest)" />
+    <PropOption value="diff_first" label="Difference of firsts" />
+    <PropOption value="diff_last" label="Difference of lasts" />
   </PropOptions>
 </PropBlock>
 <PropBlock type="TEXT" name="actionConfirmation" label="Action Confirmation">

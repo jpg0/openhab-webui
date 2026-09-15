@@ -3,14 +3,19 @@ import TagMixin from '@/components/tags/tag-mixin'
 export default {
   mixins: [TagMixin],
   methods: {
-    getItemTypeLabel (item) {
+    getItemTypeLabel(item) {
       let ret = item.type
       if (item.type === 'Group' && item.groupType) {
-        ret += ` (${item.groupType})`
+        ret += ` (${item.groupType}`
+        if (item.function.name) {
+          ret += `:${item.function.name}`
+          if (item.function.params) ret += `(${item.function.params.join(',')})`
+        }
+        ret += ')'
       }
       return ret
     },
-    getItemTypeAndMetaLabel (item) {
+    getItemTypeAndMetaLabel(item) {
       let ret = this.getItemTypeLabel(item)
       if (item.metadata && item.metadata.semantics) {
         ret += ' · '
@@ -28,7 +33,7 @@ export default {
       }
       return ret
     },
-    getNonSemanticTags (item) {
+    getNonSemanticTags(item) {
       if (!item.tags) return []
       return item.tags.filter((t) => !this.isSemanticTag(t))
     },
@@ -38,10 +43,10 @@ export default {
      * @param {string} name Item name to validate
      * @returns {string} The error message if the name is invalid, or an empty string if the name is valid.
      */
-    validateItemName (name) {
-      if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(name)) {
+    validateItemName(name) {
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
         return 'Required. Must not start with a number. A-Z,a-z,0-9,_ only'
-      } else if (this.items && this.items.some(item => item.name === name)) {
+      } else if (this.items && this.items.some((item) => item.name === name)) {
         return 'An Item with this name already exists'
       }
       return ''
@@ -55,7 +60,7 @@ export default {
      * @param item
      * @returns {Promise}
      */
-    saveItem (item) {
+    async saveItem(item) {
       if (item.groupType === 'None') delete item.groupType
       if (item.function === 'None') delete item.groupType
 
@@ -64,27 +69,31 @@ export default {
       const stateDescriptionPattern = item.stateDescriptionPattern
       delete item.stateDescriptionPattern
 
-      return this.$oh.api.put('/rest/items/' + item.name, item).then(() => {
-        return this.saveUnit(item, unit)
-      }).then(() => {
-        return this.saveStateDescription(item, stateDescriptionPattern)
-      }).catch((err) => {
-        return Promise.reject(err)
-      })
+      return this.$oh.api
+        .put('/rest/items/' + item.name, item)
+        .then(() => {
+          return this.saveUnit(item, unit)
+        })
+        .then(() => {
+          return this.saveStateDescription(item, stateDescriptionPattern)
+        })
+        .catch((err) => {
+          return Promise.reject(err)
+        })
     },
-    saveUnit (item, unit) {
+    saveUnit(item, unit) {
       // Save unit metadata if Item is an UoM Item
       if ((item.type.startsWith('Number:') || item.groupType?.startsWith('Number:')) && unit) {
         const metadata = {
           value: unit,
           config: {}
         }
-        return this.saveMetaData(item, 'unit', metadata)
+        return this.saveMetadata(item, 'unit', metadata)
       } else {
         return Promise.resolve()
       }
     },
-    saveStateDescription (item, stateDescriptionPattern) {
+    saveStateDescription(item, stateDescriptionPattern) {
       // Save state description if Item is an UoM Item
       if ((item.type.startsWith('Number:') || item.groupType?.startsWith('Number:')) && stateDescriptionPattern) {
         const metadata = {
@@ -93,13 +102,16 @@ export default {
             pattern: stateDescriptionPattern
           }
         }
-        return this.saveMetaData(item, 'stateDescription', metadata)
+        return this.saveMetadata(item, 'stateDescription', metadata)
       } else {
         return Promise.resolve()
       }
     },
-    saveMetaData (item, value, metadata) {
-      return this.$oh.api.put('/rest/items/' + item.name + '/metadata/' + value, metadata)
+    saveMetadata(item, namespace, metadata) {
+      return this.$oh.api.put('/rest/items/' + item.name + '/metadata/' + namespace, metadata)
+    },
+    deleteMetadata(item, namespace) {
+      return this.$oh.api.delete('/rest/items/' + item.name + '/metadata/' + namespace)
     }
   }
 }

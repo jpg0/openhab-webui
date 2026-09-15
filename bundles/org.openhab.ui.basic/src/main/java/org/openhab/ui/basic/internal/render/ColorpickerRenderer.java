@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2024 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2026 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,16 +12,15 @@
  */
 package org.openhab.ui.basic.internal.render;
 
-import org.eclipse.emf.common.util.ECollections;
-import org.eclipse.emf.common.util.EList;
+import java.util.List;
+
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.core.i18n.LocaleProvider;
 import org.openhab.core.i18n.TranslationProvider;
-import org.openhab.core.model.sitemap.sitemap.Colorpicker;
-import org.openhab.core.model.sitemap.sitemap.Widget;
+import org.openhab.core.sitemap.Colorpicker;
+import org.openhab.core.sitemap.Widget;
 import org.openhab.core.types.State;
 import org.openhab.core.ui.items.ItemUIRegistry;
-import org.openhab.ui.basic.internal.servlet.WebAppServlet;
 import org.openhab.ui.basic.render.RenderException;
 import org.openhab.ui.basic.render.WidgetRenderer;
 import org.osgi.framework.BundleContext;
@@ -35,11 +34,10 @@ import org.osgi.service.component.annotations.Reference;
  * widgets.
  *
  * <p>
- * Note: This renderer requires the files "jquery.miniColors.css" and "jquery.miniColors.js" in the web folder of this
- * bundle
  *
  * @author Kai Kreuzer - Initial contribution and API
  * @author Vlad Ivanov - BasicUI changes
+ * @author Mark Herwege - Implement sitemap registry
  */
 @Component(service = WidgetRenderer.class)
 @NonNullByDefault
@@ -57,7 +55,7 @@ public class ColorpickerRenderer extends AbstractWidgetRenderer {
     }
 
     @Override
-    public EList<Widget> renderWidget(Widget w, StringBuilder sb, String sitemap) throws RenderException {
+    public List<Widget> renderWidget(Widget w, StringBuilder sb, String sitemap) throws RenderException {
         Colorpicker cp = (Colorpicker) w;
 
         String snippet = getSnippet("colorpicker");
@@ -65,28 +63,16 @@ public class ColorpickerRenderer extends AbstractWidgetRenderer {
         // get RGB hex value
         State state = itemUIRegistry.getState(cp);
         String hexValue = getRGBHexCodeFromItemState(state);
-        if (hexValue == null) {
-            hexValue = "#ffffff";
-        }
-        String purelabel = itemUIRegistry.getLabel(w);
-        if (purelabel != null) {
-            purelabel = purelabel.replaceAll("\\\"", "\\\\'");
-        }
 
         // Should be called before preprocessSnippet
-        snippet = snippet.replace("%state%", hexValue);
-        snippet = snippet.replace("%state_in_url%", escapeURL(hexValue));
+        snippet = snippet.replace("%state%", hexValue == null ? "#ffffff" : hexValue);
 
         snippet = preprocessSnippet(snippet, w);
-        if (purelabel != null) {
-            snippet = snippet.replace("%purelabel%", purelabel);
-        }
-        snippet = snippet.replace("%servletname%", WebAppServlet.SERVLET_PATH);
 
         // Process the color tags
         snippet = processColor(w, snippet);
 
         sb.append(snippet);
-        return ECollections.emptyEList();
+        return List.of();
     }
 }

@@ -1,13 +1,9 @@
 <template>
-  <f7-card :no-border="config.noBorder" :no-shadow="config.noShadow" :outline="config.outline">
-    <f7-card-header v-if="config.title">
-      <div>{{ config.title }}</div>
-    </f7-card-header>
-    <f7-card-content :padding="false" class="oh-video-card">
-      <oh-video :context="childContext(context.component)" />
-    </f7-card-content>
-    <oh-card-footer v-if="config.footer" :texts="config.footer" />
-  </f7-card>
+  <oh-card :context="context" :content-class="['oh-video-card', 'no-padding']">
+    <template #content>
+      <oh-video :context="cardChildContext(context.component)" />
+    </template>
+  </oh-card>
 </template>
 
 <style lang="stylus">
@@ -23,17 +19,24 @@
 </style>
 
 <script>
-import mixin from '../widget-mixin'
+import { computed } from 'vue'
+import { useWidgetContext } from '@/components/widgets/useWidgetContext'
+import OhCard from '@/components/widgets/standard/oh-card.vue'
 import OhVideo from '../system/oh-video.vue'
-import OhCardFooter from '../system/oh-card-footer.vue'
 import { OhVideoCardDefinition } from '@/assets/definitions/widgets/standard/cards'
 
 export default {
-  mixins: [mixin],
-  components: {
-    OhVideo,
-    OhCardFooter
+  props: {
+    context: Object
   },
-  widget: OhVideoCardDefinition
+  components: {
+    OhCard,
+    OhVideo
+  },
+  widget: OhVideoCardDefinition,
+  setup(props) {
+    const { cardChildContext } = useWidgetContext(computed(() => props.context))
+    return { cardChildContext }
+  }
 }
 </script>

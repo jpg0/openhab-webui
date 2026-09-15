@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2024 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2026 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -18,7 +18,6 @@ import java.util.Map;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -98,8 +97,7 @@ public class SetValueSkill extends AbstractItemIntentInterpreter {
             Set<Item> matchedItems, String colorString) {
         // filter out the items which can't receive an HSB command
         List<Item> filteredItems = matchedItems.stream()
-                .filter(i -> !(i instanceof GroupItem) && i.getAcceptedCommandTypes().contains(HSBType.class))
-                .collect(Collectors.toList());
+                .filter(i -> !(i instanceof GroupItem) && i.getAcceptedCommandTypes().contains(HSBType.class)).toList();
 
         String hsbValue;
         try {
@@ -139,7 +137,7 @@ public class SetValueSkill extends AbstractItemIntentInterpreter {
         List<Item> filteredItems = matchedItems.stream()
                 .filter(i -> !(i instanceof GroupItem) && i.getAcceptedCommandTypes().contains(DecimalType.class)
                         || i.getAcceptedCommandTypes().contains(PercentType.class))
-                .collect(Collectors.toList());
+                .toList();
 
         if (filteredItems.isEmpty()) {
             interpretation.setAnswer(answerFormatter.getRandomAnswer("nothing_set_no_item", Map.of("value", rawValue)));

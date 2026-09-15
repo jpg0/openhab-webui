@@ -7,35 +7,39 @@
         </f7-nav-left>
         <f7-nav-title>Set Component Props</f7-nav-title>
         <f7-nav-right>
-          <f7-link class="popup-close" @click="updateProps">
-            Done
-          </f7-link>
+          <f7-link class="popup-close" @click="updateProps"> Done </f7-link>
         </f7-nav-right>
       </f7-navbar>
-      <f7-block v-if="props">
+      <f7-block v-if="props && ((props.parameters && props.parameters.length) || (props.parameterGroups && props.parameterGroups.length))">
         <f7-col>
-          <config-sheet
-            :parameterGroups="props.parameterGroups || []"
-            :parameters="props.parameters || []"
-            :configuration="config" />
+          <config-sheet :parameterGroups="props.parameterGroups || []" :parameters="props.parameters || []" :configuration="config" />
         </f7-col>
+      </f7-block>
+      <f7-block v-else class="text-align-center">
+        <p class="text-color-gray">No props parameters defined for this component.</p>
       </f7-block>
     </f7-page>
   </f7-popup>
 </template>
 
 <script>
+import { f7 } from 'framework7-vue'
+import { defineAsyncComponent } from 'vue'
+
 export default {
   components: {
-    'config-sheet': () => import(/* webpackChunkName: "config-sheet" */ '@/components/config/config-sheet.vue')
+    'config-sheet': defineAsyncComponent(() => import(/* webpackChunkName: "config-sheet" */ '@/components/config/config-sheet.vue'))
   },
-  props: ['props', 'config'],
+  props: {
+    props: Object,
+    config: Object
+  },
   methods: {
-    propsSheetClosed () {
-      this.$f7.emit('propsEditorClosed')
+    propsSheetClosed() {
+      f7.emit('propsEditorClosed')
     },
-    updateProps () {
-      this.$f7.emit('propsEditorUpdate', this.config)
+    updateProps() {
+      f7.emit('propsEditorUpdate', this.config)
     }
   }
 }

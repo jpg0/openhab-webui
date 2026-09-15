@@ -1,45 +1,92 @@
 <template>
   <div class="group-form no-padding">
     <!-- Type -->
-    <f7-list-item v-if="item.type === 'Group'" :disabled="!editable" :key="'type-' + groupType" title="Members Base Type" class="aligned-smart-select" smart-select :smart-select-params="{searchbar: true, openIn: 'popup', closeOnSelect: true}">
+    <f7-list-item
+      v-if="item.type === 'Group'"
+      :disabled="!editable ? true : null"
+      :key="'type-' + groupType"
+      title="Members Base Type"
+      class="aligned-smart-select"
+      smart-select
+      :smart-select-params="{ searchbar: true, openIn: 'popup', closeOnSelect: true }">
       <select name="select-basetype" @change="groupType = $event.target.value">
-        <option v-for="type in types.GroupTypes" :key="type" :value="type" :selected="type === groupType">
+        <option v-for="type in types.GroupTypes" :key="type" :value="type" :selected="type === groupType ? true : null">
           {{ type }}
         </option>
       </select>
     </f7-list-item>
     <!-- Dimension -->
-    <f7-list-item v-if="dimensions.length && groupType && groupType === 'Number'" :disabled="!editable" :key="'dimension-' + groupDimension" title="Dimension" class="aligned-smart-select" smart-select :smart-select-params="{searchbar: true, openIn: 'popup', closeOnSelect: true}">
+    <f7-list-item
+      v-if="dimensions.length && groupType && groupType === 'Number'"
+      :disabled="!editable ? true : null"
+      :key="'dimension-' + groupDimension"
+      title="Dimension"
+      class="aligned-smart-select"
+      smart-select
+      :smart-select-params="{ searchbar: true, openIn: 'popup', closeOnSelect: true }">
       <select name="select-dimension" @change="groupDimension = $event.target.value">
-        <option key="" value="Number" :selected="groupType === 'Number'" />
-        <option v-for="d in dimensions" :key="d.name" :value="d.name" :selected="d.name === groupDimension">
+        <option key="" value="Number" :selected="groupType === 'Number' ? true : null" />
+        <option v-for="d in dimensions" :key="d.name" :value="d.name" :selected="d.name === groupDimension ? true : null">
           {{ d.label }}
         </option>
       </select>
     </f7-list-item>
     <!-- (Internal) Unit & State Description -->
-    <f7-list-input v-show="groupType && groupDimension && dimensionsReady" :disabled="!editable"
-                   ref="groupUnit"
-                   label="Unit" type="text"
-                   :info="(createMode) ? 'Type a valid unit for the dimension or select from the proposed units. Used internally, for persistence and external systems. Is independent from state visualization in the UI, which is defined through the state description pattern.' : ''"
-                   :value="groupDimension ? groupUnit : ''" @change="groupUnit = $event.target.value" :clear-button="editable" />
-    <f7-list-input v-show="groupType && groupDimension" :disabled="!editable"
-                   label="State Description Pattern" type="text"
-                   :info="(createMode) ? 'Pattern or transformation applied to the state for display purposes. Only saved if you change the pre-filled default value.' : ''"
-                   :value="stateDescriptionPattern" @input="stateDescriptionPattern = $event.target.value" :clear-button:="editable" />
+    <f7-list-input
+      v-show="groupType && groupDimension && dimensionsReady"
+      :disabled="!editable ? true : null"
+      ref="groupUnit"
+      label="Unit"
+      type="text"
+      :info="
+        createMode
+          ? 'Type a valid unit for the dimension or select from the proposed units. Used internally, for persistence and external systems. Is independent from state visualization in the UI, which is defined through the state description pattern.'
+          : ''
+      "
+      :value="groupDimension ? groupUnit : ''"
+      @change="groupUnit = $event.target.value"
+      :clear-button="editable" />
+    <f7-list-input
+      v-show="groupType && groupDimension"
+      :disabled="!editable ? true : null"
+      label="State Description Pattern"
+      type="text"
+      :info="
+        createMode
+          ? 'Pattern or transformation applied to the state for display purposes. Only saved if you change the pre-filled default value.'
+          : ''
+      "
+      :value="stateDescriptionPattern"
+      @input="stateDescriptionPattern = $event.target.value"
+      :clear-button:="editable" />
     <!-- Aggregation Functions -->
-    <f7-list-item v-if="aggregationFunctions" :disabled="!editable" title="Aggregation Function" class="aligned-smart-select" smart-select :smart-select-params="{openIn: 'popup', closeOnSelect: true}">
+    <f7-list-item
+      v-if="aggregationFunctions"
+      :disabled="!editable ? true : null"
+      title="Aggregation Function"
+      class="aligned-smart-select"
+      smart-select
+      :smart-select-params="{ openIn: 'popup', closeOnSelect: true }">
       <select name="select-function" @change="groupFunctionKey = $event.target.value">
-        <option v-for="type in aggregationFunctions" :key="type.name" :value="type.name" :selected="type.name === groupFunctionKey">
+        <option
+          v-for="type in aggregationFunctions"
+          :key="type.name"
+          :value="type.name"
+          :selected="type.name === groupFunctionKey ? true : null">
           {{ type.value }}
         </option>
       </select>
     </f7-list-item>
     <!-- COUNT aggregation function regular expression input -->
-    <f7-list-input v-if="aggregationFunctions && groupFunctionKey === 'COUNT'" :disabled="!editable"
-                   label="COUNT Expression" type="text"
-                   info="Specify the regular expression used to to match the states of the members."
-                   :value="groupFunctionParam" @input="groupFunctionParam = $event.target.value" :clear-button="editable" />
+    <f7-list-input
+      v-if="aggregationFunctions && groupFunctionKey === 'COUNT'"
+      :disabled="!editable ? true : null"
+      label="COUNT Expression"
+      type="text"
+      info="Specify the regular expression used to to match the states of the members."
+      :value="groupFunctionParam"
+      @input="groupFunctionParam = $event.target.value"
+      :clear-button="editable" />
   </div>
 </template>
 
@@ -53,92 +100,99 @@
 </style>
 
 <script>
-import * as types from '@/assets/item-types.js'
+import { f7 } from 'framework7-vue'
+import { nextTick } from 'vue'
 
+import * as types from '@/assets/item-types.js'
 import uomMixin from '@/components/item/uom-mixin'
 
 export default {
   mixins: [uomMixin],
-  props: ['item', 'createMode'],
-  data () {
+  props: {
+    item: Object,
+    createMode: Boolean
+  },
+  data() {
     return {
       types,
       groupUnitAutocomplete: null,
       oldGroupType: !this.createMode ? this.item.groupType?.split(':')[0] : '',
-      oldGroupDimension: (!this.createMode && this.item.groupType?.split(':').length > 1) ? this.item.groupType.split(':')[1] : '',
+      oldGroupDimension: !this.createMode && this.item.groupType?.split(':').length > 1 ? this.item.groupType.split(':')[1] : '',
       oldGroupUnit: ''
     }
   },
   watch: {
-    dimensionsReady (newValue, oldValue) {
+    dimensionsReady(newValue, oldValue) {
       if (oldValue === false && newValue === true) this.initializeAutocompleteGroupUnit()
     }
   },
   computed: {
-    editable () {
+    editable() {
       return this.createMode || (this.item && this.item.editable)
     },
     groupType: {
-      get () {
+      get() {
         return this.item.groupType?.split(':')[0]
       },
-      set (newType) {
+      set(newType) {
         const previousAggregationFunctions = this.aggregationFunctions
-        this.$set(this.item, 'groupType', '')
-        this.$nextTick(() => {
+        this.item.groupType = ''
+        nextTick(() => {
           if (newType !== 'None') {
-            this.$set(this.item, 'groupType', newType)
+            this.item.groupType = newType
             if (previousAggregationFunctions !== this.aggregationFunctions) {
-              this.$set(this.item, 'functionKey', 'None')
+              this.groupFunctionKey = 'EQUALITY'
             }
+          } else {
+            this.groupFunctionKey = null
           }
         })
       }
     },
     groupDimension: {
-      get () {
+      get() {
         const parts = this.item.groupType?.split(':')
         return parts && parts.length > 1 ? parts[1] : ''
       },
-      set (newDimension) {
+      set(newDimension) {
         if (!newDimension) {
           this.groupType = 'Number'
           return
         }
         const dimension = this.dimensions.find((d) => d.name === newDimension)
-        this.$set(this.item, 'groupType', 'Number:' + dimension.name)
+        this.item.groupType = 'Number:' + dimension.name
         this.groupUnit = this.getUnitHint(dimension.name)
-        this.$set(this.item, 'stateDescriptionPattern', this.stateDescriptionPattern)
+        this.item.stateDescriptionPattern = this.stateDescriptionPattern
       }
     },
     groupUnit: {
-      get () {
+      get() {
         return this.unit
       },
-      set (newUnit) {
-        this.$set(this.item, 'unit', newUnit)
+      set(newUnit) {
+        this.item.unit = newUnit
       }
     },
     stateDescriptionPattern: {
-      get () {
+      get() {
         if (this.item.stateDescriptionPattern) return this.item.stateDescriptionPattern
         return this.item.metadata?.stateDescription?.config.pattern || '%.0f %unit%'
       },
-      set (newPattern) {
-        this.$set(this.item, 'stateDescriptionPattern', newPattern)
+      set(newPattern) {
+        this.item.stateDescriptionPattern = newPattern
       }
     },
     groupFunctionKey: {
-      get () {
+      get() {
         return this.item.functionKey.startsWith('COUNT') ? 'COUNT' : this.item.functionKey
       },
-      set (newFunctionKey) {
+      set(newFunctionKey) {
         if (!newFunctionKey) {
           delete this.item.function
-          this.$set(this.item, 'functionKey', '')
+          this.item.functionKey = ''
           return
         }
-        this.$set(this.item, 'functionKey', newFunctionKey)
+        this.item.functionKey = newFunctionKey
         const parts = newFunctionKey.split('_')
         let func = {
           name: parts[0]
@@ -146,19 +200,19 @@ export default {
         if (parts.length > 1) {
           func.params = [parts[1], parts[2]]
         }
-        this.$set(this.item, 'function', func)
+        this.item.function = func
       }
     },
     groupFunctionParam: {
-      get () {
+      get() {
         return this.item.function?.params?.length ? this.item.function.params[0] : null
       },
-      set (newFunctionParam) {
-        this.$set(this.item.function, 'params', [newFunctionParam])
+      set(newFunctionParam) {
+        this.item.function.params = [newFunctionParam]
       }
     },
-    aggregationFunctions () {
-      if (this.groupType === 'None') return null
+    aggregationFunctions() {
+      if (!this.groupType || this.groupType === 'None' || this.groupType === '') return null
 
       const specificAggregationFunctions = (groupType) => {
         switch (this.groupType) {
@@ -180,76 +234,76 @@ export default {
       return [...types.CommonFunctions, ...specificAggregationFunctions(this.groupType)]
     }
   },
-  beforeMount () {
+  beforeMount() {
     if (this.item.function) {
-      this.$set(this.item, 'functionKey', this.item.function.name)
+      this.item.functionKey = this.item.function.name
       if (this.item.function.params) {
         this.item.functionKey += '_' + this.item.function.params.join('_')
       }
     } else {
-      this.$set(this.item, 'functionKey', 'None')
+      this.item.functionKey = 'EQUALITY'
     }
   },
   methods: {
-    typeChanged () {
+    typeChanged() {
       if (!this.oldGroupType) return false
       return this.oldGroupType !== this.groupType
     },
-    dimensionChanged () {
+    dimensionChanged() {
       if (!this.oldGroupDimension) return false
       return this.oldGroupDimension !== this.dimension
     },
-    unitChanged () {
+    unitChanged() {
       return this.oldGroupUnit && this.item.unit && this.oldGroupUnit !== this.item.unit
     },
-    revertChange () {
+    revertChange() {
       if (!this.oldGroupDimension) {
         this.groupType = this.oldGroupType
-        this.$set(this.item, 'unit', '')
+        this.item.unit = ''
       } else {
         this.groupType = this.oldGroupType + ':' + this.oldGroupDimension
-        this.$set(this.item, 'unit', this.oldGroupUnit)
+        this.item.unit = this.oldGroupUnit
       }
     },
-    initializeAutocompleteGroupUnit () {
+    initializeAutocompleteGroupUnit() {
       const self = this
       const unitControl = this.$refs.groupUnit
       if (!unitControl || !unitControl.$el) return
       const inputElement = this.$$(unitControl.$el).find('input')
-      this.groupUnitAutocomplete = this.$f7.autocomplete.create({
+      this.groupUnitAutocomplete = f7.autocomplete.create({
         inputEl: inputElement,
         openIn: 'dropdown',
         dropdownPlaceholderText: self.getUnitHint(this.dimension),
-        source (query, render) {
+        source(query, render) {
           let curatedUnits = self.groupDimension ? self.getUnitList(self.groupDimension) : []
           let allUnits = self.groupDimension ? self.getFullUnitList(self.groupDimension) : []
           if (!query || !query.length) {
-          // Render curated list by default
+            // Render curated list by default
             render(curatedUnits)
           } else {
-            let units = curatedUnits.filter(u => u.indexOf(query) >= 0)
+            let units = curatedUnits.filter((u) => u.indexOf(query) >= 0)
             if (units.length) {
               // Show full curated list if in curated list
               render(curatedUnits)
             } else {
               // If no match filter on full list
-              render(allUnits.filter(u => u.indexOf(query) >= 0))
+              render(allUnits.filter((u) => u.indexOf(query) >= 0))
             }
           }
         }
       })
     }
   },
-  mounted () {
+  mounted() {
     if (!this.createMode && this.groupDimension) {
       this.oldGroupDimension = this.groupDimension
       this.oldGroupUnit = this.groupUnit
       if (this.dimensionsReady) this.initializeAutocompleteGroupUnit()
     }
   },
-  beforeDestroy () {
+  beforeUnmount() {
     if (this.groupUnitAutocomplete) {
-      this.$f7.autocomplete.destroy(this.groupUnitAutocomplete)
+      f7.autocomplete.destroy(this.groupUnitAutocomplete)
       this.groupUnitAutocomplete = null
     }
   }

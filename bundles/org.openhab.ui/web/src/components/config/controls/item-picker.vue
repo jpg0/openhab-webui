@@ -1,19 +1,76 @@
 <template>
-  <ul class="item-picker-container">
-    <f7-list-item :title="title" :disabled="disabled" smart-select :smart-select-params="smartSelectParams" v-if="ready" ref="smartSelect" class="item-picker">
-      <select :name="name" :multiple="multiple" @change="select" :required="required">
-        <option value="" v-if="!multiple" />
-        <option v-for="item in preparedItems" :value="item.name" :key="item.name" :selected="(multiple) ? Array.isArray(value) && value.indexOf(item.name) >= 0 : value === item.name">
-          {{ item.label ? item.label + ' (' + item.name + ')' : item.name }}
-        </option>
-      </select>
-      <f7-button slot="media" icon-f7="list_bullet_indent" @click.native="pickFromModel" />
+  <div class="item-picker-container">
+    <f7-list-item
+      :title="showTitle ? label || 'Item' : undefined"
+      :after="displayValue"
+      link
+      :disabled="disabled ? true : null"
+      :textColor="textColor"
+      :class="{ 'item-picker': true, 'item-picker-empty': showTitle && isEmptySelection }"
+      :no-chevron="disabled"
+      @click="!disabled && openPopup()"
+      @keydown.enter.prevent="!disabled && openPopup()"
+      @keydown.space.prevent="!disabled && openPopup()">
+      <template #media>
+        <f7-button
+          v-if="!noModelPicker"
+          tabindex="-1"
+          :icon-color="color"
+          :icon-aurora="aurora"
+          :icon-ios="ios"
+          :icon-md="md"
+          :tooltip="$t('dialogs.itemPicker.tooltip.pickFromModel')"
+          @click.stop="pickFromModel" />
+        <f7-icon v-else-if="!hideIcon" :color="color" :aurora="aurora" :ios="ios" :md="md" />
+      </template>
     </f7-list-item>
-    <!-- for placeholder purposes before items are loaded -->
-    <f7-list-item link v-show="!ready" :title="title" disabled no-chevron>
-      <f7-button slot="media" icon-f7="list_bullet_indent" @click.native="pickFromModel" />
-    </f7-list-item>
-  </ul>
+
+    <f7-popup class="item-picker-popup" v-model:opened="popupOpen" @popup:opened="onPopupOpened">
+      <f7-page>
+        <f7-navbar :title="label || $t('dialogs.itemPicker.popup.title')">
+          <f7-nav-right>
+            <f7-link @click="closePopup()"> Close </f7-link>
+          </f7-nav-right>
+        </f7-navbar>
+
+        <f7-searchbar ref="searchbar" search-container=".item-list" search-in=".item-inner" :placeholder="$t('dialogs.search.items')">
+          <template #inner-start>
+            <f7-button
+              v-if="showFilterToggle && (filterType || filterGroupType || filterTag)"
+              style="margin-inline-end: 5px"
+              :icon-f7="filtered ? 'funnel_fill' : 'funnel'"
+              icon-size="24px"
+              :icon-color="color"
+              :tooltip="filtered ? this.$t('dialogs.search.items.tooltip.filtered') : this.$t('dialogs.search.items.tooltip.unfiltered')"
+              @click="filtered = !filtered" />
+          </template>
+        </f7-searchbar>
+
+        <f7-list v-if="multiple" class="item-list">
+          <f7-list-item
+            v-for="item in filteredItems"
+            :key="item.name"
+            checkbox
+            :checked="selectedValue?.includes(item.name)"
+            @change="selectItem(item)">
+            {{ item.label ? item.label + ' (' + item.name + ')' : item.name }}
+          </f7-list-item>
+        </f7-list>
+        <f7-list v-else class="item-list">
+          <f7-list-item radio :name="radioGroupName" :checked="selectedValue === null" @change="selectItem(null)" />
+          <f7-list-item
+            v-for="item in filteredItems"
+            :key="item.name"
+            radio
+            :name="radioGroupName"
+            :checked="selectedValue === item.name"
+            @change="selectItem(item)">
+            {{ item.label ? item.label + ' (' + item.name + ')' : item.name }}
+          </f7-list-item>
+        </f7-list>
+      </f7-page>
+    </f7-popup>
+  </div>
 </template>
 
 <style lang="stylus">
@@ -24,100 +81,237 @@
     padding 0
   .item-inner:after
     display none
+  .item-picker:focus-within .item-content
+    outline 2px solid var(--f7-theme-color)
+    outline-offset -2px
+    border-radius var(--f7-list-inset-border-radius)
+  .item-title
+    flex-shrink 0
+    margin-right 16px
+  .item-after
+    display flex
+    flex 1 1 0
+    min-width 0
+    justify-content flex-end
+    span
+      max-width 100%
+      text-overflow ellipsis
+      white-space nowrap
+      overflow hidden
 </style>
 
 <script>
+import { f7 } from 'framework7-vue'
 import ModelPickerPopup from '@/components/model/model-picker-popup.vue'
+import { nextTick } from 'vue'
+
+import * as api from '@/api'
 
 export default {
-  props: ['title', 'name', 'value', 'items', 'multiple', 'filterType', 'required', 'editableOnly', 'disabled', 'setValueText'],
-  data () {
+  props: {
+    label: String,
+    name: String,
+    value: [String, Array],
+    items: Array,
+    multiple: Boolean,
+    filterType: [String, Array],
+    filterGroupType: [String, Array],
+    filterSemantic: [String, Array],
+    filterTag: [String, Array],
+    required: Boolean,
+    editableOnly: Boolean,
+    disabled: Boolean,
+    setValueText: {
+      type: Boolean,
+      default: true
+    },
+    noModelPicker: Boolean,
+    showFilterToggle: Boolean,
+    filterExcludeSemantic: Boolean,
+    iconColor: String,
+    auroraIcon: String,
+    iosIcon: String,
+    mdIcon: String,
+    textColor: String,
+    hideIcon: Boolean,
+    showTitle: {
+      type: Boolean,
+      default: true
+    }
+  },
+  emits: ['input', 'item-selected'],
+  data() {
     return {
-      ready: false,
-      preparedItems: [],
-      icons: {},
-      smartSelectParams: {
-        view: this.$f7.view.main,
-        openIn: 'popup',
-        searchbar: true,
-        searchbarPlaceholder: this.$t('dialogs.search.items'),
-        virtualList: true,
-        virtualListHeight: (this.$theme.aurora) ? 32 : undefined
+      popupOpen: false,
+      unfilteredItems: this.items ?? [],
+      aurora: !this.hideIcon ? this.auroraIcon || 'f7:list_bullet_indent' : undefined,
+      ios: !this.hideIcon ? this.iosIcon || 'f7:list_bullet_indent' : undefined,
+      md: !this.hideIcon ? this.mdIcon || 'f7:list_bullet_indent' : undefined,
+      color: this.iconColor || undefined,
+      filtered: true,
+      radioGroupName: `item-picker-${Math.random().toString(36).slice(2, 11)}`,
+      selectedValue: this.multiple ? (Array.isArray(this.value) ? [...this.value] : []) : (this.value ?? null)
+    }
+  },
+  computed: {
+    isEmptySelection() {
+      if (this.multiple) {
+        return !Array.isArray(this.value) || this.value.length === 0
       }
-    }
-  },
-  created () {
-    this.smartSelectParams.closeOnSelect = !(this.multiple)
-    if (this.setValueText === false) this.smartSelectParams.setValueText = false
-    if (!this.items || !this.items.length) {
-      this.$oh.api.get('/rest/items?staticDataOnly=true').then((items) => {
-        this.sortAndFilterItems(items)
-      })
-    } else {
-      this.sortAndFilterItems(this.items)
-    }
-  },
-  methods: {
-    sortAndFilterItems (items) {
-      this.preparedItems = items.sort((a, b) => {
+      return this.value === null || this.value === undefined || this.value === ''
+    },
+    displayValue() {
+      if (!this.setValueText) return ''
+      if (this.multiple) {
+        return Array.isArray(this.value) ? this.value.join(', ') : ''
+      } else {
+        const v = this.value
+        const item = this.unfilteredItems.find((i) => i.name === v)
+        return item ? item.label || item.name : ''
+      }
+    },
+    filteredItems() {
+      if (this.showFilterToggle && !this.filtered) return this.unfilteredItems
+
+      let filteredItems = this.unfilteredItems
+      if (this.editableOnly) {
+        filteredItems = filteredItems.filter((i) => i.editable)
+      }
+      if (this.filterExcludeSemantic) {
+        filteredItems = filteredItems.filter((i) => !i.metadata?.semantics?.value)
+      }
+      if (this.filterSemantic?.length) {
+        filteredItems = this.filterSemanticItems(filteredItems, this.filterSemantic)
+      }
+      if (this.filterGroupType?.length) {
+        const filterGroup = this.filterType?.includes('Group')
+        filteredItems = this.filterGroupItems(filteredItems, this.filterGroupType, filterGroup)
+      } else if (this.filterType?.length) {
+        filteredItems = this.filterItems(filteredItems, this.filterType)
+      }
+      filteredItems.sort((a, b) => {
         const labelA = a.label || a.name
         const labelB = b.label || b.name
         return labelA.localeCompare(labelB)
       })
-      if (this.filterType && this.filterType.length) {
-        if (Array.isArray(this.filterType)) {
-          this.preparedItems = this.preparedItems.filter((i) => this.filterType.includes(i.type.split(':', 1)[0]) || (i.type === 'Group' && this.filterType.includes(i.groupType)))
-        } else {
-          this.preparedItems = this.preparedItems.filter((i) => i.type === this.filterType || (i.type === 'Group' && this.filterType.includes(i.groupType)))
+      return filteredItems
+    }
+  },
+  watch: {
+    value(newVal) {
+      this.selectedValue = this.multiple ? (Array.isArray(newVal) ? [...newVal] : []) : (newVal ?? null)
+    }
+  },
+  async created() {
+    if (!this.items || this.items.length === 0) {
+      const query = {
+        staticDataOnly: 'true'
+      }
+      if (this.filterTag?.length) {
+        query.tags = Array.isArray(this.filterTag) ? this.filterTag.join(',') : this.filterTag
+      }
+      this.unfilteredItems = await api.getItems(query)
+    }
+  },
+  methods: {
+    onPopupOpened() {
+      nextTick(() => {
+        if (this.$device.desktop && this.$refs.searchbar) {
+          this.$refs.searchbar.$el.f7Searchbar.$inputEl[0].focus()
         }
-      }
-      if (this.editableOnly) {
-        this.preparedItems = this.preparedItems.filter((i) => i.editable)
-      }
-      this.ready = true
+      })
     },
-    select (e) {
-      this.$f7.input.validateInputs(this.$refs.smartSelect.$el)
-      const value = this.$refs.smartSelect.f7SmartSelect.getValue()
-      this.$emit('input', value)
-      if (!this.multiple) this.$emit('itemSelected', this.preparedItems.find((i) => i.name === value))
+    _groupTypeMatches(filter, item) {
+      if (filter === item.groupType) return true
+      if (filter.split(':', 1)[0] === item.groupType) return true
+      if (!filter.includes(':') && filter === item.groupType?.split(':', 1)[0]) return true
+      return false
     },
-    updateFromModelPicker (value) {
+    filterGroupItems(items, filterGroupType, filterGroup) {
+      const filterGroupTypeArray = Array.isArray(filterGroupType) ? filterGroupType : [filterGroupType]
+      const groupsWithoutType = filterGroup ? items.filter((i) => i.type === 'Group' && !i.groupType) : []
+      const groupsWithType = filterGroupTypeArray.flatMap((f) => items.filter((i) => i.type === 'Group' && this._groupTypeMatches(f, i)))
+      return [...groupsWithoutType, ...groupsWithType]
+    },
+    _itemTypeMatches(filter, item) {
+      if (filter === item.type) return true
+      if (filter.split(':', 1)[0] === item.type) return true
+      if (!filter.includes(':') && filter === item.type.split(':', 1)[0]) return true
+      if (item.type === 'Group') {
+        if (filter === item.groupType) return true
+        if (filter.split(':', 1)[0] === item.groupType) return true
+        if (!filter.includes(':') && filter === item.groupType?.split(':', 1)[0]) return true
+      }
+      return false
+    },
+    filterItems(items, filterType) {
+      const filterTypeArray = Array.isArray(filterType) ? filterType : [filterType]
+      return filterTypeArray.flatMap((f) => items.filter((i) => this._itemTypeMatches(f, i)))
+    },
+    filterSemanticItems(items, filterSemantic) {
+      const filterSemanticArray = Array.isArray(filterSemantic) ? filterSemantic : [filterSemantic]
+      return filterSemanticArray.flatMap((f) =>
+        items.filter((i) => i.metadata?.semantics?.value?.includes(f) || i.metadata?.semantics?.config?.relatesTo?.includes(f))
+      )
+    },
+    openPopup() {
+      this.popupOpen = true
+    },
+    closePopup() {
+      this.popupOpen = false
+    },
+    selectItem(item) {
       if (this.multiple) {
-        this.$emit('input', value.map((i) => i.name))
+        const idx = this.selectedValue.indexOf(item.name)
+        if (idx >= 0) this.selectedValue.splice(idx, 1)
+        else this.selectedValue.push(item.name)
+        this.$emit('input', this.selectedValue)
+      } else {
+        this.selectedValue = item ? item.name : null
+        this.closePopup()
+        this.$emit('input', this.selectedValue)
+        this.$emit('item-selected', item)
+      }
+    },
+    updateFromModelPicker(value) {
+      if (this.multiple) {
+        this.$emit(
+          'input',
+          value.map((i) => i.name)
+        )
       } else {
         this.$emit('input', value.name)
-        this.$emit('itemSelected', value)
+        this.$emit('item-selected', value)
       }
-      this.ready = false
-      this.$nextTick(() => { this.ready = true })
     },
-    pickFromModel (evt) {
-      evt.cancelBubble = true
+    pickFromModel(evt) {
       const popup = {
         component: ModelPickerPopup
       }
 
-      this.$f7router.navigate({
-        url: 'pick-from-model',
-        route: {
-          path: 'pick-from-model',
-          popup
+      f7.views.main.router.navigate(
+        {
+          url: 'pick-from-model',
+          route: {
+            path: 'pick-from-model',
+            popup
+          }
+        },
+        {
+          props: {
+            value: this.value,
+            multiple: this.multiple,
+            allowEmpty: true,
+            popupTitle: this.label,
+            groupsOnly: this.filterType && this.filterType === 'Group',
+            editableOnly: this.editableOnly
+          }
         }
-      }, {
-        props: {
-          value: this.value,
-          multiple: this.multiple,
-          allowEmpty: true,
-          popupTitle: this.title,
-          groupsOnly: this.filterType && this.filterType === 'Group',
-          editableOnly: this.editableOnly
-        }
-      })
+      )
 
-      this.$f7.once('itemsPicked', this.updateFromModelPicker)
-      this.$f7.once('modelPickerClosed', () => {
-        this.$f7.off('itemsPicked', this.updateFromModelPicker)
+      f7.once('itemsPicked', this.updateFromModelPicker)
+      f7.once('modelPickerClosed', () => {
+        f7.off('itemsPicked', this.updateFromModelPicker)
       })
     }
   }

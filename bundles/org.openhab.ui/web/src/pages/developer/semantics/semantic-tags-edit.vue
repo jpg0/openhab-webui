@@ -1,0 +1,808 @@
+<template>
+  <f7-page ref="semantic-tags-edit-page" @page:afterin="onPageAfterIn" @page:beforeout="onPageBeforeOut" @page:afterout="onPageAfterOut">
+    <f7-navbar no-hairline>
+      <oh-nav-content
+        :title="'Semantic Tags' + dirtyIndicator"
+        back-link="Developer Tools"
+        back-link-url="/developer/"
+        :save-link="`Save${$device.desktop ? ' (Ctrl-S)' : ''}`"
+        @save="save()"
+        :f7router />
+    </f7-navbar>
+    <f7-toolbar tabbar position="top" class="semantics-editor-tabbar">
+      <f7-link @click="switchTab('tree', switchTabTree)" :tab-link-active="currentTab === 'tree'"> Design </f7-link>
+      <f7-link @click="switchTab('code', switchTabCode)" :tab-link-active="currentTab === 'code'"> Code </f7-link>
+    </f7-toolbar>
+    <f7-toolbar v-if="currentTab === 'tree'" bottom class="toolbar-details">
+      <f7-link class="left" :class="{ disabled: selectedTag == null }" @click="selectTag(null)"> Clear </f7-link>
+      <div class="padding-left padding-right text-align-center" style="font-size: 12px">
+        <div>
+          <label class="advanced-label">
+            <f7-checkbox v-model:checked="showNames" />
+            Show tag names
+          </label>
+          <label class="advanced-label">
+            <f7-checkbox v-model:checked="showSynonyms" />
+            Show synonyms
+          </label>
+        </div>
+      </div>
+      <div>
+        <!-- needed to keep the 3 elements positioned when this link is not shown -->
+        <f7-link
+          v-if="selectedTag"
+          class="right details-link padding-right"
+          ref="detailsLink"
+          @click="detailsOpened = true"
+          icon-f7="chevron_up" />
+      </div>
+    </f7-toolbar>
+    <f7-tabs class="semantics-editor-tabs">
+      <f7-tab class="design" id="tree" :tab-active="currentTab === 'tree'">
+        <f7-block v-if="!ready" class="text-align-center">
+          <f7-preloader />
+          <div>Loading...</div>
+        </f7-block>
+        <f7-block v-else class="semantics-tree-wrapper no-margin-top" :class="{ 'sheet-opened': detailsOpened }">
+          <f7-row v-if="currentTab === 'tree'">
+            <!-- do not set column width as usual, instead use custom CSS because of https://github.com/openhab/openhab-webui/issues/2574 -->
+            <f7-col>
+              <f7-subnavbar v-show="semanticTags.length" :inner="false" style="position: sticky; top: 0px">
+                <f7-searchbar
+                  style="width: 100%"
+                  search-container=".semantics-treeview"
+                  search-item=".treeview-item"
+                  search-in=".treeview-item-label"
+                  :disable-button="!theme.aurora"
+                  @input="showFiltered($event.target.value)" />
+                <div class="model-expand-button">
+                  <f7-button
+                    v-if="!expanded"
+                    icon-size="24"
+                    tooltip="Expand"
+                    icon-f7="rectangle_expand_vertical"
+                    @click="toggleExpanded()" />
+                  <f7-button
+                    v-else
+                    color="gray"
+                    icon-size="24"
+                    tooltip="Collapse"
+                    icon-f7="rectangle_compress_vertical"
+                    @click="toggleExpanded()" />
+                </div>
+              </f7-subnavbar>
+              <f7-block v-show="semanticTags.length" class="semantics-tree" no-gap @click="clearSelection">
+                <semantics-treeview
+                  :semanticTags="semanticTags"
+                  :expandedTags="expandedTags"
+                  @selected="selectTag"
+                  :showNames="showNames"
+                  :showSynonyms="showSynonyms"
+                  :selectedTag="selectedTag"
+                  :canDragDrop="true" />
+              </f7-block>
+            </f7-col>
+            <f7-col class="details-pane">
+              <f7-block v-if="!selectedTag" no-gap>
+                <div class="padding text-align-center">Nothing selected</div>
+              </f7-block>
+              <f7-block v-else>
+                <f7-card style="tag-detail">
+                  <f7-card-content>
+                    <f7-list class="tag-detail" inline-labels>
+                      <f7-list-input
+                        label="Name"
+                        :value="selectedTag.name"
+                        :disabled="!selectedTag.editable ? true : null"
+                        :clear-button="selectedTag.editable"
+                        placeholder="name"
+                        required
+                        validate
+                        pattern="^[A-Z][A-Za-z0-9]*$"
+                        error-message="Required. A-Z,a-z,0-9 only, and must start with A-Z"
+                        @input="updateName($event)">
+                        <template #inner-end>
+                          <f7-icon v-if="!selectedTag.editable" f7="lock" ios="f7:lock" md="material:lock" color="gray" />
+                        </template>
+                      </f7-list-input>
+                      <f7-list-input
+                        label="Label"
+                        :value="selectedTag.label"
+                        :disabled="!selectedTag.editable ? true : null"
+                        :clear-button="selectedTag.editable"
+                        placeholder="label"
+                        required
+                        @input="($event) => (selectedTag.label = $event.target.value)" />
+                      <f7-list-input
+                        label="Description"
+                        :value="selectedTag.description"
+                        type="textarea"
+                        resizable
+                        :disabled="!selectedTag.editable ? true : null"
+                        :clear-button="selectedTag.editable"
+                        placeholder="description"
+                        @input="($event) => (selectedTag.description = $event.target.value)" />
+                    </f7-list>
+                  </f7-card-content>
+                  <f7-card-footer v-if="selectedTag.editable">
+                    <f7-button color="red" @click="removeTag"> Remove </f7-button>
+                  </f7-card-footer>
+                </f7-card>
+                <div><f7-block-title>Synonyms</f7-block-title></div>
+                <f7-card style="tag-detail">
+                  <f7-card-content>
+                    <f7-list class="synonyms">
+                      <f7-list-input
+                        v-for="(synonym, index) in selectedTag.synonyms"
+                        :key="index"
+                        :value="synonym"
+                        :disabled="!selectedTag.editable"
+                        :clear-button="selectedTag.editable"
+                        placeholder="synonym"
+                        @change="updateSynonym($event, index)" />
+                      <f7-list-input
+                        :value="newSynonym"
+                        :disabled="!selectedTag.editable"
+                        :clear-button="selectedTag.editable"
+                        placeholder="synonym"
+                        @input="newSynonym = $event.target.value"
+                        @change="addSynonym($event)" />
+                    </f7-list>
+                  </f7-card-content>
+                </f7-card>
+              </f7-block>
+              <f7-block v-if="selectedTag && (selectedTag.editable || selectedTag.defaultTag)">
+                <div><f7-block-title>Add Child Tag</f7-block-title></div>
+                <f7-card>
+                  <f7-card-content>
+                    <f7-list>
+                      <f7-list-button
+                        color="theme-alt"
+                        :title="`Insert ${semanticType(selectedTag.name)} Child Tag in ${selectedTag.name}`"
+                        @click="addTag()" />
+                    </f7-list>
+                  </f7-card-content>
+                </f7-card>
+              </f7-block>
+            </f7-col>
+          </f7-row>
+        </f7-block>
+      </f7-tab>
+      <f7-tab id="code" :tab-active="currentTab === 'code'">
+        <code-editor
+          v-if="ready"
+          ref="codeEditor"
+          object-type="tags"
+          :read-only="editorReadOnly"
+          :read-only-msg="
+            showCodeTags === 'custom'
+              ? 'Showing non-editable tags, switch to editable to edit'
+              : showCodeTags === 'all'
+                ? 'Showing default tags, switch to editable to edit'
+                : ''
+          "
+          :object="codeEditorTags"
+          @parsed="update"
+          @changed="onCodeChanged"
+          @save="save">
+          <template #additional-panel-controls>
+            <f7-segmented class="code-editor-tag-filter">
+              <f7-button
+                outline
+                small
+                :active="showCodeTags === 'editable'"
+                tooltip="Show all editable tags"
+                icon-f7="pencil"
+                icon-md="material:edit"
+                @click="switchCodeTags('editable')">
+                <span class="button-label">Editable</span>
+              </f7-button>
+              <f7-button
+                outline
+                small
+                :active="showCodeTags === 'custom'"
+                tooltip="Show all user defined tags"
+                icon-f7="ellipsis"
+                icon-md="material:more_horiz"
+                @click="switchCodeTags('custom')">
+                <span class="button-label">Custom</span>
+              </f7-button>
+              <f7-button
+                outline
+                small
+                :active="showCodeTags === 'all'"
+                tooltip="Show all tags, including default tags"
+                icon-f7="arrow_left_right"
+                icon-md="f7:arrow_left_right"
+                @click="switchCodeTags('all')">
+                <span class="button-label">All</span>
+              </f7-button>
+            </f7-segmented>
+          </template>
+        </code-editor>
+      </f7-tab>
+    </f7-tabs>
+
+    <template #fixed>
+      <f7-fab v-if="currentTab === 'tree'" class="add-to-semantics-fab" position="right-center" color="theme-alt" @click="addTag()">
+        <f7-icon ios="f7:plus" md="material:add" aurora="f7:plus" />
+        <f7-icon ios="f7:multiply" md="material:close" aurora="f7:multiply" />
+      </f7-fab>
+    </template>
+    <f7-sheet
+      v-if="currentTab === 'tree'"
+      class="semantics-details-sheet"
+      ref="details-sheet"
+      :backdrop="false"
+      :close-on-escape="true"
+      :opened="detailsOpened"
+      @sheet:closed="detailsOpened = false">
+      <f7-page>
+        <f7-toolbar tabbar bottom scrollable>
+          <div class="left">
+            <f7-link sheet-close class="padding-right">
+              <f7-icon f7="chevron_down" />
+            </f7-link>
+          </div>
+          <f7-link class="padding-left padding-right" :tab-link-active="detailsTab === 'tag'" @click="detailsTab = 'tag'"> Tag </f7-link>
+          <f7-link class="padding-left padding-right" :tab-link-active="detailsTab === 'synonyms'" @click="detailsTab = 'synonyms'">
+            Synonyms
+          </f7-link>
+        </f7-toolbar>
+        <f7-block v-if="selectedTag && detailsTab === 'tag'" style="margin-bottom: 6rem">
+          <f7-list class="tag-detail" inline-labels>
+            <f7-list-input
+              label="Name"
+              :value="selectedTag.name"
+              :disabled="!selectedTag.editable ? true : null"
+              :clear-button="selectedTag.editable"
+              placeholder="name"
+              validate
+              pattern="^[A-Za-z][A-Za-z0-9\-]*$"
+              error-message="Required. A-Z,a-z,0-9,- only"
+              @input="updateName($event)" />
+            <f7-list-input
+              label="Label"
+              :value="selectedTag.label"
+              :disabled="!selectedTag.editable ? true : null"
+              :clear-button="selectedTag.editable"
+              placeholder="label"
+              @input="($event) => (selectedTag.label = $event.target.value)" />
+            <f7-list-input
+              label="Description"
+              :value="selectedTag.description"
+              type="textarea"
+              resizable
+              :disabled="!selectedTag.editable ? true : null"
+              :clear-button="selectedTag.editable"
+              placeholder="description"
+              @input="($event) => (selectedTag.description = $event.target.value)" />
+          </f7-list>
+          <f7-button v-if="selectedTag.editable" color="red" @click="removeTag"> Remove </f7-button>
+        </f7-block>
+        <f7-block v-if="selectedTag && detailsTab === 'synonyms'" style="margin-bottom: 6rem">
+          <f7-list class="synonyms">
+            <f7-list-input
+              v-for="(synonym, index) in selectedTag.synonyms"
+              :key="index"
+              :value="synonym"
+              :disabled="!selectedTag.editable ? true : null"
+              :clear-button="selectedTag.editable"
+              placeholder="synonym"
+              @change="updateSynonym($event, index)" />
+            <f7-list-input
+              :value="newSynonym"
+              :disabled="!selectedTag.editable ? true : null"
+              :clear-button="selectedTag.editable"
+              placeholder="synonym"
+              @change="addSynonym($event)" />
+          </f7-list>
+        </f7-block>
+      </f7-page>
+    </f7-sheet>
+  </f7-page>
+</template>
+
+<style lang="stylus">
+.tag-detail
+  .item-inner:after
+    height 0 !important /* remove all lines between params */
+  .additional-controls:before
+    display block !important
+#additional:before
+  display block !important /* need two selectors to override the important Vue card css */
+
+.semantics-editor-tabs
+  height calc(100%)
+  overflow hidden
+  --f7-page-navbar-offset 0
+  margin-left var(--f7-safe-area-left)
+  margin-right var(--f7-safe-area-right)
+  .tab
+    height 100%
+  .design
+    --f7-grid-gap 0px
+    overflow auto
+    --f7-safe-area-left 0
+    --f7-safe-area-right 0
+
+.semantics-editor-tabbar
+  .link
+    border-bottom 2px solid transparent
+  .link.tab-link-active
+    border-bottom-color var(--f7-tabbar-link-active-border-color)
+
+.semantics-tree-wrapper
+  padding 0
+  margin-bottom 0
+  .subnavbar
+    height unset
+
+.semantics-tree
+  padding 0
+  --f7-theme-color var(--oh-theme-alt-color)
+  --f7-theme-color-rgb var(--oh-theme-alt-color-rgb)
+  .treeview
+    --f7-treeview-item-height 40px
+    .treeview-item-label
+      font-size 11pt
+      white-space nowrap
+      overflow-x hidden
+    .subtitle
+      font-size 9pt
+      color var(--f7-list-item-footer-text-color)
+.semantics-details-sheet
+  .toolbar
+    --f7-theme-color var(--oh-theme-alt-color)
+    --f7-theme-color-rgb var(--oh-theme-alt-color-rgb)
+  z-index 10900
+.md .semantics-details-sheet .toolbar .link
+  width 35%
+
+@media (min-width: 768px)
+  .semantics-tree-wrapper
+    height 100%
+    .row
+      height 100%
+      .col
+        width 50% /* manually set column width because of https://github.com/openhab/openhab-webui/issues/2574 */
+        height 100%
+        overflow auto
+        border-right 1px solid var(--f7-block-strong-border-color)
+        .semantics-tree
+          margin 0
+          height auto
+      .details-pane
+        padding-top 0
+        .block
+          margin-top 0
+  .semantics-details-sheet
+    visibility hidden !important
+  .toolbar-details
+    .details-link
+      visibility hidden !important
+  .add-to-semantics-fab
+    visibility hidden !important
+
+@media (max-width: 767px)
+  .details-pane
+    display none
+  .semantics-tree-wrapper.sheet-opened
+    margin-bottom var(--f7-sheet-height)
+  .semantics-details-sheet
+    height calc(0.8*var(--f7-sheet-height))
+
+@media (min-width: 450px)
+  .code-editor-toolbar .code-editor-tag-filter
+    .button .icon
+      display none
+@media (min-width: 768px)
+  .code-editor-toolbar .code-editor-tag-filter
+    .button .icon
+      display inherit
+</style>
+
+<script>
+import { nextTick, defineAsyncComponent } from 'vue'
+import { f7, theme } from 'framework7-vue'
+import { mapStores } from 'pinia'
+
+import fastDeepEqual from 'fast-deep-equal/es6'
+import SemanticsTreeview from '@/components/tags/semantics-treeview.vue'
+import TagMixin from '@/components/tags/tag-mixin'
+import { useDirty } from '@/pages/useDirty'
+import { useTabs } from '@/pages/useTabs'
+
+import { i18n } from '@/js/i18n'
+
+import { useSemanticsStore } from '@/js/stores/useSemanticsStore'
+import { showToast, showAlertDialog } from '@/js/dialog-promises'
+
+export default {
+  mixins: [TagMixin],
+  components: {
+    SemanticsTreeview,
+    CodeEditor: defineAsyncComponent(() => import(/* webpackChunkName: "code-editor" */ '@/components/config/controls/code-editor.vue'))
+  },
+  props: {
+    f7router: Object
+  },
+  setup() {
+    const { currentTab, switchTab } = useTabs('tree')
+    const { dirty, dirtyIndicator, setupDirtyWatch } = useDirty('semantic-tags-edit-page')
+    return {
+      theme,
+      dirty,
+      dirtyIndicator,
+      setupDirtyWatch,
+      currentTab,
+      switchTab
+    }
+  },
+  data() {
+    return {
+      semanticTags: [],
+      selectedTagUid: null,
+      expandedTags: {},
+      newSynonym: '',
+      detailsTab: 'tag',
+      detailsOpened: false,
+      loading: false,
+      showNames: false,
+      showSynonyms: false,
+      expanded: false,
+      filtering: false,
+      expandedBeforeFiltering: false,
+      ready: false,
+      tagsDirty: false,
+      codeDirty: false,
+      showCodeTags: 'editable'
+    }
+  },
+  computed: {
+    ...mapStores(useSemanticsStore),
+    selectedTag() {
+      return this.semanticTags.find((t) => t.uid === this.selectedTagUid) || null
+    },
+    editableTags() {
+      return this.semanticTags.filter((t) => t.editable).sort((a, b) => a.uid.localeCompare(b.uid))
+    },
+    customTags() {
+      return this.semanticTags.filter((t) => !t.defaultTag)
+    },
+    codeTagsToShow() {
+      if (this.showCodeTags === 'all') return this.semanticTags
+      if (this.showCodeTags === 'custom') return this.customTags
+      if (this.showCodeTags === 'editable') return this.editableTags
+      return []
+    },
+    codeEditorTags() {
+      return this.codeTagsToShow
+        .map((t) => {
+          const uid = (t.parent ? t.parent + '_' : '') + t.name
+          return {
+            uid: uid,
+            label: t.label,
+            description: t.description,
+            synonyms: [...t.synonyms]
+          }
+        })
+        .sort((a, b) => a.uid.localeCompare(b.uid))
+    },
+    editorReadOnly() {
+      if (this.showCodeTags === 'editable') return false
+      return this.codeTagsToShow.some((t) => !t.editable)
+    }
+  },
+  watch: {
+    'semanticsStore.ready': {
+      handler: function (newValue, oldValue) {
+        if (newValue) {
+          this.load()
+        }
+      },
+      immediate: true
+    },
+    currentTab(newTab, oldTab) {
+      if (oldTab === 'tree') {
+        this.$refs.detailsSheet?.$el?.f7Modal?.close?.()
+      }
+    }
+  },
+  methods: {
+    onPageAfterIn() {
+      if (window) {
+        window.addEventListener('keydown', this.keyDown)
+      }
+      this.setupDirtyWatch(() => this.editableTags)
+    },
+    onPageBeforeOut() {
+      if (window) {
+        window.removeEventListener('keydown', this.keyDown)
+      }
+      this.detailsOpened = false
+    },
+    onPageAfterOut() {
+      if (this.dirty) {
+        useSemanticsStore().loadSemantics(i18n)
+      }
+    },
+    keyDown(ev) {
+      if (ev.keyCode === 83 && (ev.ctrlKey || ev.metaKey) && !(ev.altKey || ev.shiftKey)) {
+        this.save()
+        ev.stopPropagation()
+        ev.preventDefault()
+      }
+    },
+    async switchTabTree() {
+      if (!this.codeDirty) return true
+
+      // Delay switching to the tree tab until parsing succeeds.
+      return new Promise((resolve) => {
+        this.$refs.codeEditor.parseCode(
+          () => {
+            resolve(true)
+          },
+          () => {
+            resolve(false)
+          },
+          { emitAll: true }
+        )
+      })
+    },
+    switchTabCode() {
+      // Switching to code tab: set immediately, then generate
+      this.codeDirty = false
+      nextTick(() => {
+        this.$refs.codeEditor?.generateCode?.()
+      })
+    },
+    switchCodeTags(showCodeTags) {
+      if (this.showCodeTags === showCodeTags) return
+
+      if (!this.codeDirty) {
+        this.showCodeTags = showCodeTags
+        this.$nextTick(() => {
+          this.$refs.codeEditor?.generateCode?.()
+        })
+      } else {
+        this.codeDirty = false
+        this.$refs.codeEditor?.parseCode(
+          () => {
+            this.showCodeTags = showCodeTags
+            this.$nextTick(() => {
+              this.$refs.codeEditor?.generateCode?.()
+            })
+          },
+          undefined,
+          { emitAll: true }
+        )
+      }
+    },
+    load() {
+      if (this.loading) return
+      this.loading = true
+
+      const tags = useSemanticsStore().Tags.map((t) => {
+        return {
+          uid: t.uid,
+          name: t.name,
+          label: useSemanticsStore().Labels[t.name],
+          description: t.description,
+          synonyms: [...useSemanticsStore().Synonyms[t.name]],
+          editable: t.editable,
+          defaultTag: !!t.defaultTag,
+          parent: t.parent
+        }
+      })
+      this.semanticTags = tags
+      this.$nextTick(() => {
+        this.tagsDirty = this.codeDirty = false
+        this.dirty = false
+        this.loading = false
+        this.ready = true
+      })
+    },
+    async save() {
+      if (this.currentTab === 'code' && this.codeDirty) {
+        const parsedSuccessfully = await new Promise((resolve) => {
+          this.$refs.codeEditor.parseCode(
+            () => {
+              resolve(true)
+            },
+            () => {
+              showAlertDialog('Error parsing YAML, cannot save')
+              resolve(false)
+            },
+            { emitAll: true }
+          )
+        })
+
+        if (!parsedSuccessfully) {
+          return
+        }
+
+        await this.$nextTick()
+      }
+      if (!this.dirty) return
+
+      const addedTags = this.editableTags.filter((t) => !useSemanticsStore().Tags.find((c) => c.uid === t.uid))
+      const modifiedTags = this.editableTags.filter((t) => useSemanticsStore().Tags.find((c) => c.uid === t.uid && !fastDeepEqual(c, t)))
+      const removedTags = useSemanticsStore().Tags.filter((c) => !this.semanticTags.find((t) => t.uid === c.uid))
+      console.debug('Added: ', addedTags, 'Removed: ', removedTags, 'Modified: ', modifiedTags)
+
+      if (
+        addedTags.some((t) => {
+          if (!t.name || !t.label || modifiedTags.some((t) => !t.name || !t.label)) {
+            showAlertDialog(`${t.name}: Tag name and label required`)
+            return true
+          }
+          if (useSemanticsStore().Tags.find((c) => c.name === t.name) && !removedTags.find((r) => r.name === t.name)) {
+            showAlertDialog(`${t.name}: Tag names must be unique`)
+            return true
+          }
+          return false
+        })
+      ) {
+        return
+      }
+
+      const addTasks = addedTags.map((t) => () => this.$oh.api.post('/rest/tags', t))
+      const changeTasks = modifiedTags.map((t) => () => this.$oh.api.put('/rest/tags/' + t.uid, t))
+      const removeTasks = removedTags.map((t) => () => this.$oh.api.delete('/rest/tags/' + t.uid))
+      if (addTasks.length <= 0 && changeTasks.length <= 0 && removeTasks.length <= 0) {
+        this.tagsDirty = this.codeDirty = false
+        this.dirty = false
+        return
+      }
+
+      try {
+        if (removeTasks.length > 0) {
+          // Remove first as moving a tag will keep name but change uid.
+          // So need to use the post endpoint with the new uid, but this is refused if the name is still the same and not first deleted.
+          await Promise.all(removeTasks.map((fn) => fn()))
+          console.debug('Successfully removed tags')
+          showToast((removeTasks.length === 1 ? 'Tag' : 'Tags') + ' deleted')
+        }
+        if (addTasks.length > 0) {
+          await Promise.all(addTasks.map((fn) => fn()))
+          console.debug('Successfully added tags')
+          showToast((addTasks.length === 1 ? 'Tag' : 'Tags') + ' added')
+        }
+        if (changeTasks.length > 0) {
+          await Promise.all(changeTasks.map((fn) => fn()))
+          console.debug('Successfully modified tags')
+          showToast((changeTasks.length === 1 ? 'Tag' : 'Tags') + ' modified')
+        }
+        await useSemanticsStore().loadSemantics(i18n)
+        this.load()
+      } catch (error) {
+        console.error(error)
+        showAlertDialog('Error saving: ' + error)
+      }
+    },
+    toggleExpanded() {
+      this.expanded = !this.expanded
+      this.semanticTags.forEach((t) => {
+        this.expandedTags[t.uid] = this.expanded
+      })
+      this.expandToSelection()
+    },
+    expandToSelection() {
+      this.selectedTag?.parent?.split('_').reduce((prev, p) => {
+        const parent = (prev ? prev + '_' : '') + p
+        this.expandedTags[parent] = true
+        return parent
+      }, '')
+    },
+    showFiltered(filter) {
+      if (filter) {
+        if (!this.filtering) {
+          this.filtering = true
+          this.selectTag(null)
+          this.expandedBeforeFiltering = this.expanded
+          if (!this.expanded) {
+            this.toggleExpanded()
+          }
+        }
+      } else if (this.filtering) {
+        this.filtering = false
+        if (this.expanded && !this.expandedBeforeFiltering) {
+          this.toggleExpanded()
+        }
+      }
+    },
+    selectTag(tag) {
+      if (this.selectedTagUid === tag?.uid) return
+      if (!tag) {
+        this.selectedTagUid = null
+        this.detailsOpened = false
+        return
+      }
+      this.$nextTick(() => {
+        this.selectedTagUid = tag.uid
+        this.detailsTab = 'tag'
+        this.$nextTick(() => {
+          const detailsLink = this.$refs.detailsLink
+          if (detailsLink?.$el) {
+            const visibility = window.getComputedStyle(detailsLink.$el).visibility
+            if (!visibility || visibility !== 'hidden') {
+              this.detailsOpened = true
+            }
+          }
+        })
+      })
+    },
+    addTag() {
+      if (!this.selectedTag) return
+      const tag = {
+        uid: this.selectedTag.uid + '_',
+        name: '',
+        label: '',
+        description: '',
+        parent: this.selectedTag.uid,
+        editable: true,
+        synonyms: []
+      }
+      this.semanticTags.splice(this.semanticTags.length, 0, tag)
+      this.selectTag(tag)
+      this.expandedTags[tag.parent] = true
+      this.detailsTab = 'tag'
+    },
+    removeTag() {
+      if (!this.selectedTag) return
+      this.semanticTags.splice(this.semanticTags.indexOf(this.selectedTag), 1)
+      this.selectTag(null)
+    },
+    updateName(ev) {
+      const name = ev.target.value
+      const tag = this.selectedTag
+      tag.name = name
+      const oldUid = tag.uid
+      const newUid = tag.parent + '_' + name
+      tag.uid = newUid
+      this.selectedTagUid = newUid
+      this.expandedTags[newUid] = this.expandedTags[oldUid]
+    },
+    addSynonym(event) {
+      const newValue = event.target.value.trim()
+      if (newValue && !this.selectedTag.synonyms.includes(newValue)) {
+        this.selectedTag.synonyms.splice(this.selectedTag.synonyms.length, 0, newValue)
+      }
+      this.newSynonym = ''
+    },
+    updateSynonym(event, index) {
+      const newValue = event.target.value.trim()
+      if (newValue) {
+        this.selectedTag.synonyms.splice(index, 1, newValue)
+      } else {
+        this.selectedTag.synonyms.splice(index, 1)
+      }
+    },
+    clearSelection(ev) {
+      if (ev.target && ev.currentTarget && ev.target === ev.currentTarget) {
+        this.selectTag(null)
+      }
+    },
+    update(value) {
+      if (this.editorReadOnly) return
+
+      const tags = [...this.semanticTags].filter((t) => !t.editable)
+      const updatedTags = value.map((t) => {
+        const tag = t
+        tag.name = tag.uid.split('_').slice(-1)[0]
+        tag.parent = tag.uid.split('_').slice(0, -1).join('_')
+        tag.editable = true
+        tag.defaultTag = false
+        return tag
+      })
+      tags.push(...updatedTags)
+      this.semanticTags = tags
+    },
+    onCodeChanged(codeDirty) {
+      this.dirty = this.tagsDirty || codeDirty
+      this.codeDirty = codeDirty
+    }
+  }
+}
+</script>

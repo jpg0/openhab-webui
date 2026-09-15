@@ -1,0 +1,47 @@
+<template>
+  <ul>
+    <f7-list-input
+      class="parameter-datetime"
+      ref="input"
+      type="datetime-local"
+      :step="step"
+      :floating-label="theme.md"
+      :label="configDescription.label"
+      :name="configDescription.name"
+      :value="value"
+      :required="configDescription.required"
+      validate
+      @input="updateValue" />
+  </ul>
+</template>
+
+<style lang="stylus">
+.parameter-datetime
+  input[type="datetime-local"]
+    max-width 100% !important
+</style>
+
+<script>
+import { theme } from 'framework7-vue'
+
+export default {
+  props: {
+    configDescription: Object,
+    value: String
+  },
+  emits: ['input'],
+  setup() {
+    return { theme }
+  },
+  computed: {
+    step() {
+      return this.configDescription.step || this.configDescription.stepsize || 60
+    }
+  },
+  methods: {
+    updateValue(event) {
+      this.$emit('input', event.target.value)
+    }
+  }
+}
+</script>

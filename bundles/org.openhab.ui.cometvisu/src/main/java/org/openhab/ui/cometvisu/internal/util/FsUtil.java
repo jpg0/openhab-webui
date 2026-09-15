@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2024 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2026 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -113,9 +113,12 @@ public class FsUtil {
     }
 
     public void saveFile(File file, InputStream fileInputStream, String hash) throws FileOperationException {
-        File parentDir = new File(file.getParent());
-        if (!parentDir.exists()) {
-            parentDir.mkdirs();
+        String parent = file.getParent();
+        if (parent != null) {
+            File parentDir = new File(parent);
+            if (!parentDir.exists()) {
+                parentDir.mkdirs();
+            }
         }
         // check hash
         try {

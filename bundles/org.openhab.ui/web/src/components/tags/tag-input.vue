@@ -1,13 +1,17 @@
 <template>
-  <div v-if="item && item.tags" class="tag-editor">
+  <group-box v-if="item && item.tags" class="tag-editor">
     <f7-list>
       <f7-list-item :title="title || 'Tags'" :badge="tags.length.toString()" />
       <f7-list-item v-if="tags.length > 0">
-        <div slot="inner">
-          <f7-chip v-for="tag in tags" :key="tag" :text="tag" :deleteable="!disabled" @delete="deleteTag" media-bg-color="blue">
-            <f7-icon slot="media" ios="f7:tag_fill" md="material:label" aurora="f7:tag_fill" />
-          </f7-chip>
-        </div>
+        <template #inner>
+          <div>
+            <f7-chip v-for="tag in tags" :key="tag" :text="tag" :deleteable="!disabled" @delete="deleteTag" media-bg-color="theme-alt">
+              <template #media>
+                <f7-icon ios="f7:tag_fill" md="material:label" aurora="f7:tag_fill" />
+              </template>
+            </f7-chip>
+          </div>
+        </template>
       </f7-list-item>
     </f7-list>
     <f7-list>
@@ -17,56 +21,76 @@
         placeholder="Add tag"
         :value="pendingTag"
         @input="pendingTag = $event.target.value"
-        @blur="addTag()"
-        @keyPressed.native="keyPressed"
         :input="false"
         class="add-tag-input">
-        <input slot="input" type="text" placeholder="Add tag" @keypress="keyPressed">
+        <template #input>
+          <input type="text" placeholder="Add tag" @keyup="keyUp" @blur="addTag" />
+        </template>
       </f7-list-input>
     </f7-list>
-  </div>
+  </group-box>
 </template>
 
 <script>
+import { f7 } from 'framework7-vue'
+
 import TagMixin from '@/components/tags/tag-mixin'
 
 export default {
   mixins: [TagMixin],
-  props: ['item', 'disabled', 'inScriptEditor', 'inSceneEditor', 'showSemanticTags', 'title'],
-  data () {
+  props: {
+    item: Object,
+    disabled: Boolean,
+    inScriptEditor: Boolean,
+    inSceneEditor: Boolean,
+    showSemanticTags: Boolean,
+    title: String
+  },
+  data() {
     return {
       pendingTag: ''
     }
   },
   computed: {
-    tags () {
-      return this.item.tags.filter((t) => (this.showSemanticTags ? true : !this.isSemanticTag(t)) && !this.isScriptTag(t) && !this.isSceneTag(t))
+    tags() {
+      return this.item.tags.filter(
+        (t) => (this.showSemanticTags ? true : !this.isSemanticTag(t)) && !this.isScriptTag(t) && !this.isSceneTag(t)
+      )
     }
   },
   methods: {
-    isScriptTag (tag) {
+    isScriptTag(tag) {
       if (this.inScriptEditor !== true) return false
       if (tag === 'Script') return true
     },
-    isSceneTag (tag) {
+    isSceneTag(tag) {
       if (this.inSceneEditor !== true) return false
       if (tag === 'Scene') return true
     },
-    addTag () {
-      if (this.pendingTag && this.item.tags.indexOf(this.pendingTag) === -1) {
-        this.item.tags.push(this.pendingTag)
-      }
+    addTag(evt) {
+      const newTag = this.pendingTag
       this.pendingTag = ''
+      // Block adding of Scene or Script tags in the wrong editor
+      // Adding them would otherwise lead to a situation where the rule/scene/script is not visible in the UI
+      if ((!this.inScriptEditor && newTag === 'Script') || (!this.inSceneEditor && newTag === 'Scene')) {
+        return
+      }
+      if (newTag && this.item.tags.indexOf(newTag) === -1) {
+        if (!this.showSemanticTags && this.isSemanticTag(newTag)) {
+          f7.dialog.alert(`The tag '${newTag}' is a semantic tag. A semantic tag cannot be added here.`, 'Cannot add tag')
+          return
+        }
+        this.item.tags.push(newTag)
+      }
+      evt.target.value = ''
     },
-    keyPressed (evt) {
+    keyUp(evt) {
       this.pendingTag = evt.target.value
-      if (evt.code === 'Enter') {
-        this.addTag()
-        evt.target.value = ''
-        this.pendingTag = ''
+      if (evt.key === 'Enter') {
+        this.addTag(evt)
       }
     },
-    deleteTag (ev) {
+    deleteTag(ev) {
       let tag = ev.target.previousSibling.innerText
       if (tag === 'tag_fill') tag = ''
       if (this.item.tags.indexOf(tag) >= 0) {

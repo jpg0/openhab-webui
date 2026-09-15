@@ -1,78 +1,81 @@
 <template>
   <ul>
     <f7-list-input
-      :floating-label="$theme.md"
+      ref="input"
+      :floating-label="theme.md"
       :label="configDescription.label"
       :name="configDescription.name"
       :value="value"
-      :required="configDescription.required" validate
+      :required="configDescription.required"
+      validate
       :clear-button="!configDescription.required"
-      @input="(evt) => updateValue(evt.target.value)"
-      :error-message-force="exprError"
+      @input="updateValue($event.target.value)"
       type="text">
-      <div class="padding-left" slot="content-end">
-        <f7-button slot="content-end" @click="openPopup">
-          <f7-icon f7="calendar" /> Build
-        </f7-button>
-      </div>
-      <div slot="info">
-        {{ translation }}
-      </div>
+      <template #content-end>
+        <div class="padding-left">
+          <f7-button @click="openPopup"> <f7-icon f7="calendar" /> Build </f7-button>
+        </div>
+      </template>
+      <template #info>
+        <div>
+          {{ translation }}
+        </div>
+      </template>
     </f7-list-input>
+
+    <teleport to="body">
+      <cronexpression-editor v-if="popupOpen" :model-value="value" @update:model-value="updateValue" v-model:opened="popupOpen" />
+    </teleport>
   </ul>
 </template>
 
 <script>
-import cronstrue from 'cronstrue'
+import { defineAsyncComponent } from 'vue'
+import { theme } from 'framework7-vue'
+import { toString } from 'cronstrue'
+import { validate } from './cronexpression-editor.utils'
 
 export default {
-  props: ['configDescription', 'value'],
-  data () {
-    return {
-    }
+  components: {
+    CronexpressionEditor: defineAsyncComponent(
+      () => import(/* webpackChunkName: "cronexpression-editor" */ '@/components/config/controls/cronexpression-editor.vue')
+    )
   },
-  methods: {
-    updateValue (value) {
-      this.$emit('input', value)
-    },
-    openPopup () {
-      import(/* webpackChunkName: "cronexpression-editor" */ '@/components/config/controls/cronexpression-editor.vue').then((c) => {
-        const popup = {
-          component: c.default
-        }
-
-        this.$f7router.navigate({
-          url: 'cron-edit',
-          route: {
-            path: 'cron-edit',
-            popup
-          }
-        }, {
-          props: {
-            value: this.value
-          }
-        })
-
-        this.$f7.once('cronEditorUpdate', this.updateValue)
-        this.$f7.once('cronEditorClosed', () => {
-          this.$f7.off('cronEditorUpdate', this.updateValue)
-        })
-      })
+  props: {
+    configDescription: Object,
+    value: String
+  },
+  emits: ['input', 'update:value'],
+  setup() {
+    return { theme }
+  },
+  data() {
+    return {
+      popupOpen: false,
+      inputEl: null
     }
   },
   computed: {
-    translation () {
+    translation() {
       try {
-        const ret = cronstrue.toString(this.value, {
-          use24HourTimeFormat: true
-        })
-        return ret
+        return toString(this.value, { use24HourTimeFormat: true })
       } catch (err) {
         return err
       }
+    }
+  },
+  methods: {
+    updateValue(value) {
+      if (!this.inputEl) {
+        this.inputEl = this.$refs.input?.$el?.querySelector('input')
+      }
+      const errorMessage = validate(value)
+      this.inputEl.setCustomValidity(errorMessage)
+      this.$emit('input', value)
+      this.$emit('update:value', value)
     },
-    exprError () {
-      return this.translation.indexOf('Error:') === 0
+    openPopup() {
+      this.popupOpen = true
     }
   }
 }

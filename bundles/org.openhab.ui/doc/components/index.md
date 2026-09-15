@@ -39,6 +39,7 @@ source: https://github.com/openhab/openhab-webui/edit/main/bundles/org.openhab.u
 
 | Component | Name | Description |
 |--------|------|-------------|
+| [`oh-card`](./oh-card.html) |  [Card](./oh-card.html) | The basic structure of all card widgets, providing title and footer and requiring a content slot |
 | [`oh-clock-card`](./oh-clock-card.html) |  [Digital Clock Card](./oh-clock-card.html) | Display a digital clock in a card |
 | [`oh-colorpicker-card`](./oh-colorpicker-card.html) |  [Color Picker Card](./oh-colorpicker-card.html) | Display a color picker in a card |
 | [`oh-gauge-card`](./oh-gauge-card.html) |  [Gauge Card](./oh-gauge-card.html) | Display a read-only gauge in a card to visualize a quantifiable item |
@@ -57,6 +58,8 @@ source: https://github.com/openhab/openhab-webui/edit/main/bundles/org.openhab.u
 | [`oh-video-card`](./oh-video-card.html) |  [Video Card](./oh-video-card.html) | Display a video (URL or URL from String item) in a card |
 | [`oh-webframe-card`](./oh-webframe-card.html) |  [Web Frame Card](./oh-webframe-card.html) | Display a web page in a card |
 
+All cards are based on the [`oh-card`](./oh-card.html) component and share the same config options for modifying the card's appearance.
+Refer to the [`oh-card` Style](./oh-card.html#style) documentation to learn about card styling options.
 
 ## Standard Widget Library (List Items)
 
@@ -128,6 +131,7 @@ source: https://github.com/openhab/openhab-webui/edit/main/bundles/org.openhab.u
 | [`oh-calendar-axis`](./oh-calendar-axis.html) |  [Calendar](./oh-calendar-axis.html) |  |
 | [`oh-data-series`](./oh-data-series.html) |  [Data Series](./oh-data-series.html) |  |
 | [`oh-time-series`](./oh-time-series.html) |  [Time Series](./oh-time-series.html) |  |
+| [`oh-state-series`](./oh-state-series.html) |  [State Series](./oh-state-series.html) |  |
 | [`oh-aggregate-series`](./oh-aggregate-series.html) |  [Aggregate Series](./oh-aggregate-series.html) |  |
 | [`oh-calendar-series`](./oh-calendar-series.html) |  [Calendar Series](./oh-calendar-series.html) |  |
 | [`oh-chart-tooltip`](./oh-chart-tooltip.html) |  [Tooltip](./oh-chart-tooltip.html) |  |

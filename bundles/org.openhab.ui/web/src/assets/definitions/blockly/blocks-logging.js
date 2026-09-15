@@ -1,16 +1,16 @@
 /*
-* Logging functionality for blockly
-* supports jsscripting
-*/
+ * Logging functionality for blockly
+ * supports jsscripting
+ */
 
-import Blockly from 'blockly'
-import { javascriptGenerator } from 'blockly/javascript.js'
+import * as Blockly from 'blockly'
+import { javascriptGenerator } from 'blockly/javascript'
+import { valueToCode } from '@/assets/definitions/blockly/utils.js'
 
-export default function (f7, isGraalJs) {
+export default function (f7) {
   Blockly.Blocks['oh_print'] = {
     init: function () {
-      this.appendValueInput('message')
-        .appendField('print')
+      this.appendValueInput('message').appendField('print')
       this.setPreviousStatement(true, null)
       this.setNextStatement(true, null)
       this.setColour(0)
@@ -20,19 +20,24 @@ export default function (f7, isGraalJs) {
   }
 
   javascriptGenerator.forBlock['oh_print'] = function (block) {
-    const message = javascriptGenerator.valueToCode(block, 'message', javascriptGenerator.ORDER_ATOMIC)
-    if (isGraalJs) {
-      return `console.log(${message});\n`
-    } else {
-      return `print(${message});\n`
-    }
+    const message = valueToCode(block, 'message', javascriptGenerator.ORDER_ATOMIC)
+    return `console.log(${message});\n`
   }
 
   Blockly.Blocks['oh_log'] = {
     init: function () {
       this.appendValueInput('message')
         .appendField('log')
-        .appendField(new Blockly.FieldDropdown([['info', 'info'], ['error', 'error'], ['warn', 'warn'], ['debug', 'debug'], ['trace', 'trace']]), 'severity')
+        .appendField(
+          new Blockly.FieldDropdown([
+            ['info', 'info'],
+            ['error', 'error'],
+            ['warn', 'warn'],
+            ['debug', 'debug'],
+            ['trace', 'trace']
+          ]),
+          'severity'
+        )
       this.setPreviousStatement(true, null)
       this.setNextStatement(true, null)
       this.setColour(0)
@@ -42,15 +47,8 @@ export default function (f7, isGraalJs) {
   }
 
   javascriptGenerator.forBlock['oh_log'] = function (block) {
-    const message = javascriptGenerator.valueToCode(block, 'message', javascriptGenerator.ORDER_ATOMIC)
+    const message = valueToCode(block, 'message', javascriptGenerator.ORDER_ATOMIC)
     const severity = block.getFieldValue('severity')
-    if (isGraalJs) {
-      return `console.${severity}(${message});\n`
-    } else {
-      const logger = javascriptGenerator.provideFunction_(
-        'logger',
-        ['var ' + javascriptGenerator.FUNCTION_NAME_PLACEHOLDER_ + ' = Java.type(\'org.slf4j.LoggerFactory\').getLogger(\'org.openhab.rule.\' + ctx.ruleUID);'])
-      return `${logger}.${severity}(${message});\n`
-    }
+    return `console.${severity}(${message});\n`
   }
 }

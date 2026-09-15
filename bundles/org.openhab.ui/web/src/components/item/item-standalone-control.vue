@@ -6,14 +6,18 @@
 import itemDefaultStandaloneComponent from '@/components/widgets/standard/default-standalone-item'
 
 export default {
-  props: ['item', 'context', 'noBorder'],
-  data () {
+  props: {
+    item: Object,
+    context: Object,
+    noBorder: Boolean
+  },
+  data() {
     return {
       vars: {}
     }
   },
   computed: {
-    widgetContext () {
+    widgetContext() {
       if (!this.item) return
 
       let ctx = {

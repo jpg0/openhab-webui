@@ -1,13 +1,12 @@
 <template>
-  <f7-popup @popup:open="onOpen" @popup:close="onClose">
-    <f7-page class="analyzer-content disable-user-select">
-      <f7-navbar :title="(item) ? item.label || item.name : ''" :back-link="$t('dialogs.back')" />
-
+  <f7-popup @popup:open="onOpen">
+    <f7-page class="group-popup-content disable-user-select">
+      <f7-navbar :title="item ? item.label || item.name : ''" :back-link="$t('dialogs.back')" />
       <div class="group-item-control no-padding no-margin">
-        <generic-widget-component v-if="ready && groupControlContext" :context="groupControlContext" v-on="$listeners" />
+        <generic-widget-component v-if="ready && groupControlContext" v-bind="$attrs" :context="groupControlContext" />
       </div>
 
-      <generic-widget-component v-if="ready" :context="context" v-on="$listeners" />
+      <generic-widget-component v-if="ready" v-bind="$attrs" :context="context" />
     </f7-page>
   </f7-popup>
 </template>
@@ -22,24 +21,29 @@ import itemDefaultStandaloneComponent from '@/components/widgets/standard/defaul
 import itemDefaultListComponent from '@/components/widgets/standard/list/default-list-item'
 import { compareItems } from '@/components/widgets/widget-order'
 
+import { useStatesStore } from '@/js/stores/useStatesStore'
+
 export default {
-  props: ['groupItem'],
-  data () {
+  props: {
+    groupItem: String
+  },
+  data() {
     return {
       item: null
     }
   },
   computed: {
-    context () {
+    context() {
       if (!this.item) return null
 
       if (this.item.members && this.item.members.length > 0) {
         return {
-          store: this.$store.getters.trackedItems,
+          store: useStatesStore().trackedItems,
           component: {
             component: 'oh-list-card',
             config: {
-              mediaList: true
+              mediaList: true,
+              accordionList: true
             },
             slots: {
               default: this.item.members.map((i) => itemDefaultListComponent(i))
@@ -58,12 +62,12 @@ export default {
         }
       } else {
         return {
-          store: this.$store.getters.trackedItems,
+          store: useStatesStore().trackedItems,
           component: itemDefaultStandaloneComponent(this.item)
         }
       }
     },
-    groupControlContext () {
+    groupControlContext() {
       if (!this.item || !this.item.groupType || this.item.groupType === '') return null
 
       // make a fake item of the group's base type to build the standalone widget for the group
@@ -72,22 +76,19 @@ export default {
       itemAsBaseType.groupType = undefined
 
       return {
-        store: this.$store.getters.trackedItems,
+        store: useStatesStore().trackedItems,
         component: itemDefaultStandaloneComponent(itemAsBaseType)
       }
     },
-    ready () {
+    ready() {
       return this.context !== null
     }
   },
   methods: {
-    onOpen () {
+    onOpen() {
       this.load()
     },
-    onClose () {
-
-    },
-    load () {
+    load() {
       this.$oh.api.get(`/rest/items/${this.groupItem}?metadata=semantics,widget,listWidget,widgetOrder`).then((data) => {
         this.item = data
         // array is sorted in-place

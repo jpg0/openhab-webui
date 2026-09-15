@@ -1,29 +1,53 @@
 <template>
   <div :style="pageStyle">
-    <div class="hint-apps" v-if="!overviewPage && !$store.getters.user && !showHABot">
-      <p><em><f7-icon class="float-right margin-left margin-bottom" f7="arrow_turn_right_up" size="20" />{{ $t('home.tip.otherApps') }}</em></p>
+    <div v-if="!overviewPage && !userStore.user && !showHABot" class="hint-apps">
+      <p>
+        <em>
+          <f7-icon class="float-right margin-left margin-bottom" f7="arrow_turn_right_up" size="20" />{{ $t('home.tip.otherApps') }}
+        </em>
+      </p>
     </div>
-    <f7-block class="block-narrow">
-      <habot v-if="showHABot" @session-started="inChatSession = true" @session-end="inChatSession = false" />
+    <f7-block v-if="showHABot" class="block-narrow">
+      <habot @session-started="inChatSession = true" @session-end="inChatSession = false" />
     </f7-block>
 
-    <f7-block v-if="!$store" class="text-align-center">
+    <f7-block v-if="!ready" class="text-align-center">
       <f7-preloader />
       <div>Loading...</div>
     </f7-block>
 
-    <component :is="overviewPage.component" v-if="overviewPage" v-show="!inChatSession" :context="overviewPageContext" :class="{notready: !ready}" @command="onCommand" />
-    <div class="empty-overview" v-else-if="!inChatSession">
-      <empty-state-placeholder icon="house" title="overview.title" text="overview.text" />
-      <f7-row v-if="!$store.getters.isAdmin || $f7.width < 1280" class="display-flex justify-content-center">
-        <f7-button large fill color="blue" external :href="`${$store.state.websiteUrl}/link/docs`" target="_blank" v-t="'home.overview.button.documentation'" />
-        <span style="width: 8px" />
-        <f7-button large color="blue" external :href="`${$store.state.websiteUrl}/link/tutorial`" target="_blank" v-t="'home.overview.button.tutorial'" />
-      </f7-row>
-      <f7-row v-else class="display-flex justify-content-center">
-        <f7-button large fill color="blue" @click="$f7.emit('selectDeveloperDock',{'dock':'help','helpTab':'quick'})" v-t="'home.overview.button.quickstart'" />
-      </f7-row>
-    </div>
+    <template v-else>
+      <oh-layout-page v-if="overviewPage" v-show="!inChatSession" :context="overviewPageContext" :class="{ notready: !ready }" :f7router />
+      <div v-else-if="!inChatSession" class="empty-overview">
+        <empty-state-placeholder icon="house" title="overview.title" text="overview.text" />
+        <f7-row v-if="!userStore.isAdmin() || $f7dim.width < 1280" class="display-flex justify-content-center">
+          <f7-button
+            large
+            fill
+            color="theme-alt"
+            external
+            :href="`${runtimeStore.websiteUrl}/link/docs`"
+            target="_blank"
+            :text="$t('home.overview.button.documentation')" />
+          <span style="width: 8px" />
+          <f7-button
+            large
+            color="theme-alt"
+            external
+            :href="`${runtimeStore.websiteUrl}/link/tutorial`"
+            target="_blank"
+            :text="$t('home.overview.button.tutorial')" />
+        </f7-row>
+        <f7-row v-else class="display-flex justify-content-center">
+          <f7-button
+            large
+            fill
+            color="theme-alt"
+            @click="f7.emit('selectDeveloperDock', { dock: 'help', helpTab: 'quick' })"
+            :text="$t('home.overview.button.quickstart')" />
+        </f7-row>
+      </div>
+    </template>
   </div>
 </template>
 
@@ -44,27 +68,48 @@
 </style>
 
 <script>
+import { defineAsyncComponent } from 'vue'
+import { f7 } from 'framework7-vue'
+import { mapStores } from 'pinia'
+
+import EmptyStatePlaceholder from '@/components/empty-state-placeholder.vue'
 import OhLayoutPage from '@/components/widgets/layout/oh-layout-page.vue'
 
+import { useStatesStore } from '@/js/stores/useStatesStore'
+import { useUserStore } from '@/js/stores/useUserStore'
+import { useComponentsStore } from '@/js/stores/useComponentsStore'
+import { useRuntimeStore } from '@/js/stores/useRuntimeStore'
+import { useUIOptionsStore } from '@/js/stores/useUIOptionsStore'
+
 export default {
-  props: ['context', 'allowChat'],
+  props: {
+    context: Object,
+    allowChat: Boolean,
+    f7router: Object
+  },
   components: {
     OhLayoutPage,
-    'empty-state-placeholder': () => import('@/components/empty-state-placeholder.vue'),
-    'habot': () => import(/* webpackChunkName: "habot" */ '../../components/home/habot.vue')
+    EmptyStatePlaceholder,
+    habot: defineAsyncComponent(() => import(/* webpackChunkName: "habot" */ '../../components/home/habot.vue'))
   },
-  data () {
+  setup() {
+    return { f7 }
+  },
+  data() {
     return {
       inChatSession: false,
-      ready: true
+      vars: {}
     }
   },
   computed: {
-    showHABot () {
-      return this.$store.getters.apiEndpoint('habot') && this.allowChat && localStorage.getItem('openhab.ui:theme.home.hidechatinput') !== 'true'
+    ready() {
+      return useComponentsStore().ready && useStatesStore().ready
     },
-    overviewPage () {
-      const page = this.$store.getters.page('overview')
+    showHABot() {
+      return useRuntimeStore().apiEndpoint('habot') && this.allowChat && !useUIOptionsStore().hideChatInput
+    },
+    overviewPage() {
+      const page = useComponentsStore().page('overview')
       if (page) {
         if (page.component === 'oh-layout-page') return page
         if (page.slots) {
@@ -74,21 +119,27 @@ export default {
       }
       return null
     },
-    overviewPageContext () {
+    overviewPageContext() {
       return {
         component: this.overviewPage,
         store: this.context.store,
-        vars: (this.overviewPage && this.overviewPage.config && this.overviewPage.config.defineVars) ? this.overviewPage.config.defineVars : {}
+        vars: this.vars
       }
     },
-    pageStyle () {
+    pageStyle() {
       if (!this.overviewPage) return null
       return this.overviewPage.config.style
-    }
+    },
+    ...mapStores(useUserStore, useStatesStore, useComponentsStore, useUIOptionsStore, useRuntimeStore)
   },
-  methods: {
-    onCommand (itemName, command) {
-      this.$store.dispatch('sendCommand', { itemName, command })
+  watch: {
+    overviewPage: {
+      handler(newPage) {
+        if (newPage?.config?.defineVars) {
+          this.vars = Object.assign(this.vars, newPage.config.defineVars)
+        }
+      },
+      immediate: true
     }
   }
 }
